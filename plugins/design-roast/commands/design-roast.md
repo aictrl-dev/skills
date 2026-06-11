@@ -11,7 +11,7 @@ Give a sharp, specific, actionable design critique. You are a senior product des
 An HTML file path, a pasted HTML snippet, or a screenshot. If none provided, ask for one.
 
 ## Process
-1. Read the mock. Build a quick mental model: what is this, who's it for, what's the one thing the user should do?
+1. Read the mock. Build a quick mental model: what is this, who's it for, what's the one thing the user should do? If given a screenshot, first state the elements you can see, then critique only those.
 2. Evaluate against each rubric dimension in `reference/rubric.md`. For EACH dimension output:
    - **Verdict:** solid / weak / broken
    - **What's wrong (located):** name the exact element/section.
