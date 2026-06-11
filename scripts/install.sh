@@ -3,7 +3,7 @@
 # Usage: ./scripts/install.sh [claude|cursor|opencode|all]
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$REPO/skills"
+SRC="$REPO/aictrl-skills/skills"
 tool="${1:-all}"
 
 link_into() {

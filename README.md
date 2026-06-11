@@ -25,9 +25,9 @@ Then invoke any skill: `/design-review`, `/measurement-plan`, `/create-issue`.
 
 | Skill | What it does | Try it |
 |-------|-------------|--------|
-| [design-review](skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
-| [measurement-plan](skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
-| [create-issue](skills/create-issue/SKILL.md) | Vague idea or bug → well-formed GitHub issue with context, acceptance criteria, and no vague hand-waving. Creates it via `gh` after you confirm. | `/create-issue` |
+| [design-review](aictrl-skills/skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
+| [measurement-plan](aictrl-skills/skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
+| [create-issue](aictrl-skills/skills/create-issue/SKILL.md) | Vague idea or bug → well-formed GitHub issue with context, acceptance criteria, and no vague hand-waving. Creates it via `gh` after you confirm. | `/create-issue` |
 
 ### design-review in action
 

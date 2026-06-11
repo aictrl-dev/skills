@@ -1,16 +1,12 @@
 {
   "name": "aictrl-skills",
   "owner": { "name": "aictrl" },
-  "metadata": {
-    "description": "Free, vendor-neutral AI engineering-workflow skills by aictrl.dev",
-    "version": "0.3.0"
-  },
   "plugins": [
     {
       "name": "aictrl-skills",
-      "source": "./",
+      "source": "./aictrl-skills",
       "description": "Design review, measurement planning (GQM), and GitHub issue authoring skills for AI coding agents.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "author": { "name": "aictrl" },
       "homepage": "https://aictrl.dev",
       "tags": ["design", "analytics", "product", "github", "workflow"]
