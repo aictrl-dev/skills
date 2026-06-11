@@ -6,11 +6,14 @@ PRs that add new skills are welcome. Here's how.
 
 ```
 .claude-plugin/
-  marketplace.json          # skill registry — register new skills here
-plugins/
+  marketplace.json          # single-plugin registry (auto-discovers skills/)
+  plugin.json               # plugin metadata
+skills/
   <skill-name>/
-    commands/
-      <skill-name>.md       # the skill itself (frontmatter + instructions)
+    SKILL.md                # the skill itself (frontmatter + instructions)
+    reference/              # optional supporting docs (rubrics, etc.)
+.cursor/skills/             # symlink → skills/ (Cursor discovers here)
+.opencode/skills/           # symlink → skills/ (OpenCode discovers here)
 evals/
   <skill-name>.eval.md      # pass criteria for the skill
   fixtures/                 # sample inputs for running evals
@@ -19,13 +22,13 @@ evals/
 
 ## Adding a Skill
 
-1. **Copy an existing plugin** as your starting point:
+1. **Create the skill file**:
    ```bash
-   cp -r plugins/design-review plugins/my-skill
-   mv plugins/my-skill/commands/design-review.md plugins/my-skill/commands/my-skill.md
+   mkdir -p skills/my-skill
+   cp skills/design-review/SKILL.md skills/my-skill/SKILL.md
    ```
 
-2. **Write the skill** in `plugins/my-skill/commands/my-skill.md`. Required frontmatter:
+2. **Write the skill** in `skills/my-skill/SKILL.md`. Required frontmatter:
    ```yaml
    ---
    name: my-skill
@@ -33,10 +36,7 @@ evals/
    ---
    ```
 
-3. **Register it** in `.claude-plugin/marketplace.json` under `"plugins"`:
-   ```json
-   { "name": "my-skill", "source": "./plugins/my-skill", "description": "...", "version": "0.1.0", "tags": ["..."] }
-   ```
+3. **No per-skill registration needed** — the single `aictrl-skills` plugin auto-discovers all `skills/` directories. No changes to `.claude-plugin/marketplace.json` required.
 
 4. **Add an eval** at `evals/my-skill.eval.md` with pass criteria (see `evals/design-review.eval.md` as the model). Run it and record the result in `evals/results.md` before opening a PR.
 

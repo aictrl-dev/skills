@@ -1,4 +1,4 @@
-[![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-3-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/plugins)
+[![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-3-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/skills)
 
 # aictrl Skills
 
@@ -6,20 +6,28 @@ Free, vendor-neutral AI engineering-workflow skills.
 
 ## Install
 
+**Claude Code**
 ```
 /plugin marketplace add aictrl-dev/skills
-/plugin install design-review@aictrl-skills
+/plugin install aictrl-skills@aictrl-skills
 ```
 
-Not on Claude Code? Every skill is plain markdown under `plugins/<name>/commands/` — drop it into your agent's context.
+**Cursor / OpenCode** — skills use the cross-tool [Agent Skills](https://agentskills.io) standard:
+```
+git clone https://github.com/aictrl-dev/skills && cd skills
+./scripts/install.sh cursor       # or: opencode | all
+```
+…or copy `skills/*` into your tool's skills dir (`~/.cursor/skills`, `~/.config/opencode/skills`).
+
+Then invoke any skill: `/design-review`, `/measurement-plan`, `/create-issue`.
 
 ## The Skills
 
 | Skill | What it does | Try it |
 |-------|-------------|--------|
-| [design-review](plugins/design-review/commands/design-review.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
-| [measurement-plan](plugins/measurement-plan/commands/measurement-plan.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
-| [create-issue](plugins/create-issue/commands/create-issue.md) | Vague idea or bug → well-formed GitHub issue with context, acceptance criteria, and no vague hand-waving. Creates it via `gh` after you confirm. | `/create-issue` |
+| [design-review](skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
+| [measurement-plan](skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
+| [create-issue](skills/create-issue/SKILL.md) | Vague idea or bug → well-formed GitHub issue with context, acceptance criteria, and no vague hand-waving. Creates it via `gh` after you confirm. | `/create-issue` |
 
 ### design-review in action
 

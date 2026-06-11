@@ -1,14 +1,19 @@
 {
   "name": "aictrl-skills",
-  "owner": { "name": "aictrl", "url": "https://aictrl.dev" },
+  "owner": { "name": "aictrl" },
   "metadata": {
     "description": "Free, vendor-neutral AI engineering-workflow skills by aictrl.dev",
-    "version": "0.1.0",
-    "pluginRoot": "plugins"
+    "version": "0.3.0"
   },
   "plugins": [
-    { "name": "design-review", "source": "./plugins/design-review", "description": "Review an HTML mock: actionable design critique against IA, value-prop, actionability, hierarchy, trust & a11y principles.", "version": "0.1.0", "tags": ["design", "review", "frontend"] },
-    { "name": "measurement-plan", "source": "./plugins/measurement-plan", "description": "Turn a feature into a measurement plan: learning objectives, metrics, instrumentation.", "version": "0.2.0", "tags": ["analytics", "product"] },
-    { "name": "create-issue", "source": "./plugins/create-issue", "description": "Turn a vague idea or bug into a well-formed, structured GitHub issue.", "version": "0.1.0", "tags": ["github", "workflow"] }
+    {
+      "name": "aictrl-skills",
+      "source": "./",
+      "description": "Design review, measurement planning (GQM), and GitHub issue authoring skills for AI coding agents.",
+      "version": "0.3.0",
+      "author": { "name": "aictrl" },
+      "homepage": "https://aictrl.dev",
+      "tags": ["design", "analytics", "product", "github", "workflow"]
+    }
   ]
 }
