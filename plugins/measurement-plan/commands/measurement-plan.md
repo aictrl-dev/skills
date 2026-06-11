@@ -1,6 +1,6 @@
 ---
 name: measurement-plan
-description: Create a measurement plan for a feature — defines learning objectives, metrics, and implementation (product analytics events, warehouse tables, event pipeline). Use when user says 'measurement plan', 'how do we measure this', 'what metrics for this feature', 'tracking plan', 'analytics requirements', 'how do we know if this works', 'define KPIs for', or when planning a new feature and analytics instrumentation is needed.
+description: Create a measurement plan for a feature using the Goal-Question-Metric (GQM) structure — defines a measurement goal, learning objectives, metrics, and implementation (product analytics events, warehouse tables, event pipeline). Use when user says 'measurement plan', 'GQM', 'goal question metric', 'goal-question-metric', 'measurement goal', 'how do we measure this', 'what metrics for this feature', 'tracking plan', 'analytics requirements', 'how do we know if this works', 'define KPIs for', or when planning a new feature and analytics instrumentation is needed.
 ---
 
 # Measurement Plan
@@ -8,7 +8,9 @@ description: Create a measurement plan for a feature — defines learning object
 Create a structured measurement plan that connects business questions to metrics to implementation. The plan flows top-down:
 
 ```
-Learning Objectives (questions/hypotheses)
+Goal (what we're measuring & why — one templated statement)
+    ↓
+Questions / Learning Objectives (what we need to learn to judge the goal)
     ↓
 Metrics & Definitions (what to measure, linked to questions)
     ↓
@@ -20,9 +22,27 @@ Implementation Plan
 
 ## Process
 
-### Phase 1: Learning Objectives
+### Phase 1: Goal
 
-Before defining any metrics, establish what you need to learn. There are two categories:
+Before listing what you want to learn, state the measurement goal in one structured line. This is the GQM "Goal" level — it anchors every question and metric that follows. Fill these slots:
+
+- **Object** — what is being measured? (the feature / flow / process)
+- **Purpose** — why? (evaluate / improve / understand / predict)
+- **Quality focus** — which property? (adoption, reliability, speed, retention, cost…)
+- **Viewpoint** — for whom is this answered? (PM, end user, on-call engineer, finance…)
+- **Context** *(optional)* — scope/environment (which segment, plan tier, time window)
+
+**Goal statement:**
+> Analyze **<object>** for the purpose of **<purpose>** with respect to its **<quality focus>** from the viewpoint of **<viewpoint>**, in the context of **<context>**.
+
+**Example:**
+> Analyze **the bulk-import flow** for the purpose of **evaluating** its **adoption and reliability** from the viewpoint of **the product team**, in the context of **paid-tier orgs in the first 90 days**.
+
+A feature has 1–2 goals max (usually one feature goal; optionally one business goal). Get user approval on the goal before deriving questions.
+
+### Phase 2: Questions (Learning Objectives)
+
+Before defining any metrics, establish what you need to learn. Each question must help judge the goal's quality focus from its viewpoint. There are two categories:
 
 **Feature Impact** — Does this feature achieve its goal?
 - Frame as hypotheses: "We believe that [change] will result in [outcome] for [audience]"
@@ -57,9 +77,12 @@ Then draft 3-6 learning objectives. Format:
 - **Q5**: Guard rail — does [feature] negatively impact [adjacent metric]?
 ```
 
+Validate:
+- Every question traces to the goal; the goal's quality focus has at least one question.
+
 Get user approval before proceeding.
 
-### Phase 2: Metrics & Definitions
+### Phase 3: Metrics & Definitions
 
 For each learning objective, define the metric(s) that answer it. Every metric needs:
 
@@ -93,7 +116,7 @@ Validate:
 - No orphan metrics (metrics without a question are waste)
 - Guard-rail metrics are included
 
-### Phase 3: Implementation Plan
+### Phase 4: Implementation Plan
 
 For each metric, define the data collection needed. Three layers:
 
@@ -161,7 +184,7 @@ Derived from the warehouse changes above. For each new or modified fact table, d
 
 For new streams or topics, follow your pipeline tool's setup process (e.g. create a Kafka topic + consumer, a Pub/Sub subscription, or a Segment source).
 
-### Phase 4: Output Document
+### Phase 5: Output Document
 
 Produce the measurement plan as a markdown file at `docs/measurement-plans/{feature-name}.md`:
 
@@ -172,7 +195,11 @@ Produce the measurement plan as a markdown file at `docs/measurement-plans/{feat
 **Feature:** {brief description}
 **Owner:** {who is responsible}
 
-## 1. Learning Objectives
+## 1. Goal
+
+> Analyze **<object>** for the purpose of **<purpose>** with respect to its **<quality focus>** from the viewpoint of **<viewpoint>**, in the context of **<context>**.
+
+## 2. Learning Objectives
 
 ### Feature Impact
 - **Q1**: ...
@@ -181,13 +208,13 @@ Produce the measurement plan as a markdown file at `docs/measurement-plans/{feat
 ### Business Performance
 - **Q3**: ...
 
-## 2. Metrics
+## 3. Metrics
 
 | ID | Metric | Definition | Answers | Type | Granularity | Source |
 |----|--------|-----------|---------|------|-------------|--------|
 | M1 | ... | ... | Q1 | rate | daily | product analytics |
 
-## 3. Implementation
+## 4. Implementation
 
 ### 3a. Product-Analytics Events
 
@@ -205,9 +232,10 @@ Produce the measurement plan as a markdown file at `docs/measurement-plans/{feat
 |------------|-------------|--------|--------|
 | ... | ... | New | M1 |
 
-## 4. Validation
+## 5. Validation
 
 ### How to verify instrumentation
+- [ ] Goal is stated and every learning objective maps to it.
 - [ ] Product analytics: events visible in your tool's live-event stream within 24h of deploy
 - [ ] Warehouse: verify rows land in your fact table within 24h (query your table for recent rows)
 - [ ] Dashboard: metrics rendering correctly in your reporting tool
@@ -220,7 +248,7 @@ Produce the measurement plan as a markdown file at `docs/measurement-plans/{feat
 
 ## Key Principles
 
-**Start with questions, not data.** If you can't articulate what you'll learn from a metric, don't track it. Every event must trace back to a learning objective.
+**Start with the goal, then questions, then data.** State the measurement goal first, derive questions from it, and only then choose metrics. If you can't articulate what you'll learn from a metric, don't track it. Every event must trace back to a learning objective, and every learning objective back to the goal.
 
 **Minimize instrumentation.** Fewer, well-defined events beat many sparse ones. Aim for 5-10 events per feature, not 50. Re-use existing events and properties where possible.
 
