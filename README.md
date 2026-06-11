@@ -9,7 +9,7 @@ Free, vendor-neutral AI engineering-workflow skills.
 **Claude Code**
 ```
 /plugin marketplace add aictrl-dev/skills
-/plugin install aictrl-skills@aictrl-skills
+/plugin install aictrl-skills@aictrl-oss
 ```
 
 **Cursor / OpenCode** — skills use the cross-tool [Agent Skills](https://agentskills.io) standard:
