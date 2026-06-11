@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Synthwave</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #222; background: #fff; }
+    .hero { max-width: 1100px; margin: 0 auto; padding: 64px 24px; text-align: center; }
+    h1 { font-size: 40px; margin-bottom: 16px; }
+    .sub { font-size: 18px; color: #aaa; margin-bottom: 32px; }
+    .cta-row { display: flex; gap: 16px; justify-content: center; margin-bottom: 48px; }
+    .btn { padding: 14px 28px; font-size: 16px; border: 2px solid #4338ca; border-radius: 6px;
+           background: #4338ca; color: #fff; cursor: pointer; text-decoration: none; }
+    .features { display: flex; gap: 32px; justify-content: center; margin: 48px 0; text-align: left; }
+    .features li { color: #aaa; font-size: 15px; margin-bottom: 8px; list-style: none; }
+    .signup { max-width: 420px; margin: 0 auto; text-align: left; }
+    .signup input, .signup select { width: 100%; padding: 10px; margin-bottom: 12px;
+           border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    footer { text-align: center; padding: 32px; color: #aaa; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <h1>Welcome to Synthwave</h1>
+    <p class="sub">Reimagine the future of work, together.</p>
+
+    <div class="cta-row">
+      <a href="#signup" class="btn">Get Started</a>
+      <a href="#demo" class="btn">Book a Demo</a>
+      <a href="#docs" class="btn">Read the Docs</a>
+    </div>
+
+    <ul class="features">
+      <li>Built with GraphQL</li>
+      <li>Powered by Kubernetes</li>
+      <li>99.9% uptime SLA</li>
+      <li>Written in Rust</li>
+      <li>OAuth 2.0 support</li>
+    </ul>
+
+    <form class="signup" id="signup">
+      <input type="text" placeholder="First name">
+      <input type="text" placeholder="Last name">
+      <input type="email" placeholder="Work email">
+      <input type="text" placeholder="Company name">
+      <input type="text" placeholder="Company size">
+      <input type="text" placeholder="Phone number">
+      <select><option>How did you hear about us?</option></select>
+      <a href="#" class="btn" style="width:100%; text-align:center; display:block;">Create account</a>
+    </form>
+  </section>
+
+  <footer>© 2026 Synthwave Inc. All rights reserved.</footer>
+</body>
+</html>
