@@ -7,7 +7,7 @@ In a fresh Claude Code session inside this repo:
   /design-review evals/fixtures/saas-landing.html
 
 ## Pass criteria (all must hold)
-- [ ] Output has a clearly-labelled section for EACH of the 6 verdict dimensions.
+- [ ] Output classifies the surface (marketing vs product-internal) and has a clearly-labelled section for each universal dimension (U1–U7) plus the matching lens.
 - [ ] Catches >=4 of the 5 seeded problems (value-prop, competing CTAs, long form, low contrast, feature-led copy).
 - [ ] Every critique is LOCATED (names the element/section) and ACTIONABLE (states the concrete fix), not generic.
 - [ ] Ends with a prioritized "Fix these 3 first" list.

@@ -1,2 +1,4 @@
 .DS_Store
 evals/results.local.md
+evals/*.local.md
+.blog-drafts/

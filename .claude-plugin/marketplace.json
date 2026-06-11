@@ -5,8 +5,8 @@
     {
       "name": "aictrl-skills",
       "source": "./aictrl-skills",
-      "description": "Design review, measurement planning (GQM), and GitHub issue authoring skills for AI coding agents.",
-      "version": "0.3.1",
+      "description": "Design review (any UI — marketing or product internals), measurement planning (GQM), and GitHub issue authoring skills for AI coding agents.",
+      "version": "0.4.0",
       "author": { "name": "aictrl" },
       "homepage": "https://aictrl.dev",
       "tags": ["design", "analytics", "product", "github", "workflow"]
