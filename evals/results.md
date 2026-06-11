@@ -5,7 +5,7 @@
 (skill renamed from `design-roast` → `design-review` on 2026-06-11; eval evidence unchanged)
 
 Method: followed the skill's own Process against `evals/fixtures/saas-landing.html` and checked
-the resulting critique against every pass criterion in `evals/design-roast.eval.md`.
+the resulting critique against every pass criterion in `evals/design-review.eval.md`.
 
 | Criterion | Result |
 |-----------|--------|
@@ -24,7 +24,7 @@ Seeded problems caught (5/5):
 
 Verdict: PASS — all 5 criteria hold; output is screenshot-worthy (located + actionable, no fluff).
 
-(design-roast independently re-reviewed by a second agent on 2026-06-11: Stage 1 spec-compliance PASS, Stage 2 quality APPROVED, 5/5 seeded problems, low hallucination risk.)
+(design-review independently re-reviewed by a second agent on 2026-06-11: Stage 1 spec-compliance PASS, Stage 2 quality APPROVED, 5/5 seeded problems, low hallucination risk.)
 
 ## v0.1 publish acceptance — 2026-06-11
 
@@ -33,14 +33,14 @@ Repo: https://github.com/aictrl-dev/skills (PUBLIC), default branch `main`.
 | Acceptance criterion | Result |
 |----------------------|--------|
 | Public, no-auth fetch of `marketplace.json` (anon SHA-pinned raw) | PASS (HTTP 200, valid JSON, 3 plugins) |
-| All 3 skills present on remote `main` | PASS (design-roast, measurement-plan, create-issue) |
-| design-roast passes its eval | PASS (5/5, reviewer-approved) |
+| All 3 skills present on remote `main` | PASS (design-review, measurement-plan, create-issue) |
+| design-review passes its eval | PASS (5/5, reviewer-approved) |
 | No aictrl-stack leakage in ported skills | PASS (grep clean; only product-pull URLs reference aictrl) |
-| README install block copy-paste-correct | PASS (`aictrl-dev/skills`, `design-roast@aictrl-skills`) |
+| README install block copy-paste-correct | PASS (`aictrl-dev/skills`, `design-review@aictrl-skills`) |
 
 GitHub-proxy metrics baseline (day 0): stars=0, forks=0.
 
 Pending (human): real interactive install test — in a fresh Claude Code session run
-`/plugin marketplace add aictrl-dev/skills` then `/plugin install design-roast@aictrl-skills`
+`/plugin marketplace add aictrl-dev/skills` then `/plugin install design-review@aictrl-skills`
 and confirm no auth prompt. (The `/main/` raw CDN may show stale 404s for a few minutes
 post-push; SHA-pinned fetch already confirms anonymous availability.)
