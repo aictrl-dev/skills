@@ -1,4 +1,4 @@
-[![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-3-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/skills)
+[![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-3-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/aictrl-skills/skills)
 
 # aictrl Skills
 
