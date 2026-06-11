@@ -1,4 +1,4 @@
-# Design Roast Rubric
+# Design Review Rubric
 
 Six **verdict dimensions** (1-6) plus one **craft pass** (7) that folds its findings into
 whichever verdict dimension it touches (usually #4 visual hierarchy or #6 trust & friction).

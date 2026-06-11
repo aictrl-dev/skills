@@ -1,10 +1,10 @@
-# Eval: design-roast
+# Eval: design-review
 
 ## How to run
 In a fresh Claude Code session inside this repo:
   /plugin marketplace add .
-  /plugin install design-roast@aictrl-skills
-  /design-roast evals/fixtures/saas-landing.html
+  /plugin install design-review@aictrl-skills
+  /design-review evals/fixtures/saas-landing.html
 
 ## Pass criteria (all must hold)
 - [ ] Output has a clearly-labelled section for EACH of the 6 verdict dimensions.

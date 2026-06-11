@@ -21,8 +21,8 @@ evals/
 
 1. **Copy an existing plugin** as your starting point:
    ```bash
-   cp -r plugins/design-roast plugins/my-skill
-   mv plugins/my-skill/commands/design-roast.md plugins/my-skill/commands/my-skill.md
+   cp -r plugins/design-review plugins/my-skill
+   mv plugins/my-skill/commands/design-review.md plugins/my-skill/commands/my-skill.md
    ```
 
 2. **Write the skill** in `plugins/my-skill/commands/my-skill.md`. Required frontmatter:
@@ -38,7 +38,7 @@ evals/
    { "name": "my-skill", "source": "./plugins/my-skill", "description": "...", "version": "0.1.0", "tags": ["..."] }
    ```
 
-4. **Add an eval** at `evals/my-skill.eval.md` with pass criteria (see `evals/design-roast.eval.md` as the model). Run it and record the result in `evals/results.md` before opening a PR.
+4. **Add an eval** at `evals/my-skill.eval.md` with pass criteria (see `evals/design-review.eval.md` as the model). Run it and record the result in `evals/results.md` before opening a PR.
 
 ## Quality Bar
 

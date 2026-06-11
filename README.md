@@ -8,7 +8,7 @@ Free, vendor-neutral AI engineering-workflow skills.
 
 ```
 /plugin marketplace add aictrl-dev/skills
-/plugin install design-roast@aictrl-skills
+/plugin install design-review@aictrl-skills
 ```
 
 Not on Claude Code? Every skill is plain markdown under `plugins/<name>/commands/` — drop it into your agent's context.
@@ -17,11 +17,11 @@ Not on Claude Code? Every skill is plain markdown under `plugins/<name>/commands
 
 | Skill | What it does | Try it |
 |-------|-------------|--------|
-| [design-roast](plugins/design-roast/commands/design-roast.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-roast path/to/mock.html` |
+| [design-review](plugins/design-review/commands/design-review.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
 | [measurement-plan](plugins/measurement-plan/commands/measurement-plan.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
 | [create-issue](plugins/create-issue/commands/create-issue.md) | Vague idea or bug → well-formed GitHub issue with context, acceptance criteria, and no vague hand-waving. Creates it via `gh` after you confirm. | `/create-issue` |
 
-### design-roast in action
+### design-review in action
 
 Input: a SaaS landing page mock.
 

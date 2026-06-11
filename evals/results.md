@@ -1,6 +1,8 @@
 # Eval Results
 
-## design-roast — 2026-06-11 (dry-run by author)
+## design-review — 2026-06-11 (dry-run by author)
+
+(skill renamed from `design-roast` → `design-review` on 2026-06-11; eval evidence unchanged)
 
 Method: followed the skill's own Process against `evals/fixtures/saas-landing.html` and checked
 the resulting critique against every pass criterion in `evals/design-roast.eval.md`.
