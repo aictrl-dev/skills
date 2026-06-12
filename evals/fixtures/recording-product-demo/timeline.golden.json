@@ -1,0 +1,17 @@
+[
+  {
+    "slug": "hook",
+    "start": 0.0,
+    "end": 2.37
+  },
+  {
+    "slug": "feature",
+    "start": 2.37,
+    "end": 4.67
+  },
+  {
+    "slug": "close",
+    "start": 4.67,
+    "end": 6.94
+  }
+]

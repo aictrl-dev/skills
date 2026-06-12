@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Title card</title>
+<style>
+  /* ======== BRAND (edit these per product) ======== */
+  :root {
+    --brand: #4c6ef5;          /* primary brand color */
+    --brand-dark: #364fc7;     /* darker shade for the side panel gradient */
+    --ink: #18181b;
+    --grey: #52525b;
+    --line: #e4e7f2;
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+    --sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  /* ================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: var(--sans);
+    background:
+      radial-gradient(1200px 800px at 88% -10%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 60%),
+      linear-gradient(160deg, #f6f8ff 0%, #ffffff 55%);
+    position: relative;
+  }
+  .panel {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 560px;
+    background: linear-gradient(165deg, var(--brand) 0%, var(--brand-dark) 100%);
+  }
+  .panel .wordmark {
+    position: absolute; top: 92px; left: 90px;
+    font-family: var(--mono); font-weight: 800; font-size: 38px; color: #fff; letter-spacing: -1px;
+  }
+  .panel .tagline {
+    position: absolute; left: 92px; bottom: 120px;
+    font-family: var(--mono); font-size: 22px; font-weight: 600; letter-spacing: 4px;
+    color: rgba(255,255,255,0.92); text-transform: uppercase;
+  }
+  .panel .tagline::before { content: ''; display: block; width: 64px; height: 5px; border-radius: 3px; background: #fff; margin-bottom: 26px; opacity: 0.9; }
+  .content { position: absolute; left: 660px; right: 110px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
+  h1 { font-family: var(--mono); color: var(--ink); font-size: 86px; font-weight: 800; line-height: 1.08; letter-spacing: -2px; max-width: 1020px; }
+  h1 .hl { color: var(--brand); }
+  .subtitle { color: var(--grey); font-size: 30px; line-height: 1.55; margin-top: 34px; max-width: 960px; }
+  .accent { width: 120px; height: 8px; border-radius: 4px; background: var(--brand); margin-top: 46px; }
+  .footer { position: absolute; left: 660px; right: 110px; bottom: 70px; border-top: 1px solid var(--line); padding-top: 26px; font-family: var(--mono); font-size: 24px; font-weight: 500; color: var(--grey); display: flex; justify-content: space-between; }
+  .footer .accent-text { color: var(--brand); font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <span class="wordmark">Acme</span>
+    <div class="tagline">Product demo</div>
+  </div>
+  <div class="content">
+    <h1>One view of <span class="hl">every project</span></h1>
+    <p class="subtitle">The team's projects, statuses and metrics — live, in one dashboard.
+    Recorded on the live product.</p>
+    <div class="accent"></div>
+  </div>
+  <div class="footer">
+    <span>Product demo</span>
+    <span class="accent-text">acme.example · 2026</span>
+  </div>
+</body>
+</html>

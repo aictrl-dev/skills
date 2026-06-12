@@ -1,0 +1,137 @@
+{
+ "text": "Welcome to Acme dash board the live demo Every project lands here in one place Try it on your own projects today",
+ "words": [
+  {
+   "text": "Welcome",
+   "type": "word",
+   "start": 0.1,
+   "end": 0.38
+  },
+  {
+   "text": "to",
+   "type": "word",
+   "start": 0.42,
+   "end": 0.54
+  },
+  {
+   "text": "Acme",
+   "type": "word",
+   "start": 0.58,
+   "end": 0.86
+  },
+  {
+   "text": "dash",
+   "type": "word",
+   "start": 0.9,
+   "end": 1.1
+  },
+  {
+   "text": "board",
+   "type": "word",
+   "start": 1.14,
+   "end": 1.38
+  },
+  {
+   "text": "the",
+   "type": "word",
+   "start": 1.42,
+   "end": 1.52
+  },
+  {
+   "text": "live",
+   "type": "word",
+   "start": 1.56,
+   "end": 1.8
+  },
+  {
+   "text": "demo",
+   "type": "word",
+   "start": 1.84,
+   "end": 2.12
+  },
+  {
+   "text": "Every",
+   "type": "word",
+   "start": 2.62,
+   "end": 2.9
+  },
+  {
+   "text": "project",
+   "type": "word",
+   "start": 2.94,
+   "end": 3.26
+  },
+  {
+   "text": "lands",
+   "type": "word",
+   "start": 3.3,
+   "end": 3.56
+  },
+  {
+   "text": "here",
+   "type": "word",
+   "start": 3.6,
+   "end": 3.8
+  },
+  {
+   "text": "in",
+   "type": "word",
+   "start": 3.84,
+   "end": 3.92
+  },
+  {
+   "text": "one",
+   "type": "word",
+   "start": 3.96,
+   "end": 4.12
+  },
+  {
+   "text": "place",
+   "type": "word",
+   "start": 4.16,
+   "end": 4.44
+  },
+  {
+   "text": "Try",
+   "type": "word",
+   "start": 4.9,
+   "end": 5.1
+  },
+  {
+   "text": "it",
+   "type": "word",
+   "start": 5.14,
+   "end": 5.22
+  },
+  {
+   "text": "on",
+   "type": "word",
+   "start": 5.26,
+   "end": 5.36
+  },
+  {
+   "text": "your",
+   "type": "word",
+   "start": 5.4,
+   "end": 5.56
+  },
+  {
+   "text": "own",
+   "type": "word",
+   "start": 5.6,
+   "end": 5.78
+  },
+  {
+   "text": "projects",
+   "type": "word",
+   "start": 5.82,
+   "end": 6.18
+  },
+  {
+   "text": "today",
+   "type": "word",
+   "start": 6.22,
+   "end": 6.54
+  }
+ ]
+}

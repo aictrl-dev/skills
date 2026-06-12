@@ -1,0 +1,10 @@
+[
+  {
+    "slug": "hook",
+    "text": "This is the Acme dashboard — and everything you're about to see is running live, not a mock-up. Let me show you what it does."
+  },
+  {
+    "slug": "feature",
+    "text": "Every project lands here, in one place. Filters, search, and a status board the whole team shares. That's the core of Acme — one view, always current. Try it on your own projects."
+  }
+]

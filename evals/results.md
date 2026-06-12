@@ -44,3 +44,32 @@ Pending (human): real interactive install test — in a fresh Claude Code sessio
 `/plugin marketplace add aictrl-dev/skills` then `/plugin install design-review@aictrl-skills`
 and confirm no auth prompt. (The `/main/` raw CDN may show stale 404s for a few minutes
 post-push; SHA-pinned fetch already confirms anonymous availability.)
+
+## recording-product-demo — 2026-06-12 (engine check by author)
+
+Method: ran the deterministic engine check from `evals/recording-product-demo.eval.md`
+against the fixtures in `evals/fixtures/recording-product-demo/`, plus a full no-API
+pipeline smoke (local static site + synthetic silent narration + canned STT →
+record → assemble → publish).
+
+| Criterion | Result |
+|-----------|--------|
+| Timeline golden (fuzzy STT alignment, "Dashboard"→"dash board" rewrite) | PASS (boundaries 2.37s / 4.67s, exact) |
+| Assembly dry-run synthesis (-ss from t0, -t = end+1.4, crop/scale chain) | PASS |
+| All scripts parse (6 × .cjs + splitter) | PASS |
+| Config example contract (app/auth/brand/voice/record/publish) | PASS |
+
+Pipeline smoke (not part of the eval, recorded as evidence): framework recorder loaded
+`demo/blocks.cjs`, produced a zero-WARN time-locked take of a local static site with
+anonymisation verified in the frames (textMap rewrite visible in the recording, source
+untouched); assemble produced main/final/grid from `take-meta.json` alone; publish built
+the complete kit (faststart, 720p, poster, captions.srt with correct card offset,
+embed.html, PUBLISH.md).
+
+Engine provenance: the same pipeline (pre-generalization) produced a real published
+product demo (3:38, ElevenLabs eleven_v3, two card VOs, YouTube + site embed) on
+2026-06-12 — the TTS/STT phases are exercised by that production run rather than the
+no-API eval.
+
+Pending (human): agent-level check — fresh session in a small web-app repo, confirm
+Phase 0 produces demo/boot.sh + demo.config.json and prerequisites are checked up front.
