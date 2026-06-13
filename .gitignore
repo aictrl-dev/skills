@@ -2,3 +2,4 @@
 evals/results.local.md
 evals/*.local.md
 .blog-drafts/
+__pycache__/

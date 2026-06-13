@@ -19,7 +19,7 @@ git clone https://github.com/aictrl-dev/skills && cd skills
 ```
 …or copy `skills/*` into your tool's skills dir (`~/.cursor/skills`, `~/.config/opencode/skills`).
 
-Then invoke any skill: `/design-review`, `/measurement-plan`, `/create-issue`.
+Then invoke any skill: `/design-review`, `/measurement-plan`, `/create-issue`, `/recording-product-demo`.
 
 ## The Skills
 
@@ -28,6 +28,7 @@ Then invoke any skill: `/design-review`, `/measurement-plan`, `/create-issue`.
 | [design-review](aictrl-skills/skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
 | [measurement-plan](aictrl-skills/skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
 | [create-issue](aictrl-skills/skills/create-issue/SKILL.md) | Vague idea or bug → well-formed GitHub issue with context, acceptance criteria, and no vague hand-waving. Creates it via `gh` after you confirm. | `/create-issue` |
+| [recording-product-demo](aictrl-skills/skills/recording-product-demo/SKILL.md) | Point it at a repo with a web UI — it boots the app, preps demo data/auth, records a narrated time-locked Playwright demo synced to an ElevenLabs voiceover, and builds a publish kit (MP4 + captions + embed). | `/recording-product-demo` |
 
 ### design-review in action
 

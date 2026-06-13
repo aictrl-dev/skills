@@ -1,0 +1,9 @@
+{
+  "webm": "/tmp/fixture-take.webm",
+  "t0Seconds": 1.5,
+  "narrationEnd": 6.94,
+  "boundaries": [0, 2.37, 4.67, 6.94],
+  "viewport": [1536, 864],
+  "output": [1920, 1080],
+  "recordedAt": "2026-01-01T00:00:00Z"
+}
