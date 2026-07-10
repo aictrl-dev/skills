@@ -45,10 +45,18 @@ writing-aictrl-workflows/
 5. **The bundled schema is the structural source of truth.** When the prose guide
    and the schema disagree, the schema wins. Self-consistency (examples validate
    against the bundled schema) is the acceptance gate.
+6. **Track the released schema, not staged work.** The bundle copies the schema
+   from the upstream **released** (`main`) branch — what a workflow can actually
+   apply against in production today. Schema additions that are staged upstream but
+   not yet released (e.g. new trigger types on a pre-release branch) are folded in
+   only **after** they ship to production, so an external author never generates a
+   file that fails closed against a not-yet-deployed construct. Being intentionally
+   behind an unreleased pre-release branch is correct, not stale.
 
 ## Provenance
 
-`reference/workflow.schema.json` is copied from the upstream canonical schema:
+`reference/workflow.schema.json` is copied from the upstream canonical schema
+(released `main` branch):
 
 | Field | Value |
 |---|---|
