@@ -387,6 +387,15 @@ Three layers run at apply time, **before any node executes**:
    range, loop nesting depth <= 3, global iteration product <= 1000, and the CEL
    condition static check.
 
+**Check it offline first.** The bundled `validate.mjs` (skill root) runs Layer 1
+against `reference/workflow.schema.json` **plus** the static parts of DAG validation
+(duplicate ids, dangling edges, cycles, loop depth, the maxIterations product bound)
+— everything checkable without your org. Run it before you apply:
+`node path/to/writing-aictrl-workflows/validate.mjs .aictrl/workflows/<name>.yaml`
+(needs dev-only `ajv ajv-formats js-yaml`). It **cannot** confirm Layer 2 (does the
+referenced template exist in *your* org) or CEL runtime semantics — the apply is the
+definitive gate for those.
+
 ## v1 constructs that are rejected at apply time
 
 The following are **not** part of v1 and are rejected:
@@ -418,4 +427,5 @@ Before submitting a workflow file for apply:
 - [ ] No `regex` or `template` extract methods
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
 - [ ] Portable refs (kebab names) for `template:` and `workflow:`
+- [ ] **`node validate.mjs <file>` exits 0** (layer-1 schema + static DAG checks)
 - [ ] At most one entry in `triggers:`

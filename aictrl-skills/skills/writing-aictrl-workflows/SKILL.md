@@ -1,6 +1,6 @@
 ---
 name: writing-aictrl-workflows
-description: Author a schema-valid aictrl workflow YAML file (.aictrl/workflows/<name>.yaml) that applies cleanly. Covers the 6 node types and per-type field exclusivity, the 12 parameter types, input mappings, CEL when/until/while/gate conditions, the loop model and bounds, quality gates, retry, triggers, and the validation layers — with a bundled JSON Schema and worked examples. Use when asked to write, draft, or generate an aictrl workflow file for an automation.
+description: Author a schema-valid aictrl workflow YAML file (.aictrl/workflows/<name>.yaml) that applies cleanly. Covers the 6 node types and per-type field exclusivity, the 12 parameter types, input mappings, CEL when/until/while/gate conditions, the loop model and bounds, quality gates, retry, triggers, and the validation layers — with a bundled JSON Schema, worked examples, and an offline validator (validate.mjs) to check a file before applying. Use when asked to write, draft, or generate an aictrl workflow file for an automation.
 ---
 
 # Writing aictrl Workflows
@@ -19,7 +19,7 @@ conditions. Author the workflow, then apply it via the loop below.
 ## The authoring + apply loop
 
 1. **Author** `.aictrl/workflows/<name>.yaml` in your connected repository.
-2. **Validate as you write** against the bundled schema — see the self-check below.
+2. **Validate as you write** — run the bundled `validate.mjs` (see "Validate before you apply").
 3. **Apply via GitOps**: commit and push. aictrl's git-sync picks up files under
    `.aictrl/workflows/` and applies each as a workflow, opening a PR for the
    change. Apply **fails closed**: if a `template:` or `workflow:` reference is
@@ -68,27 +68,28 @@ nodes:                              # required; >= 1 node
 Do not author system fields (`id`, `version`, `status`, timestamps, `position`) —
 the platform populates them, and the schema rejects them.
 
-## Self-check before you ship
+## Validate before you apply
 
-Validate your file against the bundled schema (Draft 2020-12) with `strict: false`
-before applying — this is exactly the layer-1 check the loader runs. A quick way,
-with `ajv`, `ajv-formats`, and a YAML parser available:
+Run the bundled validator against your file — it runs the **same layer-1 schema
+gate the loader runs** (Draft 2020-12, `strict: false`) **plus** the static DAG
+checks the schema can't express (duplicate node ids, dangling edges, cycles, loop
+nesting depth, and the nested-`maxIterations` product bound):
 
-```js
-const Ajv = require('ajv/dist/2020');           // Draft 2020-12
-const addFormats = require('ajv-formats');
-const yaml = require('js-yaml');
-const fs = require('fs');
-const ajv = new Ajv({ strict: false, allErrors: true });
-addFormats(ajv);
-const validate = ajv.compile(require('./reference/workflow.schema.json'));
-const doc = yaml.load(fs.readFileSync('.aictrl/workflows/my-workflow.yaml', 'utf8'));
-if (!validate(doc)) { console.error(validate.errors); process.exit(1); }
-console.log('layer-1 OK');
+```bash
+# from your repo root — deps are dev-only and NOT bundled; install them once:
+npm i -D ajv ajv-formats js-yaml
+node path/to/writing-aictrl-workflows/validate.mjs .aictrl/workflows/my-workflow.yaml
 ```
 
-Layers 2 (per-template inputs) and 3 (DAG) run at apply time against your org's
-templates; keep references to existing, active template/workflow names.
+- **Exit 0** — structurally valid and DAG-sound; safe to apply.
+- **Exit 1** — each problem is printed with a JSON-path and a category: `schema`
+  (layer-1 structure — check the node type's field exclusivity in the guide) or
+  `dag` (graph/loop semantics). Fix and re-run until it's green.
+- **What it can't check offline**: whether a `template:` / `workflow:` reference
+  exists in *your* org (layer 2 — resolved org-scoped at apply and **fail-closed**
+  if absent) and CEL semantics of `when`/`until`/`while` (evaluated at run time).
+  The apply (git-sync) is the definitive gate; keep references to existing, active
+  template/workflow names.
 
 ## Forthcoming: inline `task` nodes (v2, not yet applyable)
 
