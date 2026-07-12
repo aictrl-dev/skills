@@ -31,7 +31,7 @@ parameters: [...]                   # optional; workflow-level inputs (see Param
 nodes: [...]                        # required; at least one node
 edges: [...]                        # optional; ordering (see Edges)
 qualityGates: [...]                 # optional; manual or auto checkpoints
-triggers: [...]                     # optional; at most one file-declared event trigger
+triggers: [...]                     # optional; up to 10 file-declared event triggers
 ```
 
 **No system fields** in the authored file: no `id` (org-level UUID), `version`,
@@ -331,8 +331,8 @@ qualityGates:
 
 ## Triggers (optional)
 
-A workflow may declare **at most one** file trigger that fires it automatically on
-a GitHub event. Two trigger types are supported:
+A workflow may declare up to **10** file triggers. Five trigger types are supported:
+`label`, `comment`, `pr-ready`, `pr-opened`, and `chat-message`.
 
 ```yaml
 # Fire when a matching label is added to a PR:
@@ -343,20 +343,55 @@ triggers:
     inputs:
       pr-url: "$.pull_request.html_url"   # JSONPath into the webhook payload
 
-# ...or fire when a PR comment's first token is an exact slash command:
-triggers:
+# Fire when a PR comment's first token is an exact slash command:
   - type: comment
     on: pull-request
     command: /review-fix           # exact, case-sensitive; matched as the first token
     inputs:
       pr-url: "$.issue.pull_request.url"
+
+# Fire when a PR is opened, including as a draft:
+  - type: pr-opened
+    on: pull-request
+    inputs:
+      pr-url: "$.pull_request.html_url"
+
+# Fire when a PR becomes ready, or is opened as non-draft:
+  - type: pr-ready
+    on: pull-request
+    inputs:
+      pr-url: "$.pull_request.html_url"
+
+# Fire from an exact Telegram slash command:
+  - type: chat-message
+    provider: telegram
+    command: /run-review
+    chats: [123456789]             # optional allowlist; max 100 ids
+    acceptPhotos: true             # optional; default true
+    sendConfirmation: true         # optional; default true
+    sendCompletion: false          # optional; default false
+    inputs:
+      prompt:
+        from: message
+        field: text
 ```
 
-- `inputs` maps workflow parameter names to JSONPath expressions (each must start
-  with `$`), evaluated against the GitHub webhook payload; max 20 entries.
+- `label`, `comment`, `pr-ready`, and `pr-opened` require `on: pull-request`.
+- `pr-opened` fires for every newly opened PR, including drafts. `pr-ready` fires
+  when a draft becomes ready or when a PR is opened non-draft.
+- For GitHub triggers, `inputs` maps workflow parameter names to JSONPath
+  expressions (each must start with `$`) evaluated against the webhook payload;
+  max 20 entries.
+- `chat-message` has no `on` field. Its required fields are `provider` and
+  `command`; `command` must be an exact, case-sensitive slash command. Its
+  `inputs` values are `{ from, field }` mappings, where `from` is `message`,
+  `channel_post`, or `interaction`, and `field` is a dot-path rather than JSONPath.
+  Telegram has runtime support; Slack and Discord definitions can be stored but
+  do not yet fire workflows.
 - **Security (enforced at event time):** only events from a repo collaborator with
   write/admin permission fire a trigger; bot comments and comment edits are
-  ignored. This is a platform guarantee, not something you configure in the file.
+  ignored for GitHub triggers. This is a platform guarantee, not something you
+  configure in the file.
 
 ## Portable references
 
@@ -428,4 +463,4 @@ Before submitting a workflow file for apply:
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
 - [ ] Portable refs (kebab names) for `template:` and `workflow:`
 - [ ] **`node validate.mjs <file>` exits 0** (layer-1 schema + static DAG checks)
-- [ ] At most one entry in `triggers:`
+- [ ] At most 10 entries in `triggers:`; each matches one of the five trigger shapes

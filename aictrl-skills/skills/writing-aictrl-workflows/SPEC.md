@@ -61,8 +61,8 @@ writing-aictrl-workflows/
 | Field | Value |
 |---|---|
 | Upstream file | `workflow.schema.json` (aictrl monorepo, v1) |
-| Source commit | `8ee36d05036de8105efeecd39af167ef1bab5dcb` |
-| Source commit date | 2026-07-09 |
+| Source commit | `3e83fc6332e80138ba6a6eb67a1ce1d479e87a62` |
+| Source commit date | 2026-07-12 |
 | Skill version | v1 (`schemaVersion: aictrl/workflow/v1`) |
 
 **Verbatim except for annotation-only edits.** Every validation-affecting part of

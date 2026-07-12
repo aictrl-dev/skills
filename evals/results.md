@@ -97,3 +97,20 @@ against the shipped schema) and leak-free for external readers.
 Pending (human): interactive install test — fresh Claude Code / Cursor / OpenCode
 session, install the plugin, and confirm `/writing-aictrl-workflows` triggers and
 authors a schema-valid file that passes the bundled self-check.
+
+## writing-aictrl-workflows schema sync — 2026-07-12
+
+Method: synchronized the bundled schema and trigger authoring guide with upstream
+source commit `3e83fc6332e80138ba6a6eb67a1ce1d479e87a62`, then reran the deterministic
+self-consistency, validation-equivalence, leakage, and skill-shape checks.
+
+| Criterion | Result |
+|-----------|--------|
+| `pr-review-and-triage.yaml` validates against bundled schema (AJV 2020-12, strict:false) | PASS (VALID) |
+| `review-fix-loop.yaml` validates against bundled schema (same config) | PASS (VALID) |
+| Bundled schema is validation-equivalent to source commit `3e83fc633` (only `description` annotations differ) | PASS |
+| Leakage grep returns no monorepo-internal anchors | PASS (only the schema's public `$id`) |
+| `SKILL.md` frontmatter and product-pull block remain valid | PASS |
+
+Verdict: PASS — the public bundle now covers the released trigger surface and
+remains internally consistent and free of monorepo-only references.
