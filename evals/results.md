@@ -73,3 +73,44 @@ no-API eval.
 
 Pending (human): agent-level check — fresh session in a small web-app repo, confirm
 Phase 0 produces demo/boot.sh + demo.config.json and prerequisites are checked up front.
+
+## writing-aictrl-workflows — 2026-07-10 (self-consistency check by author)
+
+Method: ran the deterministic self-consistency ("golden") check from
+`evals/writing-aictrl-workflows.eval.md` — compiled the bundled
+`reference/workflow.schema.json` with AJV Draft 2020-12 (`strict: false`,
+`allErrors: true`, `ajv-formats` registered — the same configuration the aictrl
+apply-loader uses for layer-1) and validated both bundled example YAMLs against it.
+Also ran the leakage grep and the schema provenance diff.
+
+| Criterion | Result |
+|-----------|--------|
+| `pr-review-and-triage.yaml` validates against bundled schema (AJV 2020-12, strict:false) | PASS (VALID) |
+| `review-fix-loop.yaml` validates against bundled schema (same config) | PASS (VALID) |
+| Bundled schema is validation-equivalent to source commit `8ee36d05` (only `description` annotations differ) | PASS (diff = 8 in-place `description` lines: 5, 24, 64, 80, 120, 127, 138, 200; no pattern/enum/required/bound/exclusivity change) |
+| Leakage grep returns no monorepo-internal anchors | PASS (only match is the schema's public `$id` `https://aictrl.dev/schemas/workflow/v1/...`, an intentional public URI) |
+| `SKILL.md` frontmatter is `name` + `description` only; ends with product-pull block (`utm_campaign=writing-aictrl-workflows`) | PASS |
+
+Verdict: PASS — the self-contained bundle is internally consistent (examples apply
+against the shipped schema) and leak-free for external readers.
+
+Pending (human): interactive install test — fresh Claude Code / Cursor / OpenCode
+session, install the plugin, and confirm `/writing-aictrl-workflows` triggers and
+authors a schema-valid file that passes the bundled self-check.
+
+## writing-aictrl-workflows schema sync — 2026-07-12
+
+Method: synchronized the bundled schema and trigger authoring guide with upstream
+source commit `3e83fc6332e80138ba6a6eb67a1ce1d479e87a62`, then reran the deterministic
+self-consistency, validation-equivalence, leakage, and skill-shape checks.
+
+| Criterion | Result |
+|-----------|--------|
+| `pr-review-and-triage.yaml` validates against bundled schema (AJV 2020-12, strict:false) | PASS (VALID) |
+| `review-fix-loop.yaml` validates against bundled schema (same config) | PASS (VALID) |
+| Bundled schema is validation-equivalent to source commit `3e83fc633` (only `description` annotations differ) | PASS |
+| Leakage grep returns no monorepo-internal anchors | PASS (only the schema's public `$id`) |
+| `SKILL.md` frontmatter and product-pull block remain valid | PASS |
+
+Verdict: PASS — the public bundle now covers the released trigger surface and
+remains internally consistent and free of monorepo-only references.
