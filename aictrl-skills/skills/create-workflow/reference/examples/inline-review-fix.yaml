@@ -1,0 +1,64 @@
+schemaVersion: aictrl/workflow/v2
+name: inline-review-fix
+label: Inline review / fix (self-contained)
+description: >-
+  The review/fix flow authored with INLINE `task` nodes (v2) instead of
+  `template: <name>` refs. The task's config — pinned skill, prompt, parameters,
+  and declared outputs — lives in this file, so the workflow is fully
+  transferable: commit it and it runs in any org with no per-org template
+  provisioning. The only external dependency is the version-pinned skill.
+failureStrategy: fail-fast
+
+parameters:
+  - name: pr-url
+    label: Pull Request URL
+    type: pull-request
+    required: true
+
+nodes:
+  # 1. Inline task node — no DB template ref. The skill is pinned to @1.4.0 for
+  #    reproducibility; prompt/parameters/outputs are declared in-file.
+  - id: review
+    type: task
+    skill: code-review@1.4.0          # portable, version-pinned skill ref (name@version)
+    taskType: code-review
+    prompt: >-
+      Review the pull request for correctness, security, and consistency
+      issues. Return a findings array and the highest severity rank observed.
+    parameters:                        # layer-2 validates `inputs` against these (no DB lookup)
+      - name: pr-url
+        label: Pull Request URL
+        type: pull-request
+        required: true
+    outputs:                           # declared in-file → downstream extract/CEL with no DB round-trip
+      findings: json
+      maxSeverityRank: number
+    inputs:
+      pr-url: { from: input, name: pr-url }
+    retry: { maxRetries: 2, backoffMs: 2000 }
+
+  # 2. A second inline task that only runs when the worst finding is above
+  #    `medium` (rank 2). Consumes the first node's declared `findings` output.
+  - id: fix
+    type: task
+    skill: apply-fixes@2.0.0
+    taskType: general               # taskType is constrained to code-review | general
+    prompt: "Apply fixes for the supplied findings and commit them back to the PR."
+    when: "review.output.maxSeverityRank > 2"   # gates on review's DECLARED `maxSeverityRank` output; high(3)/critical(4) only
+    parameters:
+      - name: findings
+        label: Findings
+        type: json
+        required: true
+      - name: pr-url
+        label: Pull Request URL
+        type: pull-request
+        required: true
+    outputs:
+      commitSha: string
+    inputs:
+      findings: { from: node, node: review, extract: "$.findings[*]" }   # references the inline output
+      pr-url: { from: input, name: pr-url }                              # fix commits back to the same PR
+
+edges:                                 # pure ordering / dependency
+  - { from: review, to: fix }

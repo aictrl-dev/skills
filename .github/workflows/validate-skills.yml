@@ -1,0 +1,19 @@
+name: Validate public skills
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate catalog, metadata, portability, and secrets
+        run: ./scripts/validate-skills.sh
+      - name: Verify release checksums are current
+        run: diff -u CHECKSUMS.sha256 <(./scripts/generate-checksums.sh)

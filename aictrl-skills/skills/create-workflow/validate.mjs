@@ -29,6 +29,7 @@ import { dirname, join, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = join(here, 'reference', 'workflow.schema.json');
+const V1_SCHEMA_PATH = join(here, 'reference', 'v1', 'workflow.schema.json');
 
 const file = process.argv[2];
 if (!file) {
@@ -70,8 +71,10 @@ const errors = [];
 
 // ---- Layer 1: JSON Schema (identical config to the apply-loader) ------------
 const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
+const v1Schema = JSON.parse(readFileSync(V1_SCHEMA_PATH, 'utf8'));
 const ajv = new Ajv({ strict: false, allErrors: true });
 if (addFormats) addFormats(ajv);
+ajv.addSchema(v1Schema);
 const validate = ajv.compile(schema);
 if (!validate(doc)) {
   for (const e of validate.errors) {

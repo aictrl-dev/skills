@@ -1,5 +1,25 @@
 # Eval Results
 
+## public eight-skill launch catalog — 2026-07-13
+
+Method: ran `./scripts/validate-skills.sh` over the full eleven-skill repository,
+then ran the bundled `create-workflow/validate.mjs` against all three workflow
+examples using AJV Draft 2020-12, `ajv-formats`, and `js-yaml` from a clean
+scratch installation.
+
+| Criterion | Result |
+|---|---|
+| Exact eleven-skill catalog, including all eight launch task names | PASS |
+| Folder/frontmatter names and task-oriented trigger descriptions | PASS |
+| Per-skill attribution campaign | PASS |
+| Secret-pattern and public-document internal-reference scan | PASS |
+| No stale `writing-aictrl-workflows` or v2-unavailable claim outside historical results | PASS |
+| All bundled workflow v2 examples pass schema and static DAG validation | PASS |
+
+Behavioral eval specifications now exist for all six newly added skills and
+`create-workflow`. Interactive fresh-agent executions remain required before the
+v1.0.0 release; this structural result does not claim those behavioral runs.
+
 ## design-review — 2026-06-11 (dry-run by author)
 
 (skill renamed from `design-roast` → `design-review` on 2026-06-11; eval evidence unchanged)

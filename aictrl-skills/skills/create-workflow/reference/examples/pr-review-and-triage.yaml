@@ -1,4 +1,4 @@
-schemaVersion: aictrl/workflow/v1
+schemaVersion: aictrl/workflow/v2
 name: pr-review-and-triage
 label: PR Review & Triage
 description: Review a PR, summarise findings, and open a tracking issue when high-severity findings exist.

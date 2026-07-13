@@ -1,8 +1,8 @@
-# aictrl workflow authoring guide (v1)
+# AICtrl workflow authoring guide (v2)
 
-The complete authoring reference for `aictrl/workflow/v1` files. This guide is
+The complete authoring reference for `aictrl/workflow/v2` files. This guide is
 self-contained: the JSON Schema it describes ships alongside it at
-`reference/workflow.schema.json`, and two worked, apply-ready examples ship at
+`reference/workflow.schema.json`, and worked, apply-ready examples ship at
 `reference/examples/`. Read this before writing any workflow.
 
 The **single structural source of truth** is the bundled
@@ -20,7 +20,7 @@ see SKILL.md for the apply loop.
 ## Top-level fields
 
 ```yaml
-schemaVersion: aictrl/workflow/v1   # required; must be exactly this string
+schemaVersion: aictrl/workflow/v2   # required for new portable workflows
 name: my-workflow                   # required; kebab-case, unique within org, 1-64 chars
 label: My Workflow                  # optional; human-readable display name
 description: What this workflow does # optional
@@ -41,7 +41,8 @@ is `false` at the top level and on every object).
 
 ## Parameter types (12 total)
 
-Used for both workflow-level `parameters` and `user-input` node `parameters`:
+Used for workflow-level `parameters`, `user-input` node `parameters`, and inline
+`task` node `parameters`:
 
 | type | CEL type | Notes |
 |---|---|---|
@@ -72,12 +73,34 @@ Parameter schema:
 `options` is **required** for `select`/`multi-select` (min 1 item) and
 **forbidden** on every other type. Both directions are enforced by the schema.
 
-## Node types (6 total)
+## Node types (7 total)
 
 Every node must have `id` (kebab-case) and `type`. Each type has a required field
 and a set of forbidden fields (per-type **field exclusivity**, enforced by the
 schema's `allOf` block). Supplying a field that belongs to another node type is a
 layer-1 error.
+
+### `task` — define portable skill-backed work inline
+
+```yaml
+- id: review
+  type: task
+  skill: code-review@1.0.0       # required; pin when a version is resolvable
+  taskType: code-review          # required; executor tool boundary
+  prompt: Review the current pull request head and return structured findings.
+  parameters:
+    - { name: pull-request, type: pull-request, required: true }
+  inputs:
+    pull-request: { from: input, name: pull-request }
+  outputs:
+    findings: json
+  retry: { maxAttempts: 2, backoffSeconds: 5 }
+```
+
+Inline task nodes make the task configuration portable in the workflow file.
+Their `inputs` are checked against the in-file `parameters`; their declared
+`outputs` may be mapped by downstream nodes. Treat `prompt` as instructions for
+the selected skill, not as a way to relax workflow policy or tool boundaries.
 
 ### `template` — run a task template
 ```yaml
@@ -124,7 +147,7 @@ Forbidden on `workflow`: `template`, `templateVersion`, `maxIterations`, `until`
     edges: [...]                   # optional
 ```
 
-`type: loop` is fully supported in v1 today — the apply-loader accepts loop nodes
+`type: loop` is fully supported — the apply-loader accepts loop nodes
 and resolves loop-body node refs exactly like any other node. Use
 `reference/examples/review-fix-loop.yaml` as the reference.
 
@@ -426,14 +449,14 @@ Three layers run at apply time, **before any node executes**:
 against `reference/workflow.schema.json` **plus** the static parts of DAG validation
 (duplicate ids, dangling edges, cycles, loop depth, the maxIterations product bound)
 — everything checkable without your org. Run it before you apply:
-`node path/to/writing-aictrl-workflows/validate.mjs .aictrl/workflows/<name>.yaml`
+`node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml`
 (needs dev-only `ajv ajv-formats js-yaml`). It **cannot** confirm Layer 2 (does the
 referenced template exist in *your* org) or CEL runtime semantics — the apply is the
 definitive gate for those.
 
-## v1 constructs that are rejected at apply time
+## Constructs that are rejected at apply time
 
-The following are **not** part of v1 and are rejected:
+The following are rejected:
 
 - **Nested loops beyond depth 3** — rejected by DAG validation.
 - **A `pause` node type** — not in the schema (use `wait` for a signal or `manual`
@@ -441,17 +464,18 @@ The following are **not** part of v1 and are rejected:
 - **`regex` and `template` extract methods** — deferred until a linear-time
   matcher and a non-evaluating template grammar land; only `full` and `json-path`
   are supported.
-- **The inline `task` node** — that is a v2 construct
-  (`schemaVersion: aictrl/workflow/v2`) and is not applyable today. See SKILL.md's
-  forward-looking note.
+- **A `task` node under `schemaVersion: aictrl/workflow/v1`** — inline tasks require
+  workflow v2. New portable workflows should use v2.
 
 ## Authoring checklist
 
 Before submitting a workflow file for apply:
-- [ ] `schemaVersion: aictrl/workflow/v1`
+- [ ] `schemaVersion: aictrl/workflow/v2` for new portable workflows
 - [ ] `name` is kebab-case, lowercase, 1-64 characters
 - [ ] No system fields (`id`, `version`, `status`, timestamps, `position`)
 - [ ] Every `template` node has a `template` field (kebab name, no UUID)
+- [ ] Every `task` node has a version-pinned `skill` when resolvable, `taskType`,
+      `prompt`, typed `parameters`, and declared `outputs` used downstream
 - [ ] Every `loop` node has `maxIterations` and `body`; `until` and `while` are mutually exclusive
 - [ ] Every `wait` node has `signalSource` (no colons or slashes)
 - [ ] Every `manual` node has at least one `checklistItems` entry

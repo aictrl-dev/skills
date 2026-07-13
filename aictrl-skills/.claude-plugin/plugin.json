@@ -1,9 +1,9 @@
 {
   "name": "aictrl-skills",
   "description": "Free, vendor-neutral AI engineering-workflow skills by aictrl.dev",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "author": { "name": "aictrl" },
   "homepage": "https://aictrl.dev",
   "license": "MIT",
-  "keywords": ["design-review", "measurement-plan", "create-issue", "agent-skills", "ai-engineering"]
+  "keywords": ["sdlc", "create-issue", "implement-code-change", "code-review", "create-workflow", "agent-skills", "ai-engineering"]
 }

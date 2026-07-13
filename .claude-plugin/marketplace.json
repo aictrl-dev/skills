@@ -5,11 +5,11 @@
     {
       "name": "aictrl-skills",
       "source": "./aictrl-skills",
-      "description": "Design review (any UI — marketing or product internals), measurement planning (GQM), and GitHub issue authoring skills for AI coding agents.",
-      "version": "0.4.0",
+      "description": "Eleven vendor-neutral engineering skills for issue creation, implementation, code review, workflow authoring, design, measurement, and demos.",
+      "version": "1.0.0",
       "author": { "name": "aictrl" },
       "homepage": "https://aictrl.dev",
-      "tags": ["design", "analytics", "product", "github", "workflow"]
+      "tags": ["engineering", "sdlc", "code-review", "github", "workflow", "agent-skills"]
     }
   ]
 }
