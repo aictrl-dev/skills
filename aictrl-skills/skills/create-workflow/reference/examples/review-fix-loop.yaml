@@ -1,4 +1,4 @@
-schemaVersion: aictrl/workflow/v1
+schemaVersion: aictrl/workflow/v2
 name: review-fix-loop
 label: Review / Fix convergence loop
 description: >-

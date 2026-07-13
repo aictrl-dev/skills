@@ -1,263 +1,67 @@
 ---
 name: create-issue
-description: Create a well-formed GitHub issue from a vague idea, bug report, or feature request. Use when the user says "create an issue", "open a ticket", "file a bug", "log this in GitHub", "make a backlog item", or describes something that should be tracked. Drafts a structured body and creates the issue via gh CLI.
+description: Create a code-grounded engineering story or task with scope, acceptance criteria, test expectations, risks, and open questions. Use when the user says "create an issue", "open a ticket", "make a backlog item", or describes a feature or chore that should be tracked; delegate defects to create-bug.
 ---
 
-# Create a GitHub Issue
+# Create an Engineering Issue
 
-Turn a vague idea, bug report, or feature request into a well-formed GitHub issue with a structured body that engineers can act on.
-
-## When to Use
-
-- "Create an issue for X"
-- "Open a ticket about Y"
-- "File a bug: Z is broken"
-- "Make a backlog item for this idea"
-- "Log this in GitHub so we don't lose it"
-- The user describes something that should be tracked but isn't yet
-
-**Do NOT use this skill for:**
-- Triaging existing issues — search first with `gh issue list --search "<keywords>"`
-- Adding TODOs to local files — that's not an issue
-
-## Required Inputs
-
-Before creating the issue, gather (or ask for) these inputs. If the user gave you everything in one message, proceed without asking. If something is missing and you can't infer it, ask one focused question and stop.
-
-| Input | Required? | How to determine |
-|-------|-----------|-----------------|
-| **Title** | Yes | Short, action-oriented, <70 chars. Bug = "Fix: X". Feature = "Add: Y". Chore = "Chore: Z". |
-| **Type** | Yes | `Bug` / `Feature` / `Task`. Infer from context; ask only if genuinely ambiguous. |
-| **Repo** | Yes | Default to current `gh repo view` repo unless the user specifies another. |
-| **Body content** | Yes | Constructed from the template below. |
-| **Assignee** | No | Default to unassigned. |
-| **Milestone** | No | Optional. If the repo uses milestones and context makes one obvious, suggest it; otherwise leave unset. |
-
-## Issue Body Template
-
-Use this template, adapted by issue type. Skip sections that don't apply, but keep the structure consistent so engineers know where to look.
-
-```markdown
-## Context
-
-<1-3 sentences: what is the user-facing situation today? Who hits this? What triggered this issue?>
-
-## Problem / Goal
-
-<For a bug: what's broken, what should happen instead.>
-<For a feature: what user need does this address, what does success look like.>
-<For a chore: what state is the codebase in, what state do we want.>
-
-## Proposed Approach
-
-<Optional but recommended. Sketch the change at a high level. Don't prescribe implementation if you don't know the codebase well — leave room for the engineer.>
-
-## Acceptance Criteria
-
-- [ ] <Concrete, verifiable criterion 1>
-- [ ] <Concrete, verifiable criterion 2>
-- [ ] <Concrete, verifiable criterion 3>
-
-## Out of Scope
-
-<Anything explicitly NOT in this issue. Prevents scope creep at PR time.>
-
-## References
-
-- Related issues: #...
-- Related PRs: #...
-- Related files / docs: ...
-```
-
-### Bug-Specific Additions
-
-For bugs, include between **Problem** and **Acceptance Criteria**:
-
-```markdown
-## Reproduction
-
-1. <Step 1>
-2. <Step 2>
-3. <Observed result>
-4. <Expected result>
-
-## Environment
-
-- Branch / commit: <SHA or branch>
-- Browser / OS: <if UI bug>
-- Version: <app or library version, if relevant>
-
-## Logs / Errors
-
-<paste relevant log output, error messages, or screenshots>
-```
-
-### Feature-Specific Additions
-
-For features, include after **Proposed Approach**:
-
-```markdown
-## User Story
-
-As a <persona>,
-I want to <action>,
-So that <outcome>.
-```
-
-## Labeling (Optional)
-
-If the repo uses labels, apply the most fitting ones:
-
-```bash
-gh label list   # see what labels exist in the repo
-```
-
-Pick labels that match — common conventions include `bug`, `enhancement`, `good first issue`, `needs-triage`, priority tags (`P0`/`P1`/`P2`), or area tags (`api`, `ui`, `docs`). If the repo has no labels or none fit, skip labeling entirely. Never invent labels that don't exist in the repo.
+Turn a vague feature, chore, or engineering request into a provider issue that another engineer can implement without reconstructing intent. Use `create-bug` for broken or regressed behavior.
 
 ## Workflow
 
-1. **Gather inputs** — title, type, body content. Ask one focused question if anything critical is missing.
+1. Classify the request. If it describes symptoms, an exception, a regression, or expected-versus-actual behavior, stop and use `create-bug`.
+2. Resolve the target repository and issue provider from the request, repository remote, or native provider tools. If no writable provider is available, produce provider-neutral Markdown.
+3. Search open and closed issues for the outcome, component, and distinctive terms. Link a real duplicate instead of creating another issue.
+4. Inspect repository guidance, relevant code, architecture, schemas, APIs, UI, tests, and recent changes. Ground scope in evidence; do not invent an implementation.
+5. Define the user or operator, current situation, desired outcome, and why the work matters now.
+6. Trace the work across affected layers and identify dependencies, compatibility, authorization, privacy, observability, rollout, and migration concerns.
+7. Write independently verifiable acceptance criteria, including negative and regression cases appropriate to the change.
+8. Separate required scope, explicit out-of-scope items, risks, and open decisions. Ask only when an unresolved choice materially changes the ticket.
+9. Draft the issue with the template below. Show it before external creation unless the user already explicitly authorized creation.
+10. Create with the provider's native capability and existing labels/milestone conventions when available. Return the URL and summarize any provider metadata you could not set.
 
-2. **Check for duplicates** — search existing issues first:
-   ```bash
-   gh issue list --search "<keywords>" --state all
-   ```
-   If a duplicate exists, link to it rather than creating a new one.
+## Template
 
-3. **Draft the body** — use the template above, filled with concrete content. Acceptance criteria must be verifiable. No hand-waving.
-
-4. **Check labels (optional)** — run `gh label list` to see what labels exist; pick the most fitting ones or skip if none fit.
-
-5. **Show the user the draft** — output the title, labels (if any), and full body in a markdown block. Ask for confirmation before creating.
-
-6. **Create the issue** via `gh`:
-   ```bash
-   # Without labels:
-   gh issue create \
-     --title "Fix: skill content truncated on import" \
-     --body "$(cat <<'EOF'
-   ## Context
-   ...
-   EOF
-   )"
-
-   # With labels:
-   gh issue create \
-     --title "Fix: skill content truncated on import" \
-     --label "bug,P0" \
-     --body "$(cat <<'EOF'
-   ## Context
-   ...
-   EOF
-   )"
-
-   # With milestone (if applicable):
-   gh issue create \
-     --title "Add: Slack notification on execution completion" \
-     --label "enhancement" \
-     --milestone "v2.0" \
-     --body "$(cat <<'EOF'
-   ## Context
-   ...
-   EOF
-   )"
-   ```
-
-7. **Report back** — return the issue URL and number to the user.
-
-## Quick Reference: Issue Types
-
-| Type | Title prefix | Required body sections |
-|------|--------------|------------------------|
-| Bug | `Fix: ...` | Context, Reproduction, Environment, Acceptance Criteria, References |
-| Feature | `Add: ...` | Context, User Story, Goal, Proposed Approach, Acceptance Criteria, Out of Scope |
-| Chore | `Chore: ...` | Context, Goal, Acceptance Criteria |
-| Spike | `Spike: ...` | Context, Question, Investigation Plan, Definition of Done |
-| Docs | `Docs: ...` | Context, What's missing, Acceptance Criteria |
-| Refactor | `Refactor: ...` | Context, Goal, Acceptance Criteria |
-
-## Anti-Patterns to Avoid
-
-- **Don't create duplicates** — always search with `gh issue list --search "<keywords>"` before creating
-- **Don't invent labels** — only use labels that already exist in the repo (`gh label list`); if none fit, skip labeling
-- **Don't write vague acceptance criteria** — "make it better" is not testable. "Reduce p99 latency below 200ms" is.
-- **Don't bypass the user** — always show the draft and get confirmation before creating; issues are public artifacts
-- **Don't skip context** — a good issue explains *why* it matters, not just *what* to do
-
-## Examples
-
-### Example 1: Bug report
-
-User input: *"The skill content gets truncated when I import from GitHub"*
-
-Output draft:
-
-```
-Title: Fix: skill content truncated on GitHub import
-Labels: bug
-
+```markdown
 ## Context
-Users importing skills from GitHub see the SKILL.md content truncated,
-losing instructions and examples beyond a certain file size.
+<current user-facing situation and repository evidence>
 
-## Reproduction
-1. Trigger the import flow pointing at a repo containing a SKILL.md > 4KB
-2. Observe that content is cut off after the threshold
-3. Expected: full content imported
+## Goal
+<specific desired outcome and success definition>
 
-## Environment
-- Branch: main
-- Affects: all users of the import feature
+## User story
+As a <persona>,
+I want <capability>,
+so that <outcome>.
 
-## Acceptance Criteria
-- [ ] Skills > 4KB import without truncation
-- [ ] Test added covering a large-file import scenario
-- [ ] No regression in existing import tests
+## Proposed approach
+<high-level implementation constraints supported by evidence; leave design room>
+
+## Acceptance criteria
+- [ ] <observable behavior and verification>
+- [ ] <negative or boundary behavior>
+- [ ] <test, migration, authorization, or rollout requirement>
+
+## Out of scope
+- <explicit boundary>
+
+## Risks and dependencies
+- <risk/dependency plus mitigation or owner>
+
+## Open questions
+- <only decisions that could change scope or outcome>
 
 ## References
-- Reported by: <user>
+- <code paths, docs, related issues/PRs>
 ```
 
-### Example 2: Feature request
+## Quality bar
 
-User input: *"We should add a Slack notification when an execution finishes"*
-
-Output draft:
-
-```
-Title: Add: Slack notification on execution completion
-Labels: enhancement
-
-## Context
-Engineers running task executions currently have to poll the dashboard
-to know when an agent finishes. Push notifications in Slack would reduce
-the feedback-loop delay.
-
-## User Story
-As an engineer running task executions,
-I want to receive a Slack message when my execution completes,
-So that I can review the result without polling the dashboard.
-
-## Proposed Approach
-Add an outbound webhook adapter in the execution callback handler. When an
-execution finishes, POST a formatted message to a configured Slack incoming
-webhook URL. Configuration lives at the org level (one webhook per org for v1).
-
-## Acceptance Criteria
-- [ ] Users can configure a Slack incoming webhook URL in settings
-- [ ] On execution completion, a message is POSTed including: job name, status,
-      duration, and link to the result
-- [ ] Delivery failures are logged but do not block the execution callback
-- [ ] Test coverage using a mock webhook receiver
-
-## Out of Scope
-- Per-user notification routing (v2)
-- Teams / Discord integration (separate issues)
-```
-
-## Related Skills
-
-- **`stack-planning`** — when an issue needs to be broken down into stories with stack-layer subtasks
+- Titles are short, action-oriented, and name the outcome.
+- Every criterion can be demonstrated by a test, command, API response, rendered state, or recorded external result.
+- Findings name concrete paths or contracts; generic “improve” language is rejected.
+- External mutation, assignment, and milestone changes stay within the user's authorization.
+- Never include secrets, credentials, private customer data, or unnecessary source excerpts.
 
 ---
 **Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=create-issue).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=create-issue)

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aictrl.dev/schemas/workflow/v1/workflow.schema.json",
   "title": "aictrl Workflow (v1)",
-  "description": "Declarative, YAML/JSON-authored workflow definition. Layer 1 (this schema) validates structure; layer 2 validates each node's `inputs` against the referenced template's parameter schema at load time. See reference/authoring-guide.md for the `when`/`until`/`while` expression language (CEL).",
+  "description": "Declarative, YAML/JSON-authored workflow definition. Layer 1 (this schema) validates structure; layer 2 validates each node's `inputs` against the referenced template's parameter schema at load time. See the ADR (wiki) https://github.com/aictrl-dev/aictrl/wiki/2026-06-27-ADR-Workflow-Expression-Language for the `when`/`until`/`while` expression language (CEL).",
   "type": "object",
   "required": ["schemaVersion", "name", "nodes"],
   "additionalProperties": false,
@@ -20,8 +20,8 @@
     "qualityGates": { "type": "array", "items": { "$ref": "#/$defs/qualityGate" } },
     "triggers": {
       "type": "array",
-      "maxItems": 10,
-      "description": "File-declared event triggers. Each trigger fires the workflow automatically when its event fires. Supports type:label, type:comment, type:pr-ready, type:pr-opened, and type:chat-message; up to 10 triggers per workflow.",
+      "maxItems": 1,
+      "description": "File-declared event triggers. Each trigger fires the workflow automatically when the event fires. Supports type:label (#3508) and type:comment (#3509); at most one trigger per workflow.",
       "items": { "$ref": "#/$defs/fileTrigger" }
     }
   },
@@ -61,7 +61,7 @@
         "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
         "label": { "type": "string" },
         "type": { "enum": ["template", "workflow", "loop", "wait", "manual", "user-input"] },
-        "template": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable template ref: the template's org-unique kebab `name` (e.g. \"inline-code-review\"). Resolved org-scoped to a templateId at load; layer-2 MUST confirm an active template with this name exists — see reference/authoring-guide.md." },
+        "template": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable template ref: the template's org-unique kebab `name` (e.g. \"inline-code-review\"). Resolved org-scoped to a templateId at load; layer-2 MUST confirm an active template with this name exists — see README." },
         "templateVersion": { "type": "string" },
         "workflow": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable composite-workflow ref: the workflow's org-unique kebab `name` (e.g. \"release-pipeline\"). Resolved org-scoped at load." },
         "workflowVersion": { "type": "string" },
@@ -77,7 +77,7 @@
           "type": "object",
           "required": ["nodes"],
           "additionalProperties": false,
-          "description": "Loop body subgraph. Per-loop cap is `maxIterations` (<=25); max nesting depth is 3. WORST CASE at the depth cap is the product of nested maxIterations (e.g. 25^3 = 15,625 leaf executions). A NORMATIVE global iteration budget (product of all nested maxIterations on any path <= 1000) is enforced at load by DAG validation; runs exceeding it are rejected.",
+          "description": "Loop body subgraph. Per-loop cap is `maxIterations` (<=25); max nesting depth is 3. WORST CASE at the depth cap is the product of nested maxIterations (e.g. 25^3 = 15,625 leaf executions). A NORMATIVE global iteration budget (product of all nested maxIterations on any path <= 1000) is enforced at load by validateDag; runs exceeding it are rejected.",
           "properties": {
             "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
             "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
@@ -117,14 +117,14 @@
           "required": ["value"],
           "additionalProperties": false,
           "properties": { "value": {} },
-          "description": "Static value"
+          "description": "Static value (-> StaticMapping)"
         },
         {
           "type": "object",
           "required": ["from", "name"],
           "additionalProperties": false,
           "properties": { "from": { "const": "input" }, "name": { "type": "string" } },
-          "description": "Workflow-level input"
+          "description": "Workflow-level input (-> WorkflowParamMapping)"
         },
         {
           "type": "object",
@@ -135,7 +135,7 @@
             "node": { "type": "string" },
             "extract": { "$ref": "#/$defs/extract" }
           },
-          "description": "Upstream node output; no extract = full artifact"
+          "description": "Upstream node output (-> NodeOutputMapping); no extract = full artifact"
         }
       ]
     },
@@ -197,76 +197,11 @@
       }
     },
     "fileTrigger": {
-      "description": "A file-declared trigger in the workflow `triggers:` block. Supported `type` values: `label`, `comment`, `pr-ready`, `pr-opened`, and `chat-message`; any other type is rejected at load.",
+      "description": "A file-declared trigger in the workflow `triggers:` block. Supported `type` values: `label` (#3508) and `comment` (#3509); any other type is rejected at load.",
       "oneOf": [
         { "$ref": "#/$defs/labelTrigger" },
-        { "$ref": "#/$defs/commentTrigger" },
-        { "$ref": "#/$defs/prReadyTrigger" },
-        { "$ref": "#/$defs/prOpenedTrigger" },
-        { "$ref": "#/$defs/chatMessageTrigger" }
+        { "$ref": "#/$defs/commentTrigger" }
       ]
-    },
-    "chatMessageTrigger": {
-      "type": "object",
-      "required": ["type", "provider", "command"],
-      "additionalProperties": false,
-      "description": "File-declared chat-message trigger: fires the workflow when a chat provider receives a message whose first token equals `command`. It is not PR-scoped and has no `on` field. Unlike label, comment, and PR triggers, `inputs` maps workflow parameter names to `{ from, field }` objects (a chat event source and a dot-path), not JSONPath strings.",
-      "properties": {
-        "type": { "const": "chat-message" },
-        "provider": {
-          "enum": ["telegram", "slack", "discord"],
-          "description": "Chat provider. Telegram has runtime support; Slack and Discord definitions can be stored but do not yet fire workflows."
-        },
-        "command": {
-          "type": "string",
-          "minLength": 2,
-          "maxLength": 64,
-          "pattern": "^/[A-Za-z0-9][A-Za-z0-9_-]*$",
-          "description": "Slash command that fires this trigger when it is the first whitespace-delimited token of a chat message (e.g. `/run-review`). Same grammar as the comment trigger; matched exactly and case-sensitively."
-        },
-        "chats": {
-          "type": "array",
-          "description": "Optional allowlist of chat or channel ids this trigger fires for. Integers (Telegram) or strings (Slack and Discord) are stored as text. Omit to fire for any chat. Max 100 entries.",
-          "items": { "type": ["string", "integer"] },
-          "maxItems": 100
-        },
-        "acceptPhotos": {
-          "type": "boolean",
-          "description": "Whether photo attachments on the triggering message are accepted as inputs. Default true."
-        },
-        "sendConfirmation": {
-          "type": "boolean",
-          "description": "Whether to post an acknowledgement message back to the chat when the run starts. Default true."
-        },
-        "sendCompletion": {
-          "type": "boolean",
-          "description": "Whether to post a completion message back to the chat when the run finishes. Default false."
-        },
-        "inputs": {
-          "type": "object",
-          "description": "Maps workflow parameter names (keys) to chat input mappings (values). Each value is a `{ from, field }` object, not a JSONPath string. Max 20 entries.",
-          "additionalProperties": {
-            "type": "object",
-            "required": ["from", "field"],
-            "additionalProperties": false,
-            "description": "A chat input mapping: `from` selects the event source object, and `field` is a dot-path into it.",
-            "properties": {
-              "from": {
-                "enum": ["message", "channel_post", "interaction"],
-                "description": "The chat event source object the `field` dot-path reads from."
-              },
-              "field": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200,
-                "description": "Dot-path into the `from` object (e.g. `text` or `photo.0.file_id`), not a JSONPath expression."
-              }
-            }
-          },
-          "maxProperties": 20,
-          "minProperties": 0
-        }
-      }
     },
     "commentTrigger": {
       "type": "object",
@@ -321,58 +256,6 @@
         "inputs": {
           "type": "object",
           "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) that are evaluated against the `pull_request.labeled` webhook payload. Unresolvable expressions throw at fire time. Max 20 entries.",
-          "additionalProperties": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 200,
-            "pattern": "^\\$",
-            "description": "JSONPath expression starting with `$`."
-          },
-          "maxProperties": 20,
-          "minProperties": 0
-        }
-      }
-    },
-    "prReadyTrigger": {
-      "type": "object",
-      "required": ["type", "on", "inputs"],
-      "additionalProperties": false,
-      "description": "File-declared pr-ready trigger: fires the workflow when a PR becomes ready for review (`pull_request.ready_for_review`) or is opened as a non-draft (`pull_request.opened` with draft:false). A draft open does not fire this trigger. `inputs` maps workflow parameter names to JSONPath expressions evaluated against the `pull_request` webhook payload.",
-      "properties": {
-        "type": { "const": "pr-ready" },
-        "on": {
-          "const": "pull-request",
-          "description": "The event category. Must be `pull-request`."
-        },
-        "inputs": {
-          "type": "object",
-          "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) evaluated against the `pull_request` webhook payload. Unresolvable expressions throw at fire time. Max 20 entries.",
-          "additionalProperties": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 200,
-            "pattern": "^\\$",
-            "description": "JSONPath expression starting with `$`."
-          },
-          "maxProperties": 20,
-          "minProperties": 0
-        }
-      }
-    },
-    "prOpenedTrigger": {
-      "type": "object",
-      "required": ["type", "on", "inputs"],
-      "additionalProperties": false,
-      "description": "File-declared pr-opened trigger: fires the workflow when a PR is opened (`pull_request.opened`), including draft opens. `inputs` maps workflow parameter names to JSONPath expressions evaluated against the `pull_request` webhook payload.",
-      "properties": {
-        "type": { "const": "pr-opened" },
-        "on": {
-          "const": "pull-request",
-          "description": "The event category. Must be `pull-request`."
-        },
-        "inputs": {
-          "type": "object",
-          "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) evaluated against the `pull_request` webhook payload. Unresolvable expressions throw at fire time. Max 20 entries.",
           "additionalProperties": {
             "type": "string",
             "minLength": 2,
