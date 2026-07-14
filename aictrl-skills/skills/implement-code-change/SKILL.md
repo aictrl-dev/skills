@@ -28,7 +28,9 @@ Take one engineering issue to a verified, merge-ready pull request. Never merge 
 
 ## Connected workflow
 
-1. Call `list_workflows` and confirm `implement-code-change` is available.
+Connected workflows are repository-owned configuration, analogous to GitHub Actions. Installing this skill or its plugin does not provision one. If the organization has no suitable published workflow, explain that the user can invoke `create-workflow` in the repository they want to automate; do not create or publish a workflow without a separate request.
+
+1. Call `list_workflows` and confirm a suitable `implement-code-change` workflow is available. If it is absent, stop the connected path and offer the repository-owned `create-workflow` path.
 2. Call `get_workflow` and show the resolved immutable version, required `{ repository, issue-id }` inputs, side effects, limits, and approval gates. Preserve the hyphenated `issue-id` key exactly in tool input.
 3. Obtain explicit confirmation to start if the user has not already authorized connected execution.
 4. Call `start_workflow` with the resolved workflow/version, validated inputs, and a stable idempotency key derived from repository and issue.
