@@ -39,7 +39,7 @@ triggers: [...]                     # optional; up to 10 file-declared event tri
 the platform on import. Authoring them is a schema error (`additionalProperties`
 is `false` at the top level and on every object).
 
-## Parameter types (12 total)
+## Parameter types (13 total)
 
 Used for workflow-level `parameters`, `user-input` node `parameters`, and inline
 `task` node `parameters`:
@@ -54,6 +54,7 @@ Used for workflow-level `parameters`, `user-input` node `parameters`, and inline
 | `select` | string | Requires `options: [...]` |
 | `multi-select` | list<string> | Requires `options: [...]` |
 | `json` | dyn | Arbitrary JSON |
+| `repository` | string | Connected repository in owner/name form |
 | `pull-request` | string | PR URL |
 | `story` | string | Story/ticket URL |
 | `image` | string | Image URL or base64 |
@@ -88,6 +89,7 @@ layer-1 error.
   skill: code-review@1.0.0       # required; pin when a version is resolvable
   taskType: code-review          # required; executor tool boundary
   prompt: Review the current pull request head and return structured findings.
+  timeoutMinutes: 10             # optional; executor runtime, integer 1-60
   parameters:
     - { name: pull-request, type: pull-request, required: true }
   inputs:
@@ -101,6 +103,7 @@ Inline task nodes make the task configuration portable in the workflow file.
 Their `inputs` are checked against the in-file `parameters`; their declared
 `outputs` may be mapped by downstream nodes. Treat `prompt` as instructions for
 the selected skill, not as a way to relax workflow policy or tool boundaries.
+`timeoutMinutes` is an optional hard executor bound from 1 to 60 minutes.
 
 ### `template` — run a task template
 ```yaml

@@ -87,8 +87,8 @@
           "then": { "required": ["parameters"], "not": { "anyOf": [
             { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
         { "if": { "properties": { "type": { "const": "task" } }, "required": ["type"] },
-          "then": { "required": ["skill"], "not": { "anyOf": [
-            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] } ] } } }
+          "then": { "required": ["skill"], "properties": { "timeoutMinutes": { "maximum": 60 } }, "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] } ] } } }
       ]
     },
     "inputMapping": { "$ref": "../v1/workflow.schema.json#/$defs/inputMapping" },
