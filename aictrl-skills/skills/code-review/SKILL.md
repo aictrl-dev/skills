@@ -46,4 +46,4 @@ Produce high-signal findings for the exact pull or merge request revision. Revie
 - Separate verified defects from residual risk and untested hypotheses.
 
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=code-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=code-review)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=code-review&utm_listing=github-skills&utm_platform=portable&utm_skill=code-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=code-review&utm_listing=github-skills&utm_platform=portable&utm_skill=code-review)

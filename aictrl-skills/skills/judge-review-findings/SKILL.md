@@ -41,4 +41,4 @@ For every `DEFER`, name the follow-up issue or return a complete follow-up draft
 - Do not apply a judgment to a different head revision.
 
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=judge-review-findings).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=judge-review-findings)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=judge-review-findings&utm_listing=github-skills&utm_platform=portable&utm_skill=judge-review-findings).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=judge-review-findings&utm_listing=github-skills&utm_platform=portable&utm_skill=judge-review-findings)
