@@ -24,4 +24,4 @@ An HTML file path, a pasted HTML snippet, or a screenshot. If none provided, ask
 A short intro line (what you're looking at + which surface type), then one block per dimension assessed, then the prioritized top-3.
 
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=design-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=design-review)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=design-review&utm_listing=github-skills&utm_platform=portable&utm_skill=design-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=design-review&utm_listing=github-skills&utm_platform=portable&utm_skill=design-review)

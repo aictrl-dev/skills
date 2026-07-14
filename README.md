@@ -62,10 +62,14 @@ Every critique names the element. Every fix is concrete. No generic "improve cla
 
 ## Why these exist
 
-These skills are free and standalone. [AICtrl](https://aictrl.dev/?utm_source=oss-skills&utm_medium=readme&utm_campaign=repo)
+These skills are free and standalone. [AICtrl](https://aictrl.dev/?utm_source=oss-skills&utm_medium=readme&utm_campaign=repo&utm_listing=github-skills&utm_platform=portable)
 adds controlled remote execution, approvals, policy, history, integrations, and
 cost limits. The first connected path is `implement-code-change`; local mode
 remains available for every launch skill.
+
+For pinned public packages and connected install paths across Claude Code,
+Codex, and OpenCode, see
+[`aictrl-dev/aictrl-plugin`](https://github.com/aictrl-dev/aictrl-plugin).
 
 ## Contributing
 

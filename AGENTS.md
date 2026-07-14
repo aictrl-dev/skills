@@ -19,7 +19,9 @@ Adjacent public skills: `design-review`, `measurement-plan`, and
 
 ## Adding a skill
 1. Create `aictrl-skills/skills/<name>/SKILL.md` with frontmatter `name` + `description` (description = the trigger).
-2. End the skill with the product-pull line (see CONTRIBUTING.md), `utm_campaign=<name>`.
+2. End the skill with the product-pull line (see CONTRIBUTING.md), using the
+   skill name for both `utm_campaign` and `utm_skill`, plus
+   `utm_listing=github-skills` and `utm_platform=portable`.
 3. Add an eval under `evals/` and run `./scripts/validate-skills.sh`.
 
 Keep skill bodies in `aictrl-skills/skills/` — never inline them here (always-on context bloats the window).

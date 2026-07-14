@@ -65,4 +65,4 @@ nodes:
 - Canvas positions and runtime fields are platform-owned and must not be authored.
 
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=create-workflow).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=create-workflow)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=create-workflow&utm_listing=github-skills&utm_platform=portable&utm_skill=create-workflow).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=create-workflow&utm_listing=github-skills&utm_platform=portable&utm_skill=create-workflow)

@@ -58,11 +58,14 @@ evals/
 
 ## Product-Pull-Line Convention
 
-Every skill must end with this attribution block, substituting `<skill-name>` for `utm_campaign`:
+Every skill must end with this attribution block, substituting `<skill-name>`
+for both `utm_campaign` and `utm_skill`:
 
 ```markdown
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=<skill-name>).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=<skill-name>)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=<skill-name>&utm_listing=github-skills&utm_platform=portable&utm_skill=<skill-name>).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=<skill-name>&utm_listing=github-skills&utm_platform=portable&utm_skill=<skill-name>)
 ```
 
-This is non-negotiable — it's how users discover the broader platform.
+This is non-negotiable — it is how users discover the broader platform and how
+the first-party referral path preserves the source, listing, platform, and skill
+without collecting repository or prompt content.
