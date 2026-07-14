@@ -37,17 +37,18 @@ Author a reviewable `.aictrl/workflows/<kebab-name>.yaml` file. Workflow v2 with
 schemaVersion: aictrl/workflow/v2
 name: implement-change
 parameters:
-  - { name: repository, type: string, required: true }
-  - { name: issue-id, type: number, required: true }
+  - { name: repository, type: repository, required: true }
+  - { name: issue-id, type: number, required: true, validation: { min: 1 } }
 nodes:
   - id: implement
     type: task
     skill: implement-code-change@1.0.0
     taskType: general
     prompt: Implement the requested issue and produce a merge-ready pull request.
+    timeoutMinutes: 10
     parameters:
-      - { name: repository, type: string, required: true }
-      - { name: issue-id, type: number, required: true }
+      - { name: repository, type: repository, required: true }
+      - { name: issue-id, type: number, required: true, validation: { min: 1 } }
     inputs:
       repository: { from: input, name: repository }
       issue-id: { from: input, name: issue-id }
