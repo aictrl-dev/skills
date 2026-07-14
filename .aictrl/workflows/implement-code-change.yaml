@@ -79,10 +79,13 @@ nodes:
       final diff, push one feature branch, and open or update one merge-ready pull
       request. Never merge, deploy, alter repository settings, or broaden scope.
       This is a single 10-minute implementation pass with no automatic retry loop.
-      Finish with exactly one JSON object and no Markdown fence using these keys:
-      base_revision, revision, pull_request_url, checks, and status. revision must
-      be the exact 40-character pull-request head SHA; checks must be a JSON array
-      of command/status summaries; status must be merge-ready or failed.
+      For successful work, finish with exactly one JSON object and no Markdown
+      fence using these keys: base_revision, revision, pull_request_url, checks,
+      and status. revision must be the exact 40-character pull-request head SHA;
+      checks must be a JSON array of command/status summaries; status must be
+      merge-ready. If the work cannot be completed, fail the task with an
+      actionable terminal reason instead of returning a success-shaped JSON
+      object with status failed.
     parameters:
       - name: repository
         label: Repository
