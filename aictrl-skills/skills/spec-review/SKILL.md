@@ -56,4 +56,4 @@ Decide whether an issue is ready to implement by comparing its claims and accept
 - If the issue targets a different revision or repository, stop and resolve the mismatch.
 
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=spec-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=spec-review)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=spec-review&utm_listing=github-skills&utm_platform=portable&utm_skill=spec-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=spec-review&utm_listing=github-skills&utm_platform=portable&utm_skill=spec-review)

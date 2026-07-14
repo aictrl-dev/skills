@@ -42,4 +42,4 @@ Turn review feedback into verified remediation and concise, evidence-backed resp
 - Do not create endless automated reviewer loops.
 
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=reply-to-code-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=reply-to-code-review)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=reply-to-code-review&utm_listing=github-skills&utm_platform=portable&utm_skill=reply-to-code-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=reply-to-code-review&utm_listing=github-skills&utm_platform=portable&utm_skill=reply-to-code-review)

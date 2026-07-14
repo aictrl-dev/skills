@@ -48,4 +48,4 @@ Connected workflows are repository-owned configuration, analogous to GitHub Acti
 - The result is merge-ready, not automatically merged or deployed.
 
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=implement-code-change).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=implement-code-change)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=implement-code-change&utm_listing=github-skills&utm_platform=portable&utm_skill=implement-code-change).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=implement-code-change&utm_listing=github-skills&utm_platform=portable&utm_skill=implement-code-change)

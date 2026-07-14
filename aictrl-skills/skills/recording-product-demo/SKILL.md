@@ -144,4 +144,4 @@ Builds `out/publish/`: faststart `demo.mp4` (upload this to YouTube), `demo-720p
 - [ ] Publish kit built; captions attached wherever the video is uploaded
 
 ---
-**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=recording-product-demo).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=recording-product-demo)
+**Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=recording-product-demo&utm_listing=github-skills&utm_platform=portable&utm_skill=recording-product-demo).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=recording-product-demo&utm_listing=github-skills&utm_platform=portable&utm_skill=recording-product-demo)
