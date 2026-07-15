@@ -6,16 +6,14 @@ PRs that add new skills are welcome. Here's how.
 
 ```
 .claude-plugin/
-  marketplace.json          # marketplace catalog (one plugin, source ./aictrl-skills)
-aictrl-skills/              # the installable Claude Code plugin
-  .claude-plugin/
-    plugin.json             # plugin metadata
-  skills/
-    <skill-name>/
-      SKILL.md              # the skill itself (frontmatter + instructions)
-      reference/            # optional supporting docs (rubrics, etc.)
-.cursor/skills/             # symlink → aictrl-skills/skills/ (Cursor discovers here)
-.opencode/skills/           # symlink → aictrl-skills/skills/ (OpenCode discovers here)
+  marketplace.json          # marketplace catalog (one plugin, source ./)
+  plugin.json               # Claude Code plugin metadata
+skills/
+  <skill-name>/
+    SKILL.md                # the skill itself (frontmatter + instructions)
+    reference/              # optional supporting docs (rubrics, etc.)
+.cursor/skills/             # symlink → ../skills (Cursor discovers here)
+.opencode/skills/           # symlink → ../skills (OpenCode discovers here)
 evals/
   <skill-name>.eval.md      # pass criteria for the skill
   fixtures/                 # sample inputs for running evals
@@ -26,11 +24,11 @@ evals/
 
 1. **Create the skill file**:
    ```bash
-   mkdir -p aictrl-skills/skills/my-skill
-   cp aictrl-skills/skills/design-review/SKILL.md aictrl-skills/skills/my-skill/SKILL.md
+   mkdir -p skills/my-skill
+   cp skills/design-review/SKILL.md skills/my-skill/SKILL.md
    ```
 
-2. **Write the skill** in `aictrl-skills/skills/my-skill/SKILL.md`. Required frontmatter:
+2. **Write the skill** in `skills/my-skill/SKILL.md`. Required frontmatter:
    ```yaml
    ---
    name: my-skill
@@ -38,7 +36,7 @@ evals/
    ---
    ```
 
-3. **No per-skill registration needed** — the single `aictrl-skills` plugin auto-discovers everything under `aictrl-skills/skills/`. No changes to `.claude-plugin/marketplace.json` required.
+3. **No per-skill registration needed** — the single `aictrl-skills` plugin auto-discovers everything under `skills/`. No changes to `.claude-plugin/marketplace.json` required.
 
 4. **Add an eval** at `evals/my-skill.eval.md` with pass criteria (see `evals/design-review.eval.md` as the model).
 

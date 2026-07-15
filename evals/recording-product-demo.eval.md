@@ -9,7 +9,7 @@ agent-level routing check.
 From the repo root, with Node 18+, Python 3 and ffmpeg installed:
 
 ```bash
-SKILL=aictrl-skills/skills/recording-product-demo
+SKILL=skills/recording-product-demo
 FIX=evals/fixtures/recording-product-demo
 WORK=$(mktemp -d)/demo && mkdir -p $WORK/out/voice
 cp $FIX/segments.json $WORK/ && cp $FIX/narration-full.stt.json $WORK/out/voice/
