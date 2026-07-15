@@ -1,0 +1,39 @@
+schemaVersion: aictrl/workflow/v2
+name: review-fix-loop
+label: Review / Fix convergence loop
+description: >-
+  Repeatedly review a PR and apply fixes until the worst finding is at or below
+  `medium` severity, or a hard iteration cap is reached.
+failureStrategy: fail-fast
+
+parameters:
+  - name: pr-url
+    label: Pull Request URL
+    type: pull-request
+    required: true
+
+nodes:
+  - id: review-fix
+    type: loop
+    maxIterations: 5                 # hard cap -> termination guarantee (required)
+    until: "last.review.output.maxSeverityRank <= 2"   # loop-level ref -> last pass (do-while). exit when worst finding <= medium (rank 2; info=0..critical=4)
+    onMaxIterations: fail            # didn't converge in 5 passes -> fail the run
+    body:
+      nodes:
+        # re-reads the (possibly fixed) PR each pass
+        - id: review
+          type: template
+          template: inline-code-review
+          inputs:
+            pr-url: { from: input, name: pr-url }
+
+        # only attempt a fix while findings are still above medium (high/critical)
+        - id: fix
+          type: template
+          template: apply-fixes
+          when: "review.output.maxSeverityRank > 2"
+          inputs:
+            findings: { from: node, node: review, extract: "$.findings[*]" }
+            pr-url: { from: input, name: pr-url }   # fix commits back to the same PR
+      edges:
+        - { from: review, to: fix }

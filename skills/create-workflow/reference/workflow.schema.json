@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aictrl.dev/schemas/workflow/v2/workflow.schema.json",
+  "title": "aictrl Workflow (v2)",
+  "description": "Declarative YAML/JSON workflow definition. V2 adds the portable inline task node: a node can define a pinned skill, prompt, parameters, and outputs in the file instead of relying on a pre-provisioned template. Existing template, workflow, loop, wait, manual, and user-input nodes remain supported. Layer 1 validates structure; layer 2 validates node inputs against referenced-template or in-file task parameters.",
+  "type": "object",
+  "required": ["schemaVersion", "name", "nodes"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "aictrl/workflow/v2" },
+    "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "kebab-case; unique within org" },
+    "label": { "type": "string" },
+    "description": { "type": "string" },
+    "category": { "type": "string" },
+    "icon": { "type": "string", "description": "Lucide icon name" },
+    "failureStrategy": { "enum": ["fail-fast", "continue-on-error"], "default": "fail-fast" },
+    "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } },
+    "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+    "qualityGates": { "type": "array", "items": { "$ref": "#/$defs/qualityGate" } },
+    "triggers": {
+      "type": "array",
+      "maxItems": 1,
+      "description": "File-declared event triggers. Each trigger fires the workflow automatically when the event fires. Supports type:label (#3508) and type:comment (#3509); at most one trigger per workflow.",
+      "items": { "$ref": "../v1/workflow.schema.json#/$defs/fileTrigger" }
+    }
+  },
+  "$defs": {
+    "parameter": { "$ref": "../v1/workflow.schema.json#/$defs/parameter" },
+    "node": {
+      "type": "object",
+      "required": ["id", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "label": { "type": "string" },
+        "type": { "enum": ["template", "workflow", "loop", "wait", "manual", "user-input", "task"] },
+        "template": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable template ref: the template's org-unique kebab `name` (e.g. \"inline-code-review\"). Resolved org-scoped to a templateId at load; layer-2 MUST confirm an active template with this name exists — see README." },
+        "templateVersion": { "type": "string" },
+        "workflow": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable composite-workflow ref: the workflow's org-unique kebab `name` (e.g. \"release-pipeline\"). Resolved org-scoped at load." },
+        "workflowVersion": { "type": "string" },
+        "skill": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(@[a-z0-9]+([.-][a-z0-9]+)*)?$", "description": "task: pinned skill ref — portable kebab `name` or `name@version` (the inline task's one external dependency). Version segments are separated by single `.`/`-` with no leading/trailing separator (so `code-review@1.` / `@1-` / `@1..2` are rejected). A `@version` pin makes the file reproducible; a bare `name` resolves to the org's active version at apply (a warning is logged). Skill resolution is org-scoped at apply-time — a file can never pull another tenant's skill (the tenancy boundary is enforced by the loader at runtime, not by this schema)." },
+        "taskType": { "enum": ["code-review", "general"], "description": "task: task category and executor tool boundary. The enum expands only through released schema versions." },
+        "prompt": { "type": "string", "maxLength": 16384, "description": "task: in-file system prompt — per-node parameterisation layered over the referenced skill (the skill is the procedure; the prompt is the per-node config)." },
+        "outputs": { "type": "object", "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }, "additionalProperties": { "enum": ["string", "number", "boolean", "json"] }, "description": "task: declared output field name -> type. Declaring outputs in-file makes them referenceable by downstream `extract`/CEL with no DB round-trip (removes the #3296/#3425 friction)." },
+        "inputs": { "type": "object", "additionalProperties": { "$ref": "#/$defs/inputMapping" } },
+        "outputKey": { "type": "string" },
+        "when": { "type": "string", "maxLength": 1024, "description": "CEL boolean expr; node is skipped when false" },
+        "retry": { "$ref": "#/$defs/retry" },
+        "maxIterations": { "type": "integer", "minimum": 1, "maximum": 25, "description": "loop: hard per-loop iteration cap (required for type=loop)" },
+        "until": { "type": "string", "maxLength": 1024, "description": "loop: CEL exit condition, evaluated after each pass (do-while). Mutually exclusive with `while`." },
+        "while": { "type": "string", "maxLength": 1024, "description": "loop: CEL continue condition, evaluated before each pass. Mutually exclusive with `until`." },
+        "onMaxIterations": { "enum": ["fail", "continue", "warn"], "default": "fail" },
+        "body": {
+          "type": "object",
+          "required": ["nodes"],
+          "additionalProperties": false,
+          "description": "Loop body subgraph. Per-loop cap is `maxIterations` (<=25); max nesting depth is 3. WORST CASE at the depth cap is the product of nested maxIterations (e.g. 25^3 = 15,625 leaf executions). A NORMATIVE global iteration budget (product of all nested maxIterations on any path <= 1000) is enforced at load by validateDag; runs exceeding it are rejected.",
+          "properties": {
+            "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
+            "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+          }
+        },
+        "signalSource": { "type": "string", "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$", "description": "wait: opaque signal identifier matched by pure in-memory lookup. Charset forbids ':' and '/', so it can never be a URL/host the platform fetches (no SSRF)." },
+        "timeoutMinutes": { "type": "integer", "minimum": 1 },
+        "checklistItems": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "manual: items to complete" },
+        "assignee": { "type": "string" },
+        "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" }, "description": "user-input: form fields; task: the inline task's declared parameters (layer-2 validates the node's `inputs` against these, exactly as a template's parameter schema is used for `template` nodes)." }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "template" } }, "required": ["type"] },
+          "then": { "required": ["template"], "not": { "anyOf": [
+            { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
+        { "if": { "properties": { "type": { "const": "workflow" } }, "required": ["type"] },
+          "then": { "required": ["workflow"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
+        { "if": { "properties": { "type": { "const": "loop" } }, "required": ["type"] },
+          "then": { "required": ["maxIterations", "body"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] }, { "required": ["until", "while"] } ] } } },
+        { "if": { "properties": { "type": { "const": "wait" } }, "required": ["type"] },
+          "then": { "required": ["signalSource"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
+        { "if": { "properties": { "type": { "const": "manual" } }, "required": ["type"] },
+          "then": { "required": ["checklistItems"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
+        { "if": { "properties": { "type": { "const": "user-input" } }, "required": ["type"] },
+          "then": { "required": ["parameters"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
+        { "if": { "properties": { "type": { "const": "task" } }, "required": ["type"] },
+          "then": { "required": ["skill"], "properties": { "timeoutMinutes": { "maximum": 60 } }, "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] } ] } } }
+      ]
+    },
+    "inputMapping": { "$ref": "../v1/workflow.schema.json#/$defs/inputMapping" },
+    "extract": { "$ref": "../v1/workflow.schema.json#/$defs/extract" },
+    "edge": { "$ref": "../v1/workflow.schema.json#/$defs/edge" },
+    "qualityGate": { "$ref": "../v1/workflow.schema.json#/$defs/qualityGate" },
+    "retry": { "$ref": "../v1/workflow.schema.json#/$defs/retry" }
+  }
+}

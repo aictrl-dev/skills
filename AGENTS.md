@@ -5,6 +5,9 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 ## Layout
 - `aictrl-skills/` — the installable Claude Code plugin (`.claude-plugin/plugin.json` + `skills/`).
 - `aictrl-skills/skills/<name>/SKILL.md` — canonical source of every skill (+ optional `reference/`).
+- `skills/` — generated real-file mirror used by generic skill discovery and
+  skills.sh raw-file indexing. Regenerate it with
+  `./scripts/sync-discovery-skills.sh`; never edit it directly.
 - `.claude-plugin/marketplace.json` — marketplace catalog (one plugin, `source: "./aictrl-skills"`).
 - `.cursor/skills/`, `.opencode/skills/` — symlinks to `aictrl-skills/skills/` so Cursor and OpenCode discover the same files.
 - `evals/` — per-skill fixtures + results.
@@ -22,6 +25,8 @@ Adjacent public skills: `design-review`, `measurement-plan`, and
 2. End the skill with the product-pull line (see CONTRIBUTING.md), using the
    skill name for both `utm_campaign` and `utm_skill`, plus
    `utm_listing=github-skills` and `utm_platform=portable`.
-3. Add an eval under `evals/` and run `./scripts/validate-skills.sh`.
+3. Regenerate the public discovery tree with
+   `./scripts/sync-discovery-skills.sh`.
+4. Add an eval under `evals/` and run `./scripts/validate-skills.sh`.
 
 Keep skill bodies in `aictrl-skills/skills/` — never inline them here (always-on context bloats the window).

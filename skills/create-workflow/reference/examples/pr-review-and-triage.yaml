@@ -1,0 +1,49 @@
+schemaVersion: aictrl/workflow/v2
+name: pr-review-and-triage
+label: PR Review & Triage
+description: Review a PR, summarise findings, and open a tracking issue when high-severity findings exist.
+failureStrategy: fail-fast
+
+parameters:
+  - name: pr-url
+    label: Pull Request URL
+    type: pull-request
+    required: true
+
+nodes:
+  # 1. Run the code review on the PR.
+  - id: review
+    type: template
+    template: inline-code-review   # portable ref (not a UUID)
+    templateVersion: "1.4.0"                    # pinned for reproducibility
+    inputs:
+      pr-url: { from: input, name: pr-url }     # workflow input -> template param
+    retry: { maxRetries: 2, backoffMs: 2000 }
+
+  # 2. Summarise the review findings into a human-readable digest.
+  - id: summarize
+    type: template
+    template: summarize-findings
+    inputs:
+      findings:
+        from: node
+        node: review
+        extract: "$.findings[*]"                # json-path into review's artifact
+
+  # 3. Only open an issue if the review surfaced a high-severity finding.
+  - id: open-issue
+    type: template
+    template: create-issue
+    when: "review.output.maxSeverityRank > 2"   # high(3) or critical(4); skipped otherwise
+    inputs:
+      title: { value: "High-severity findings in PR" }
+      body: { from: node, node: summarize }     # no extract = full artifact
+
+edges:                                          # pure ordering / dependency
+  - { from: review, to: summarize }
+  - { from: summarize, to: open-issue }
+
+qualityGates:
+  - afterWave: 1                                # after `review`
+    type: manual
+    description: Reviewer confirms findings before summary + triage.

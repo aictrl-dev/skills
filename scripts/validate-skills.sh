@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SKILLS="$ROOT/aictrl-skills/skills"
+DISCOVERY_SKILLS="$ROOT/skills"
 
 expected=(
   code-review create-bug create-issue create-workflow design-review
@@ -33,6 +34,16 @@ done
 
 if find "$SKILLS" -type l -print -quit | grep -q .; then
   echo "Canonical skill bundle must not contain symlinks"
+  exit 1
+fi
+
+if [[ ! -d "$DISCOVERY_SKILLS" ]] || find "$DISCOVERY_SKILLS" -type l -print -quit | grep -q .; then
+  echo "Public discovery tree must exist as real files at skills/"
+  exit 1
+fi
+
+if ! diff -qr "$SKILLS" "$DISCOVERY_SKILLS"; then
+  echo "Public discovery tree has drifted; run ./scripts/sync-discovery-skills.sh"
   exit 1
 fi
 

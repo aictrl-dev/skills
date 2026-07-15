@@ -1,0 +1,389 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aictrl.dev/schemas/workflow/v1/workflow.schema.json",
+  "title": "aictrl Workflow (v1)",
+  "description": "Declarative YAML/JSON workflow definition. Layer 1 validates structure; layer 2 validates each node's inputs against the referenced template's parameter schema. Conditions use the Common Expression Language (CEL).",
+  "type": "object",
+  "required": ["schemaVersion", "name", "nodes"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "aictrl/workflow/v1" },
+    "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "kebab-case; unique within org" },
+    "label": { "type": "string" },
+    "description": { "type": "string" },
+    "category": { "type": "string" },
+    "icon": { "type": "string", "description": "Lucide icon name" },
+    "failureStrategy": { "enum": ["fail-fast", "continue-on-error"], "default": "fail-fast" },
+    "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } },
+    "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+    "qualityGates": { "type": "array", "items": { "$ref": "#/$defs/qualityGate" } },
+    "triggers": {
+      "type": "array",
+      "maxItems": 10,
+      "description": "File-declared event triggers. Each trigger fires the workflow automatically when its event fires. Supports label, comment, pr-ready, pr-opened, and chat-message triggers; up to 10 triggers per workflow.",
+      "items": { "$ref": "#/$defs/fileTrigger" }
+    }
+  },
+  "$defs": {
+    "parameter": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "label": { "type": "string" },
+        "type": {
+          "enum": ["string", "text", "number", "boolean", "url", "select", "multi-select", "json", "repository", "pull-request", "story", "image", "github-issue"]
+        },
+        "description": { "type": "string" },
+        "required": { "type": "boolean", "default": false },
+        "default": {},
+        "options": { "type": "array", "items": { "type": "string" } },
+        "validation": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "enum": ["select", "multi-select"] } }, "required": ["type"] },
+          "then": { "required": ["options"], "properties": { "options": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "type": { "not": { "enum": ["select", "multi-select"] } } }, "required": ["type"] },
+          "then": { "not": { "required": ["options"] } }
+        }
+      ]
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "label": { "type": "string" },
+        "type": { "enum": ["template", "workflow", "loop", "wait", "manual", "user-input"] },
+        "template": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable template reference using the template's organization-unique kebab-case name. The reference resolves within the organization when the workflow is loaded, and an active matching template must exist." },
+        "templateVersion": { "type": "string" },
+        "workflow": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable composite-workflow ref: the workflow's org-unique kebab `name` (e.g. \"release-pipeline\"). Resolved org-scoped at load." },
+        "workflowVersion": { "type": "string" },
+        "inputs": { "type": "object", "additionalProperties": { "$ref": "#/$defs/inputMapping" } },
+        "outputKey": { "type": "string" },
+        "when": { "type": "string", "maxLength": 1024, "description": "CEL boolean expr; node is skipped when false" },
+        "retry": { "$ref": "#/$defs/retry" },
+        "maxIterations": { "type": "integer", "minimum": 1, "maximum": 25, "description": "loop: hard per-loop iteration cap (required for type=loop)" },
+        "until": { "type": "string", "maxLength": 1024, "description": "loop: CEL exit condition, evaluated after each pass (do-while). Mutually exclusive with `while`." },
+        "while": { "type": "string", "maxLength": 1024, "description": "loop: CEL continue condition, evaluated before each pass. Mutually exclusive with `until`." },
+        "onMaxIterations": { "enum": ["fail", "continue", "warn"], "default": "fail" },
+        "body": {
+          "type": "object",
+          "required": ["nodes"],
+          "additionalProperties": false,
+          "description": "Loop body subgraph. Each loop is capped by maxIterations (at most 25), nesting depth is limited to 3, and the product of nested maxIterations on any path must not exceed 1000.",
+          "properties": {
+            "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
+            "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+          }
+        },
+        "signalSource": { "type": "string", "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$", "description": "wait: opaque signal identifier matched by pure in-memory lookup. Charset forbids ':' and '/', so it can never be a URL/host the platform fetches (no SSRF)." },
+        "timeoutMinutes": { "type": "integer", "minimum": 1 },
+        "checklistItems": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "manual: items to complete" },
+        "assignee": { "type": "string" },
+        "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" }, "description": "user-input: form fields" }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "template" } }, "required": ["type"] },
+          "then": { "required": ["template"], "not": { "anyOf": [
+            { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] } ] } } },
+        { "if": { "properties": { "type": { "const": "workflow" } }, "required": ["type"] },
+          "then": { "required": ["workflow"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] } ] } } },
+        { "if": { "properties": { "type": { "const": "loop" } }, "required": ["type"] },
+          "then": { "required": ["maxIterations", "body"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["until", "while"] } ] } } },
+        { "if": { "properties": { "type": { "const": "wait" } }, "required": ["type"] },
+          "then": { "required": ["signalSource"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] } ] } } },
+        { "if": { "properties": { "type": { "const": "manual" } }, "required": ["type"] },
+          "then": { "required": ["checklistItems"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["parameters"] } ] } } },
+        { "if": { "properties": { "type": { "const": "user-input" } }, "required": ["type"] },
+          "then": { "required": ["parameters"], "not": { "anyOf": [
+            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] } ] } } }
+      ]
+    },
+    "inputMapping": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["value"],
+          "additionalProperties": false,
+          "properties": { "value": {} },
+          "description": "Static value (-> StaticMapping)"
+        },
+        {
+          "type": "object",
+          "required": ["from", "name"],
+          "additionalProperties": false,
+          "properties": { "from": { "const": "input" }, "name": { "type": "string" } },
+          "description": "Workflow-level input (-> WorkflowParamMapping)"
+        },
+        {
+          "type": "object",
+          "required": ["from", "node"],
+          "additionalProperties": false,
+          "properties": {
+            "from": { "const": "node" },
+            "node": { "type": "string" },
+            "extract": { "$ref": "#/$defs/extract" }
+          },
+          "description": "Upstream node output (-> NodeOutputMapping); no extract = full artifact"
+        }
+      ]
+    },
+    "extract": {
+      "oneOf": [
+        { "type": "string", "maxLength": 2048, "description": "shorthand equivalent to { method: json-path, expression: <string> }; use the object form for full" },
+        {
+          "type": "object",
+          "required": ["method"],
+          "additionalProperties": false,
+          "properties": {
+            "method": { "enum": ["full", "json-path"], "description": "v1 supports full | json-path. regex/template are deferred until a linear-time matcher (RE2) and a non-evaluating template grammar land — they are ReDoS/injection surfaces on untrusted, PR-derived content." },
+            "expression": { "type": "string", "maxLength": 2048 }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "method": { "const": "json-path" } }, "required": ["method"] },
+              "then": { "required": ["expression"] }
+            }
+          ]
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" }
+      }
+    },
+    "qualityGate": {
+      "type": "object",
+      "required": ["afterWave", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "afterWave": { "type": "integer", "minimum": 1 },
+        "type": { "enum": ["auto", "manual"] },
+        "condition": { "type": "string", "maxLength": 1024, "description": "auto gates: CEL boolean expr (required when type=auto)" },
+        "description": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "auto" } }, "required": ["type"] },
+          "then": { "required": ["condition"] }
+        }
+      ]
+    },
+    "retry": {
+      "type": "object",
+      "required": ["maxRetries", "backoffMs"],
+      "additionalProperties": false,
+      "properties": {
+        "maxRetries": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "backoffMs": { "type": "integer", "minimum": 0 },
+        "backoffMultiplier": { "type": "number", "minimum": 0, "maximum": 10 },
+        "maxBackoffMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "fileTrigger": {
+      "description": "A file-declared trigger in the workflow triggers block. Supported type values are label, comment, pr-ready, pr-opened, and chat-message; any other type is rejected.",
+      "oneOf": [
+        { "$ref": "#/$defs/labelTrigger" },
+        { "$ref": "#/$defs/commentTrigger" },
+        { "$ref": "#/$defs/prReadyTrigger" },
+        { "$ref": "#/$defs/prOpenedTrigger" },
+        { "$ref": "#/$defs/chatMessageTrigger" }
+      ]
+    },
+    "chatMessageTrigger": {
+      "type": "object",
+      "required": ["type", "provider", "command"],
+      "additionalProperties": false,
+      "description": "Fires the workflow when a supported chat provider receives a message whose first token equals command. This trigger is not pull-request scoped and has no on field. Its inputs map workflow parameter names to chat-source and field-path objects instead of JSONPath strings.",
+      "properties": {
+        "type": { "const": "chat-message" },
+        "provider": {
+          "enum": ["telegram", "slack", "discord"],
+          "description": "Chat provider. Telegram supports runtime execution; Slack and Discord configurations can be stored but do not yet start workflow runs."
+        },
+        "command": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^/[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "description": "Slash command that fires this trigger when it is the first whitespace-delimited token of a chat message (e.g. `/run-review`). Same grammar as the comment trigger; matched exactly and case-sensitively."
+        },
+        "chats": {
+          "type": "array",
+          "description": "Optional allowlist of chat/channel ids this trigger fires for. Ints (Telegram) or strings (Slack/Discord) — stored as text. Omit to fire for any chat. Max 100 entries.",
+          "items": { "type": ["string", "integer"] },
+          "maxItems": 100
+        },
+        "acceptPhotos": {
+          "type": "boolean",
+          "description": "Whether photo attachments on the triggering message are accepted as inputs. Default true."
+        },
+        "sendConfirmation": {
+          "type": "boolean",
+          "description": "Whether to post an acknowledgement message back to the chat when the run starts. Default true."
+        },
+        "sendCompletion": {
+          "type": "boolean",
+          "description": "Whether to post a completion message back to the chat when the run finishes. Default false."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Maps workflow parameter names (keys) to chat input mappings (values). Each value is a `{ from, field }` object — NOT a JSONPath string. Max 20 entries.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["from", "field"],
+            "additionalProperties": false,
+            "description": "A chat input mapping: `from` selects the event source object, `field` is a dot-path into it.",
+            "properties": {
+              "from": {
+                "enum": ["message", "channel_post", "interaction"],
+                "description": "The chat event source object the `field` dot-path reads from."
+              },
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Dot-path into the `from` object (e.g. `text`, `photo.0.file_id`). NOT a JSONPath expression."
+              }
+            }
+          },
+          "maxProperties": 20,
+          "minProperties": 0
+        }
+      }
+    },
+    "commentTrigger": {
+      "type": "object",
+      "required": ["type", "on", "command", "inputs"],
+      "additionalProperties": false,
+      "description": "File-declared comment trigger: fires the workflow when an `issue_comment.created` event arrives on a PR and the comment's first token equals `command`. `inputs` maps workflow parameter names to JSONPath expressions evaluated against the GitHub `issue_comment` webhook payload. SECURITY (enforced at event time): only comments from a repo collaborator with write/admin permission fire the trigger; bot comments and comment edits are ignored.",
+      "properties": {
+        "type": { "const": "comment" },
+        "on": {
+          "const": "pull-request",
+          "description": "The event category. Must be `pull-request`; the comment must be on a PR (issue comments on non-PR issues are ignored)."
+        },
+        "command": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^/[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "description": "Slash command that fires this trigger when it is the first whitespace-delimited token of a PR comment (e.g. `/review-fix`). Matched exactly and case-sensitively — `/review-fix` fires but `/review-fixes` does not."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) evaluated against the `issue_comment.created` webhook payload. Unresolvable expressions throw at fire time. Max 20 entries.",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200,
+            "pattern": "^\\$",
+            "description": "JSONPath expression starting with `$`."
+          },
+          "maxProperties": 20,
+          "minProperties": 0
+        }
+      }
+    },
+    "labelTrigger": {
+      "type": "object",
+      "required": ["type", "on", "label", "inputs"],
+      "additionalProperties": false,
+      "description": "File-declared label trigger: fires the workflow when `pull_request.labeled` arrives with a matching label. `inputs` maps workflow parameter names to JSONPath expressions evaluated against the GitHub webhook payload.",
+      "properties": {
+        "type": { "const": "label" },
+        "on": {
+          "const": "pull-request",
+          "description": "The event category. Must be pull-request; labels on other event types are not supported."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "description": "Exact GitHub label name to match (case-sensitive)."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) that are evaluated against the `pull_request.labeled` webhook payload. Unresolvable expressions throw at fire time. Max 20 entries.",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200,
+            "pattern": "^\\$",
+            "description": "JSONPath expression starting with `$`."
+          },
+          "maxProperties": 20,
+          "minProperties": 0
+        }
+      }
+    },
+    "prReadyTrigger": {
+      "type": "object",
+      "required": ["type", "on", "inputs"],
+      "additionalProperties": false,
+      "description": "Fires the workflow when a pull request becomes ready for review or is opened as a non-draft. Opening a draft does not fire this trigger. Inputs map workflow parameter names to JSONPath expressions evaluated against the pull-request webhook payload.",
+      "properties": {
+        "type": { "const": "pr-ready" },
+        "on": {
+          "const": "pull-request",
+          "description": "The event category. Must be `pull-request`."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) evaluated against the `pull_request` webhook payload. Unresolvable expressions throw at fire time. Max 20 entries.",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200,
+            "pattern": "^\\$",
+            "description": "JSONPath expression starting with `$`."
+          },
+          "maxProperties": 20,
+          "minProperties": 0
+        }
+      }
+    },
+    "prOpenedTrigger": {
+      "type": "object",
+      "required": ["type", "on", "inputs"],
+      "additionalProperties": false,
+      "description": "Fires the workflow when a pull request is opened, including draft pull requests. Inputs map workflow parameter names to JSONPath expressions evaluated against the pull-request webhook payload.",
+      "properties": {
+        "type": { "const": "pr-opened" },
+        "on": {
+          "const": "pull-request",
+          "description": "The event category. Must be `pull-request`."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) evaluated against the `pull_request` webhook payload. Unresolvable expressions throw at fire time. Max 20 entries.",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200,
+            "pattern": "^\\$",
+            "description": "JSONPath expression starting with `$`."
+          },
+          "maxProperties": 20,
+          "minProperties": 0
+        }
+      }
+    }
+  }
+}

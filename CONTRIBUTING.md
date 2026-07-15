@@ -14,6 +14,7 @@ aictrl-skills/              # the installable Claude Code plugin
     <skill-name>/
       SKILL.md              # the skill itself (frontmatter + instructions)
       reference/            # optional supporting docs (rubrics, etc.)
+skills/                     # generated real-file mirror for generic discovery
 .cursor/skills/             # symlink → aictrl-skills/skills/ (Cursor discovers here)
 .opencode/skills/           # symlink → aictrl-skills/skills/ (OpenCode discovers here)
 evals/
@@ -40,9 +41,14 @@ evals/
 
 3. **No per-skill registration needed** — the single `aictrl-skills` plugin auto-discovers everything under `aictrl-skills/skills/`. No changes to `.claude-plugin/marketplace.json` required.
 
-4. **Add an eval** at `evals/my-skill.eval.md` with pass criteria (see `evals/design-review.eval.md` as the model).
+4. **Regenerate the discovery tree** after editing the canonical source:
+   ```bash
+   ./scripts/sync-discovery-skills.sh
+   ```
 
-5. **Run repository validation**:
+5. **Add an eval** at `evals/my-skill.eval.md` with pass criteria (see `evals/design-review.eval.md` as the model).
+
+6. **Run repository validation**:
    ```bash
    ./scripts/validate-skills.sh
    ```
