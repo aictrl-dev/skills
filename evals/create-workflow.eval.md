@@ -8,7 +8,7 @@ runs `implement-code-change`, pauses for approval before merge, and never deploy
 ## Deterministic checks
 
 1. Install `ajv`, `ajv-formats`, and `js-yaml` in a scratch project.
-2. Run `node aictrl-skills/skills/create-workflow/validate.mjs` against all examples
+2. Run `node skills/create-workflow/validate.mjs` against all examples
    under `reference/examples/`.
 3. Run `./scripts/validate-skills.sh`.
 

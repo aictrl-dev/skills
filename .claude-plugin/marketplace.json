@@ -1,10 +1,11 @@
 {
   "name": "aictrl-oss",
+  "description": "Free, vendor-neutral AI engineering-workflow skills by aictrl.dev",
   "owner": { "name": "aictrl" },
   "plugins": [
     {
       "name": "aictrl-skills",
-      "source": "./aictrl-skills",
+      "source": "./",
       "description": "Eleven vendor-neutral engineering skills for issue creation, implementation, code review, workflow authoring, design, measurement, and demos.",
       "version": "1.0.0",
       "author": { "name": "aictrl" },
