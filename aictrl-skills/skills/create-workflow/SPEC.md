@@ -41,6 +41,14 @@ The offline validator proves schema structure, duplicate/dangling node checks, c
 When the public workflow schema changes:
 
 1. Copy the released v2 schema and examples from the public AICtrl source release.
-2. Remove stale release-state annotations and internal-only references without changing validation keywords.
-3. Run `evals/create-workflow.eval.md` and all repository skill checks.
-4. Record the source tag or commit and checksums in the release provenance file.
+2. Copy the released v1 schema into `reference/v1/workflow.schema.json` so v2 references resolve offline.
+3. Remove stale release-state annotations and internal-only references without changing validation keywords.
+4. Compare normalized schemas with `description` annotations removed; every remaining validation keyword and value must match the source release.
+5. Run `evals/create-workflow.eval.md` and all repository skill checks.
+6. Update the provenance record below and regenerate `CHECKSUMS.sha256`.
+
+## Provenance
+
+| Bundle | Source | Source commit | Released | Normalized SHA-256 |
+|---|---|---|---|---|
+| `reference/v1/workflow.schema.json` | `aictrl-dev/aictrl/schemas/workflow/v1/workflow.schema.json` | `58dd5b2d5182b94dae638b212aa329b83aec5704` | 2026-07-15 | `82b1b1b5a4bb4a36068760b540b8ccc7211e088d7c4e80c5941935c69adc3872` |
