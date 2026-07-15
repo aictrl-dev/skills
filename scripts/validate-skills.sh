@@ -74,9 +74,12 @@ if find "$SKILLS" -type l -print -quit | grep -q .; then
 fi
 
 if rg -n --hidden -S \
-  '(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' \
-  "$SKILLS"; then
-  echo "Potential secret found"
+  '(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|(^|[^A-Za-z0-9])sk-(proj-)?[A-Za-z0-9_-]{20,}|(^|[^A-Za-z0-9])sk_(live|test)_[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' \
+  "$ROOT" \
+  -g '!.git/**' \
+  -g '!node_modules/**' \
+  -g '!package-lock.json'; then
+  echo "Potential secret found in the public distribution"
   exit 1
 fi
 
