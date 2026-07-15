@@ -112,6 +112,24 @@ test('OpenCode install fails closed on malformed existing configuration', () => 
   }
 });
 
+test('OpenCode install rejects ambiguous arguments without writing state', () => {
+  const temp = mkdtempSync(join(tmpdir(), 'aictrl-opencode-arguments-'));
+  const configRoot = join(temp, 'config');
+  try {
+    const result = spawnSync(process.execPath, [
+      join(ROOT, 'opencode/bin/install.js'), '--project', '--uninstall',
+    ], {
+      env: { ...process.env, XDG_CONFIG_HOME: configRoot, HOME: join(temp, 'home') },
+      encoding: 'utf8',
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /--project requires a directory/);
+    assert.equal(existsSync(configRoot), false);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+});
+
 test('npm package contains every canonical skill and no repository-only files', () => {
   const result = JSON.parse(execFileSync('npm', [
     'pack', '.', '--dry-run', '--json', '--ignore-scripts',

@@ -13,10 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const args = new Set(process.argv.slice(2));
-const projectIndex = process.argv.indexOf('--project');
-const projectRoot = projectIndex === -1 ? null : process.argv[projectIndex + 1];
-if (projectIndex !== -1 && !projectRoot) fail('--project requires a directory');
+const { projectRoot, uninstall } = parseArguments(process.argv.slice(2));
 
 const configRoot = projectRoot
   ? resolve(projectRoot, '.opencode')
@@ -32,11 +29,11 @@ const mcpUrl = readMcpUrl();
 readPackageMetadata();
 const config = readConfig(configFile);
 
-if (args.has('--uninstall')) {
+if (uninstall) {
   for (const skill of skillNames) {
     rmSync(join(skillsRoot, skill), { recursive: true, force: true });
   }
-  if (config.mcp && typeof config.mcp === 'object' && !Array.isArray(config.mcp)) {
+  if (config.mcp && Object.hasOwn(config.mcp, 'aictrl')) {
     delete config.mcp.aictrl;
     if (Object.keys(config.mcp).length === 0) delete config.mcp;
     writeJson(configFile, config);
@@ -52,9 +49,7 @@ for (const skill of skillNames) {
   cpSync(join(sourceSkills, skill), target, { recursive: true });
 }
 
-const mcp = config.mcp && typeof config.mcp === 'object' && !Array.isArray(config.mcp)
-  ? config.mcp
-  : {};
+const mcp = config.mcp || {};
 mcp.aictrl = {
   type: 'remote',
   url: mcpUrl,
@@ -104,10 +99,40 @@ function readConfig(file) {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       fail(`${file} must contain a JSON object`);
     }
+    if (
+      Object.hasOwn(parsed, 'mcp')
+      && (!parsed.mcp || typeof parsed.mcp !== 'object' || Array.isArray(parsed.mcp))
+    ) {
+      fail(`${file}.mcp must contain a JSON object`);
+    }
     return parsed;
   } catch (error) {
     fail(`Cannot parse ${file}: ${error.message}`);
   }
+}
+
+function parseArguments(argv) {
+  let projectRoot = null;
+  let uninstall = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === '--uninstall') {
+      uninstall = true;
+      continue;
+    }
+    if (argument === '--project') {
+      const directory = argv[index + 1];
+      if (!directory || directory.startsWith('--')) fail('--project requires a directory');
+      if (projectRoot !== null) fail('--project may be specified only once');
+      projectRoot = directory;
+      index += 1;
+      continue;
+    }
+    fail(`Unknown argument: ${argument}`);
+  }
+
+  return { projectRoot, uninstall };
 }
 
 function writeJson(file, value) {
