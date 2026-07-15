@@ -1,24 +1,37 @@
 [![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-11-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/skills)
 
-# aictrl Skills
+# AICtrl engineering skills and plugin
 
-Eleven free, vendor-neutral AI engineering-workflow skills. Eight cover the core
-issue → implementation → review loop and work locally before you connect AICtrl.
+Eleven free, vendor-neutral AI engineering-workflow skills in one canonical
+tree. Install the skills alone, or install the AICtrl plugin to add the same
+skills plus OAuth-connected controlled workflow execution.
 
 ## Install
 
-**Codex, Claude Code, OpenCode, and compatible agents**
+**Skills only — Codex, Claude Code, OpenCode, and compatible agents**
 ```bash
 npx skills add aictrl-dev/skills
 ```
 
-**Claude Code marketplace**
+**Claude Code plugin**
 ```
 /plugin marketplace add aictrl-dev/skills
-/plugin install aictrl-skills@aictrl-oss
+/plugin install aictrl@aictrl-public
 ```
 
-**Cursor / OpenCode** — skills use the cross-tool [Agent Skills](https://agentskills.io) standard:
+**Codex plugin**
+```bash
+codex plugin marketplace add aictrl-dev/skills --ref main
+codex plugin add aictrl@aictrl-public
+```
+
+**OpenCode plugin package**
+```bash
+npx @aictrl/opencode@beta
+opencode mcp auth aictrl
+```
+
+**Cursor / direct OpenCode skills** — skills use the cross-tool [Agent Skills](https://agentskills.io) standard:
 ```
 git clone https://github.com/aictrl-dev/skills && cd skills
 ./scripts/install.sh cursor       # or: opencode | all
@@ -67,10 +80,13 @@ adds controlled remote execution, approvals, policy, history, integrations, and
 cost limits. The first connected path is `implement-code-change`; local mode
 remains available for every launch skill.
 
-For pinned public packages and connected install paths across Claude Code,
-Codex, and OpenCode, see
-[`aictrl-dev/aictrl-plugin`](https://github.com/aictrl-dev/aictrl-plugin).
+The Claude, Codex, and OpenCode distributions in this repository all consume
+the root `skills/` directory directly. There are no vendor-specific copies to
+repin or hand-edit. Connected execution always uses the `aictrl` MCP identity at
+`https://aictrl.dev/mcp`; OAuth is requested only when a connected workflow is
+used.
 
 ## Contributing
 
 PRs that add skills are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Release owners should also follow [the public plugin release runbook](docs/public-release.md).

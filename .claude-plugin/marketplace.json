@@ -1,14 +1,19 @@
 {
-  "name": "aictrl-oss",
-  "description": "Free, vendor-neutral AI engineering-workflow skills by aictrl.dev",
-  "owner": { "name": "aictrl" },
+  "name": "aictrl-public",
+  "description": "Portable engineering skills with optional controlled AICtrl workflow execution",
+  "owner": {
+    "name": "aictrl.dev",
+    "email": "support@aictrl.dev"
+  },
   "plugins": [
     {
-      "name": "aictrl-skills",
+      "name": "aictrl",
       "source": "./",
-      "description": "Eleven vendor-neutral engineering skills for issue creation, implementation, code review, workflow authoring, design, measurement, and demos.",
-      "version": "1.0.0",
-      "author": { "name": "aictrl" },
+      "description": "Eleven portable engineering skills with optional controlled AICtrl workflow execution",
+      "version": "1.1.0-beta.1",
+      "author": {
+        "name": "aictrl.dev"
+      },
       "homepage": "https://aictrl.dev",
       "tags": ["engineering", "sdlc", "code-review", "github", "workflow", "agent-skills"]
     }

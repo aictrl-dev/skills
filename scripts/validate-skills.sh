@@ -15,6 +15,22 @@ expected=(
   exit 1
 }
 
+required_public_files=(
+  .agents/plugins/marketplace.json
+  .claude-plugin/marketplace.json
+  .codex-plugin/plugin.json
+  .mcp.json
+  assets/icon.svg
+  opencode/bin/install.js
+  package.json
+)
+for required in "${required_public_files[@]}"; do
+  [[ -f "$ROOT/$required" ]] || {
+    echo "Missing public plugin file: $required"
+    exit 1
+  }
+done
+
 grep -Fq '"source": "./"' "$ROOT/.claude-plugin/marketplace.json" || {
   echo "Claude Code marketplace must install the repository-root plugin"
   exit 1

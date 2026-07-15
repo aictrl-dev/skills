@@ -13,7 +13,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate catalog, metadata, portability, and secrets
-        run: ./scripts/validate-skills.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Test public distribution contracts
+        run: npm test
+      - name: Validate catalog, plugin metadata, portability, and secrets
+        run: npm run validate
       - name: Verify release checksums are current
         run: diff -u CHECKSUMS.sha256 <(./scripts/generate-checksums.sh)
+
+  claude-clean-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm install --global @anthropic-ai/claude-code@2.1.210
+      - name: Test Claude marketplace install, reinstall, and uninstall
+        env:
+          AICTRL_CLAUDE_MARKETPLACE_SOURCE: ${{ github.event.pull_request.head.repo.full_name || github.repository }}@${{ github.head_ref || github.ref_name }}
+        run: npm run smoke:claude
+
+  codex-clean-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm install --global @openai/codex@0.144.4
+      - name: Test Codex root marketplace install, upgrade, and uninstall
+        run: npm run smoke:codex
+
+  opencode-clean-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm install --global opencode-ai@1.18.1
+      - name: Test packed OpenCode install, OAuth boundary, and uninstall
+        env:
+          AICTRL_OPENCODE_CONNECTIVITY_ORIGIN: https://sandbox.aictrl.dev
+        run: npm run smoke:opencode

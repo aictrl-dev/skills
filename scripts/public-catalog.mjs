@@ -1,0 +1,31 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const PUBLIC_MCP_URL = 'https://aictrl.dev/mcp';
+export const EXPECTED_SKILLS = Object.freeze([
+  'code-review',
+  'create-bug',
+  'create-issue',
+  'create-workflow',
+  'design-review',
+  'implement-code-change',
+  'judge-review-findings',
+  'measurement-plan',
+  'recording-product-demo',
+  'reply-to-code-review',
+  'spec-review',
+]);
+
+export function listSkillNames(root = ROOT) {
+  const skillsRoot = join(root, 'skills');
+  return readdirSync(skillsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(skillsRoot, entry.name, 'SKILL.md')))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+export function readJson(relativePath, root = ROOT) {
+  return JSON.parse(readFileSync(join(root, relativePath), 'utf8'));
+}
