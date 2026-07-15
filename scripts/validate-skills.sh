@@ -25,6 +25,10 @@ for name in "${actual[@]}"; do
   grep -qx "name: $name" <<<"$frontmatter" || { echo "$name: frontmatter name must match folder"; exit 1; }
   grep -q '^description: .*Use when ' <<<"$frontmatter" || { echo "$name: description must state what it does and when to use it"; exit 1; }
   grep -q "utm_campaign=$name" "$file" || { echo "$name: missing product attribution campaign"; exit 1; }
+  attribution="utm_source=oss-skills&utm_medium=skill&utm_campaign=$name&utm_listing=github-skills&utm_platform=portable&utm_skill=$name"
+  grep -Fq "$attribution" "$file" || { echo "$name: missing canonical product attribution dimensions"; exit 1; }
+  attribution_count="$(grep -Fo "$attribution" "$file" | wc -l)"
+  [[ "$attribution_count" -eq 2 ]] || { echo "$name: expected canonical attribution on both product links"; exit 1; }
 done
 
 if find "$SKILLS" -type l -print -quit | grep -q .; then
