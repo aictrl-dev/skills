@@ -11,6 +11,7 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 - `.mcp.json` — the single public `aictrl` MCP server declaration.
 - `.cursor/skills/`, `.opencode/skills/` — compatibility symlinks to `skills/` so Cursor and OpenCode discover the same files.
 - `opencode/bin/install.js` — npm adapter that installs the root skills and MCP config; it must never carry a second skills tree.
+- `submission/` — reviewer fixtures, portal copy, exact Codex test cases, and OpenCode Ecosystem instructions for the same root release.
 - `evals/` — per-skill fixtures + results.
 
 ## Launch skills

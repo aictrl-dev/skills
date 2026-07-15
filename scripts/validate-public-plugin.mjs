@@ -71,7 +71,16 @@ check(pkg.publishConfig?.tag === 'beta', 'Pre-release package must publish on th
 for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills']) {
   check(!existsSync(join(ROOT, duplicate)), `Generated skill mirror is forbidden: ${duplicate}`);
 }
-for (const required of ['.mcp.json', 'assets/icon.svg', 'opencode/bin/install.js']) {
+for (const required of [
+  '.mcp.json',
+  'assets/icon.svg',
+  'opencode/bin/install.js',
+  'submission/codex/listing.md',
+  'submission/codex/readiness.md',
+  'submission/codex/reviewer-fixture.md',
+  'submission/codex/test-cases.md',
+  'submission/opencode/ecosystem.md',
+]) {
   check(existsSync(join(ROOT, required)), `Missing public plugin file: ${required}`);
 }
 

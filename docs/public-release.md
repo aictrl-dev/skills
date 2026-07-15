@@ -65,3 +65,8 @@ their marketplace listing only after the tagged Git artifact and clean-client
 tests pass. Portal-issued challenge values, reviewer credentials, OAuth
 secrets, and recovery codes are operational secrets and must not be committed
 or stored in release evidence.
+
+Use `submission/codex/readiness.md` as the Codex submission gate and
+`submission/opencode/ecosystem.md` for the OpenCode upstream sequence. Neither
+submission nor approval counts as publication; close the vendor issue only
+after a clean user installs from the live directory/listing.
