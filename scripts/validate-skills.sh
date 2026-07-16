@@ -15,6 +15,22 @@ expected=(
   exit 1
 }
 
+required_public_files=(
+  .agents/plugins/marketplace.json
+  .claude-plugin/marketplace.json
+  .codex-plugin/plugin.json
+  .mcp.json
+  assets/icon.svg
+  opencode/bin/install.js
+  package.json
+)
+for required in "${required_public_files[@]}"; do
+  [[ -f "$ROOT/$required" ]] || {
+    echo "Missing public plugin file: $required"
+    exit 1
+  }
+done
+
 grep -Fq '"source": "./"' "$ROOT/.claude-plugin/marketplace.json" || {
   echo "Claude Code marketplace must install the repository-root plugin"
   exit 1
@@ -58,9 +74,12 @@ if find "$SKILLS" -type l -print -quit | grep -q .; then
 fi
 
 if rg -n --hidden -S \
-  '(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' \
-  "$SKILLS"; then
-  echo "Potential secret found"
+  '(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|(^|[^A-Za-z0-9])sk-(proj-)?[A-Za-z0-9_-]{20,}|(^|[^A-Za-z0-9])sk_(live|test)_[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' \
+  "$ROOT" \
+  -g '!.git/**' \
+  -g '!node_modules/**' \
+  -g '!package-lock.json'; then
+  echo "Potential secret found in the public distribution"
   exit 1
 fi
 

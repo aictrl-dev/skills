@@ -1,0 +1,46 @@
+name: Publish public plugin
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.18.0
+      - run: npm ci
+      - run: npm test
+      - run: npm run validate
+      - name: Verify release checksums
+        run: diff -u CHECKSUMS.sha256 <(./scripts/generate-checksums.sh)
+      - name: Verify production OpenCode OAuth boundary
+        run: |
+          npm install --global opencode-ai@1.18.1
+          npm run smoke:opencode
+      - name: Resolve release target
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: node scripts/resolve-release-target.mjs "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Verify existing publication
+        id: registry
+        run: >-
+          node scripts/verify-release-publication.mjs
+          "${{ steps.release.outputs.package_spec }}" >> "$GITHUB_OUTPUT"
+      - name: Publish OpenCode package
+        if: steps.registry.outputs.published != 'true'
+        run: >-
+          npm publish "${{ steps.release.outputs.package_spec }}"
+          --access public
+          --tag "${{ steps.release.outputs.dist_tag }}"

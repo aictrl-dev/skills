@@ -1,0 +1,35 @@
+{
+  "name": "aictrl",
+  "version": "1.1.0-beta.1",
+  "description": "Portable engineering skills with controlled AICtrl workflow execution",
+  "author": {
+    "name": "aictrl.dev",
+    "email": "support@aictrl.dev",
+    "url": "https://aictrl.dev"
+  },
+  "homepage": "https://aictrl.dev",
+  "repository": "https://github.com/aictrl-dev/skills",
+  "license": "MIT",
+  "keywords": ["sdlc", "engineering", "code-review", "workflow", "agent-skills"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "AICtrl",
+    "shortDescription": "Engineering skills and controlled workflows",
+    "longDescription": "Use eleven portable engineering skills locally, then hand implementation work to versioned AICtrl workflows with approvals, evidence, history, and policy controls.",
+    "developerName": "aictrl.dev",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write", "MCP"],
+    "websiteURL": "https://aictrl.dev",
+    "privacyPolicyURL": "https://aictrl.dev/privacy",
+    "termsOfServiceURL": "https://aictrl.dev/terms",
+    "defaultPrompt": [
+      "Turn this request into an implementation-ready issue.",
+      "Implement this issue and prepare a merge-ready pull request.",
+      "Review this pull request at its current head revision."
+    ],
+    "brandColor": "#4c6ef5",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/icon.svg"
+  }
+}

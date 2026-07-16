@@ -1,0 +1,42 @@
+{
+  "name": "@aictrl/opencode",
+  "version": "1.1.0-beta.1",
+  "description": "Install AICtrl engineering skills and OAuth workflow MCP for OpenCode",
+  "type": "module",
+  "bin": {
+    "aictrl-opencode": "opencode/bin/install.js"
+  },
+  "files": [
+    ".mcp.json",
+    "skills",
+    "opencode/bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "validate": "./scripts/validate-skills.sh && node scripts/validate-public-plugin.mjs",
+    "smoke:claude": "node scripts/smoke-claude-public.mjs",
+    "smoke:codex": "node scripts/smoke-codex-public.mjs",
+    "smoke:opencode": "node scripts/smoke-opencode-public.mjs",
+    "prepublishOnly": "npm test && npm run validate"
+  },
+  "keywords": ["opencode", "agent-skills", "sdlc", "code-review", "workflow"],
+  "author": "aictrl.dev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aictrl-dev/skills.git"
+  },
+  "homepage": "https://aictrl.dev",
+  "bugs": {
+    "url": "https://aictrl.dev/support"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  }
+}

@@ -1,9 +1,16 @@
 {
-  "name": "aictrl-skills",
-  "description": "Free, vendor-neutral AI engineering-workflow skills by aictrl.dev",
-  "version": "1.0.0",
-  "author": { "name": "aictrl" },
+  "name": "aictrl",
+  "description": "Eleven portable engineering skills with optional controlled AICtrl workflow execution",
+  "version": "1.1.0-beta.1",
+  "author": {
+    "name": "aictrl.dev",
+    "email": "support@aictrl.dev",
+    "url": "https://aictrl.dev"
+  },
   "homepage": "https://aictrl.dev",
+  "repository": "https://github.com/aictrl-dev/skills",
   "license": "MIT",
-  "keywords": ["sdlc", "create-issue", "implement-code-change", "code-review", "create-workflow", "agent-skills", "ai-engineering"]
+  "keywords": ["sdlc", "engineering", "code-review", "workflow", "agent-skills"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
 }
