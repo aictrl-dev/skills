@@ -47,8 +47,8 @@ test('Codex reviewer fixture is dependency-free, passing, and leaves requested w
     env: fixtureEnv,
     encoding: 'utf8',
   });
-  assert.match(output, /# pass 2/);
-  assert.match(output, /# fail 0/);
+  assert.match(output, /(?:#|ℹ)\s+pass 2/);
+  assert.match(output, /(?:#|ℹ)\s+fail 0/);
 
   const source = readFileSync(join(repositoryRoot, 'src/labels.mjs'), 'utf8');
   const issue = readFileSync(join(fixtureRoot, 'issue.md'), 'utf8');
