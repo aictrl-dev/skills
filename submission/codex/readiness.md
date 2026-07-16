@@ -12,7 +12,7 @@
 - [x] Reviewer materials contain exactly five positive and three negative cases.
 - [x] The dedicated public fixture repository, issue, protected baseline, and workflow PR exist.
 - [ ] `aictrl-dev/aictrl-plugin-reviewer-fixture#2` receives independent approval and merges through protected `main`.
-- [ ] The unified distribution PR merges and `v1.1.0-beta.1` is released from its exact commit.
+- [ ] The unified distribution PR merges and `v1.1.0-beta.2` is released from its exact commit.
 - [ ] A clean external user installs the tagged root plugin and completes one local skill.
 - [ ] The release owner approves the final portal-rendered logo and listing.
 

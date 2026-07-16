@@ -8,7 +8,7 @@ tagged repository-root plugin and the controls in `reviewer-fixture.md`.
 ### P1 — Create an issue locally before authentication
 
 - Prompt: `Turn this feature request into an implementation-ready issue: add CSV export to the audit page.`
-- Fixture/account: no AICtrl account; clean checkout of `aictrl-dev/skills` at `v1.1.0-beta.1`.
+- Fixture/account: no AICtrl account; clean checkout of `aictrl-dev/skills` at `v1.1.0-beta.2`.
 - Expected behavior: loads `create-issue`, inspects the repository, and drafts scope, acceptance criteria, tests, risks, and open questions without MCP or OAuth.
 - Expected result: provider-neutral Markdown or an explicitly authorized provider issue.
 
