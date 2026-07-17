@@ -19,7 +19,7 @@
 ## MCP and OAuth
 
 - [x] The canonical resource URL is publicly reachable at `https://aictrl.dev/mcp`.
-- [x] Protected production tests cover the exact six-tool allow-list, schemas, safety annotations, organization authorization, and redaction.
+- [ ] Protected production tests cover the exact eight-tool allow-list, schemas, safety annotations, organization authorization, and redaction.
 - [ ] A clean Codex/ChatGPT client completes dynamic registration, PKCE, OAuth cancellation/retry, refresh, and reconnect.
 - [ ] The connected fixture workflow reaches pause, unchanged-revision approval, completion, and result retrieval.
 - [ ] The final portal scan accepts the empty browser CSP and exact tool metadata.
