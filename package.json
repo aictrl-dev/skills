@@ -19,7 +19,7 @@
     "smoke:claude": "node scripts/smoke-claude-public.mjs",
     "smoke:codex": "node scripts/smoke-codex-public.mjs",
     "smoke:opencode": "node scripts/smoke-opencode-public.mjs",
-    "smoke:mcp-production": "node scripts/smoke-production-mcp.mjs",
+    "smoke:production-mcp": "node scripts/smoke-production-mcp-public.mjs",
     "prepublishOnly": "npm test && npm run validate"
   },
   "keywords": ["opencode", "agent-skills", "sdlc", "code-review", "workflow"],

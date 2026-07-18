@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   assertProductionCatalog,
   scanProductionMcp,
-} from '../scripts/smoke-production-mcp.mjs';
+} from '../scripts/smoke-production-mcp-public.mjs';
 import { EXPECTED_PUBLIC_MCP_TOOLS } from '../scripts/public-catalog.mjs';
 
 function catalog() {
@@ -114,8 +114,12 @@ function definition(name, annotations, properties, required) {
 
 function rpcResult(id, result, eventStream = false) {
   const message = { jsonrpc: '2.0', id, result };
+  const serialized = JSON.stringify(message);
+  const splitAt = serialized.indexOf(',"result"') + 1;
   return new Response(
-    eventStream ? `event: message\ndata: ${JSON.stringify(message)}\n\n` : JSON.stringify(message),
+    eventStream
+      ? `event: message\ndata: ${serialized.slice(0, splitAt)}\ndata: ${serialized.slice(splitAt)}\n\n`
+      : serialized,
     { status: 200, headers: { 'content-type': eventStream ? 'text/event-stream' : 'application/json' } },
   );
 }
@@ -217,5 +221,38 @@ test('fails closed without authentication, on HTTP rejection, and on sensitive o
       },
     }),
     /Sensitive key/,
+  );
+
+  call = 0;
+  await assert.rejects(
+    () => scanProductionMcp({
+      apiKey: 'secret',
+      fetchImpl: async () => {
+        call += 1;
+        if (call === 1) return rpcResult(1, { tools: catalog() });
+        return rpcResult(call, {
+          content: [{ type: 'text', text: JSON.stringify({
+            organizations: [{
+              id: 'org-1',
+              slug: 'fixture',
+              name: 'Fixture',
+              role: 'admin',
+              'ＡＰＩＫＥＹ': 'opaque-value',
+            }],
+          }) }],
+        });
+      },
+    }),
+    /Sensitive key/,
+  );
+
+  const leakingCatalog = catalog();
+  leakingCatalog[0].description = 'Example Authorization: Bearer abcdefghijklmnopqrstuvwxyz';
+  await assert.rejects(
+    () => scanProductionMcp({
+      apiKey: 'secret',
+      fetchImpl: async () => rpcResult(1, { tools: leakingCatalog }),
+    }),
+    /credential-shaped value/,
   );
 });

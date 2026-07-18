@@ -8,56 +8,68 @@ import {
   PUBLIC_MCP_URL,
 } from './public-catalog.mjs';
 
-const EXPECTED_ANNOTATIONS = Object.freeze({
-  query_context: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  update_backlog: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-  list_organizations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  list_workflows: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  get_workflow: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  start_workflow: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-  get_workflow_run: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  approve_workflow_step: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-  cancel_workflow_run: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
+const update = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
+const create = { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
+
+const EXPECTED_TOOL_CONTRACTS = Object.freeze({
+  query_context: {
+    annotations: read,
+    required: ['organization_id', 'domain', 'action'],
+    properties: ['organization_id', 'domain', 'action', 'query', 'params', 'version'],
+  },
+  update_backlog: {
+    annotations: update,
+    required: ['organization_id', 'entity', 'action', 'params'],
+    properties: ['organization_id', 'entity', 'action', 'params', 'version'],
+  },
+  list_organizations: {
+    annotations: read,
+    required: [],
+    properties: [],
+  },
+  list_workflows: {
+    annotations: read,
+    required: [],
+    properties: ['organization_id', 'limit'],
+  },
+  get_workflow: {
+    annotations: read,
+    required: ['organization_id', 'workflow_id'],
+    properties: ['organization_id', 'workflow_id'],
+  },
+  start_workflow: {
+    annotations: create,
+    required: ['organization_id', 'workflow_id', 'idempotency_key'],
+    properties: ['organization_id', 'workflow_id', 'idempotency_key', 'inputs'],
+  },
+  get_workflow_run: {
+    annotations: read,
+    required: ['organization_id', 'run_id'],
+    properties: ['organization_id', 'run_id'],
+  },
+  approve_workflow_step: {
+    annotations: update,
+    required: ['organization_id', 'run_id', 'decision', 'expected_revision'],
+    properties: ['organization_id', 'run_id', 'decision', 'expected_revision', 'note'],
+  },
+  cancel_workflow_run: {
+    annotations: update,
+    required: ['organization_id', 'run_id'],
+    properties: ['organization_id', 'run_id', 'reason'],
+  },
 });
 
-const EXPECTED_REQUIRED = Object.freeze({
-  query_context: ['organization_id', 'domain', 'action'],
-  update_backlog: ['organization_id', 'entity', 'action', 'params'],
-  list_organizations: [],
-  list_workflows: [],
-  get_workflow: ['organization_id', 'workflow_id'],
-  start_workflow: ['organization_id', 'workflow_id', 'idempotency_key'],
-  get_workflow_run: ['organization_id', 'run_id'],
-  approve_workflow_step: ['organization_id', 'run_id', 'decision', 'expected_revision'],
-  cancel_workflow_run: ['organization_id', 'run_id'],
-});
-
-const EXPECTED_PROPERTIES = Object.freeze({
-  query_context: ['organization_id', 'domain', 'action', 'query', 'params', 'version'],
-  update_backlog: ['organization_id', 'entity', 'action', 'params', 'version'],
-  list_organizations: [],
-  list_workflows: ['organization_id', 'limit'],
-  get_workflow: ['organization_id', 'workflow_id'],
-  start_workflow: ['organization_id', 'workflow_id', 'idempotency_key', 'inputs'],
-  get_workflow_run: ['organization_id', 'run_id'],
-  approve_workflow_step: ['organization_id', 'run_id', 'decision', 'expected_revision', 'note'],
-  cancel_workflow_run: ['organization_id', 'run_id', 'reason'],
-});
-
-const FORBIDDEN_OUTPUT_KEYS = new Set([
-  'accesstoken',
-  'apikey',
-  'authorization',
-  'clientsecret',
-  'installationtoken',
-  'refreshtoken',
-  'templatesnapshots',
-  'token',
-  'triggeroutput',
-]);
+const FORBIDDEN_OUTPUT_KEY_STEMS =
+  /token|secret|password|passwd|credential|cookie|session|privatekey|signingkey|apikey|authorization|hmac/;
 
 export function assertProductionCatalog(tools) {
   assert.ok(Array.isArray(tools), 'Production MCP tools/list did not return a tools array.');
+  assert.deepEqual(
+    Object.keys(EXPECTED_TOOL_CONTRACTS),
+    EXPECTED_PUBLIC_MCP_TOOLS,
+    'Production MCP contract metadata differs from the canonical tool allow-list.',
+  );
   assert.deepEqual(
     tools.map((tool) => tool?.name),
     EXPECTED_PUBLIC_MCP_TOOLS,
@@ -66,19 +78,21 @@ export function assertProductionCatalog(tools) {
 
   for (const tool of tools) {
     const name = tool.name;
+    const contract = EXPECTED_TOOL_CONTRACTS[name];
+    assert.ok(contract, `No approved production contract exists for ${name}.`);
     assert.equal(typeof tool.description, 'string', `${name} has no description.`);
     assert.ok(tool.description.trim(), `${name} has an empty description.`);
-    assert.deepEqual(tool.annotations, EXPECTED_ANNOTATIONS[name], `${name} annotations drifted.`);
+    assert.deepEqual(tool.annotations, contract.annotations, `${name} annotations drifted.`);
     assert.equal(tool.inputSchema?.type, 'object', `${name} input schema is not an object.`);
     assert.equal(
       tool.inputSchema?.additionalProperties,
       false,
       `${name} must reject unknown top-level inputs.`,
     );
-    assert.deepEqual(tool.inputSchema?.required, EXPECTED_REQUIRED[name], `${name} required inputs drifted.`);
+    assert.deepEqual(tool.inputSchema?.required, contract.required, `${name} required inputs drifted.`);
     assert.deepEqual(
       Object.keys(tool.inputSchema?.properties ?? {}),
-      EXPECTED_PROPERTIES[name],
+      contract.properties,
       `${name} input properties drifted.`,
     );
     assert.equal(
@@ -110,6 +124,7 @@ export async function scanProductionMcp({
   }
   const tools = catalogResponse.result?.tools;
   assertProductionCatalog(tools);
+  assertSafePublicPayload(tools);
 
   const organizations = parseToolPayload(
     await callTool(request, 'list_organizations', {}),
@@ -276,8 +291,11 @@ function assertSafePublicPayload(value, path = '$') {
   if (!value || typeof value !== 'object') return;
 
   for (const [key, child] of Object.entries(value)) {
-    const normalizedKey = key.replaceAll(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    assert.equal(FORBIDDEN_OUTPUT_KEYS.has(normalizedKey), false, `Sensitive key ${path}.${key} leaked.`);
+    const normalizedKey = key
+      .normalize('NFKC')
+      .replaceAll(/[^a-zA-Z0-9]/g, '')
+      .toLowerCase();
+    assert.doesNotMatch(normalizedKey, FORBIDDEN_OUTPUT_KEY_STEMS, `Sensitive key ${path}.${key} leaked.`);
     assertSafePublicPayload(child, `${path}.${key}`);
   }
 }
@@ -288,9 +306,14 @@ function parseMcpResponse(body, contentType = '') {
   }
 
   const messages = body
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith('data:'))
-    .map((line) => JSON.parse(line.slice(5).trim()));
+    .split(/\r?\n\r?\n/)
+    .map((event) => event
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).replace(/^ /, ''))
+      .join('\n'))
+    .filter((data) => data.trim() !== '')
+    .map((data) => JSON.parse(data));
   const response = messages.find((message) => Object.hasOwn(message, 'id'));
   if (!response) throw new Error('Production MCP event stream contained no JSON-RPC response.');
   return response;
