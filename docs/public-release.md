@@ -70,3 +70,19 @@ Use `submission/codex/readiness.md` as the Codex submission gate and
 `submission/opencode/ecosystem.md` for the OpenCode upstream sequence. Neither
 submission nor approval counts as publication; close the vendor issue only
 after a clean user installs from the live directory/listing.
+
+## GitHub social preview
+
+The reproducible source and upload-ready image live at:
+
+- `assets/github-social-preview.svg`
+- `assets/github-social-preview.png` — 1280 × 640
+
+When the public catalog or supported clients change, update the SVG and render
+the PNG at exactly 1280 × 640 before regenerating `CHECKSUMS.sha256`.
+
+Upload the PNG in the `aictrl-dev/skills` repository under **Settings →
+General → Social preview → Edit**. GitHub does not provide a supported
+repository API for this settings action, so committing the asset does not
+activate it. After upload, verify the public repository page's `og:image`
+metadata no longer uses the generic `opengraph.githubassets.com` image.

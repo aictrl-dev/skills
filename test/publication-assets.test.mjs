@@ -32,6 +32,20 @@ test('publication copy uses the unified repository and shared version', () => {
   }
 });
 
+test('GitHub social preview has reproducible source and upload dimensions', () => {
+  const source = readFileSync(join(ROOT, 'assets/github-social-preview.svg'), 'utf8');
+  const image = readFileSync(join(ROOT, 'assets/github-social-preview.png'));
+
+  assert.match(source, /width="1280" height="640"/);
+  assert.match(source, /Engineering skills/);
+  assert.match(source, /Claude Code/);
+  assert.match(source, /Codex/);
+  assert.match(source, /OpenCode/);
+  assert.equal(image.subarray(1, 4).toString('ascii'), 'PNG');
+  assert.equal(image.readUInt32BE(16), 1280);
+  assert.equal(image.readUInt32BE(20), 640);
+});
+
 test('Codex reviewer fixture is dependency-free, passing, and leaves requested work absent', () => {
   const fixtureRoot = join(ROOT, 'submission/codex/fixture-template');
   const repositoryRoot = join(fixtureRoot, 'repository');
