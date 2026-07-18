@@ -1,0 +1,44 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="640" fill="#09090b"/>
+  <rect x="0" y="0" width="1280" height="8" fill="#4c6ef5"/>
+
+  <g transform="translate(88 72)">
+    <path d="M32 2L58 17V47L32 62L6 47V17L32 2Z" fill="#4c6ef5"/>
+    <path d="M32 12L18 46 M32 12L46 46" stroke="#fafafa" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="32" cy="35" r="4" fill="#fafafa"/>
+  </g>
+  <text x="176" y="116" fill="#818cf8" font-family="'DejaVu Sans Mono', monospace" font-size="38" font-weight="700" letter-spacing="-1.4">ai</text>
+  <text x="222" y="116" fill="#fafafa" font-family="'DejaVu Sans Mono', monospace" font-size="38" font-weight="700" letter-spacing="-1.4">ctrl</text>
+  <text x="314" y="116" fill="#71717a" font-family="'DejaVu Sans Mono', monospace" font-size="38" font-weight="700" letter-spacing="-1.4">.</text>
+  <text x="338" y="116" fill="#a1a1aa" font-family="'DejaVu Sans Mono', monospace" font-size="38" font-weight="700" letter-spacing="-1.4">dev</text>
+
+  <text x="88" y="240" fill="#fafafa" font-family="'DejaVu Sans Mono', monospace" font-size="64" font-weight="700" letter-spacing="-2.2">Engineering skills</text>
+  <text x="88" y="320" fill="#fafafa" font-family="'DejaVu Sans Mono', monospace" font-size="64" font-weight="700" letter-spacing="-2.2">for AI coding agents</text>
+
+  <text x="88" y="390" fill="#a1a1aa" font-family="'Noto Sans', sans-serif" font-size="29" font-weight="400">Local value. Connected workflows. Team control.</text>
+
+  <g transform="translate(88 454)">
+    <rect width="222" height="56" rx="12" fill="#18181b" stroke="#3f3f46" stroke-width="2"/>
+    <circle cx="30" cy="28" r="6" fill="#7c3aed"/>
+    <text x="50" y="37" fill="#e4e4e7" font-family="'Noto Sans', sans-serif" font-size="25" font-weight="600">Claude Code</text>
+  </g>
+  <g transform="translate(330 454)">
+    <rect width="148" height="56" rx="12" fill="#18181b" stroke="#3f3f46" stroke-width="2"/>
+    <circle cx="30" cy="28" r="6" fill="#4c6ef5"/>
+    <text x="50" y="37" fill="#e4e4e7" font-family="'Noto Sans', sans-serif" font-size="25" font-weight="600">Codex</text>
+  </g>
+  <g transform="translate(498 454)">
+    <rect width="190" height="56" rx="12" fill="#18181b" stroke="#3f3f46" stroke-width="2"/>
+    <circle cx="30" cy="28" r="6" fill="#d97706"/>
+    <text x="50" y="37" fill="#e4e4e7" font-family="'Noto Sans', sans-serif" font-size="25" font-weight="600">OpenCode</text>
+  </g>
+
+  <line x1="88" y1="562" x2="1192" y2="562" stroke="#27272a" stroke-width="2"/>
+  <text x="88" y="604" fill="#71717a" font-family="'DejaVu Sans Mono', monospace" font-size="22">11 portable skills · github.com/aictrl-dev/skills</text>
+
+  <g transform="translate(1030 424)">
+    <path d="M74 0L134 35V105L74 140L14 105V35L74 0Z" fill="#18181b" stroke="#312e81" stroke-width="3"/>
+    <path d="M74 25L44 100 M74 25L104 100" stroke="#818cf8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="74" cy="76" r="9" fill="#f59e0b"/>
+  </g>
+</svg>
