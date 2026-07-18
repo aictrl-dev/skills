@@ -32,6 +32,28 @@ test('publication copy uses the unified repository and shared version', () => {
   }
 });
 
+test('Codex submission requires the exact nine-tool public MCP catalog', () => {
+  const listing = submission('codex/listing.md');
+  const toolBlock = listing.match(
+    /Require exactly these production tools:\n\n([\s\S]*?)\n\nScan again/,
+  )?.[1];
+  assert.ok(toolBlock, 'missing production tool allow-list');
+  const tools = [...toolBlock.matchAll(/^\d+\. `([^`]+)`$/gm)]
+    .map(([, tool]) => tool);
+
+  assert.deepEqual(tools, [
+    'list_organizations',
+    'query_context',
+    'update_backlog',
+    'list_workflows',
+    'get_workflow',
+    'start_workflow',
+    'get_workflow_run',
+    'approve_workflow_step',
+    'cancel_workflow_run',
+  ]);
+});
+
 test('GitHub social preview has reproducible source and upload dimensions', () => {
   const source = readFileSync(join(ROOT, 'assets/github-social-preview.svg'), 'utf8');
   const image = readFileSync(join(ROOT, 'assets/github-social-preview.png'));

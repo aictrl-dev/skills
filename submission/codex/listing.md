@@ -48,14 +48,15 @@ evidence, or shell history.
 
 Require exactly these production tools:
 
-1. `query_context`
-2. `update_backlog`
-3. `list_workflows`
-4. `get_workflow`
-5. `start_workflow`
-6. `get_workflow_run`
-7. `approve_workflow_step`
-8. `cancel_workflow_run`
+1. `list_organizations`
+2. `query_context`
+3. `update_backlog`
+4. `list_workflows`
+5. `get_workflow`
+6. `start_workflow`
+7. `get_workflow_run`
+8. `approve_workflow_step`
+9. `cancel_workflow_run`
 
 Scan again after any server change. Tool names, descriptions, input/output
 schemas, and `readOnlyHint`, `openWorldHint`, and `destructiveHint` annotations
