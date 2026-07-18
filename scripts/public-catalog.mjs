@@ -4,6 +4,22 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PUBLIC_MCP_URL = 'https://aictrl.dev/mcp';
+export const PUBLIC_MCP_ANNOTATIONS = Object.freeze({
+  read: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: false }),
+  update: Object.freeze({ readOnlyHint: false, destructiveHint: true, openWorldHint: true }),
+  create: Object.freeze({ readOnlyHint: false, destructiveHint: false, openWorldHint: true }),
+});
+export const EXPECTED_PUBLIC_MCP_TOOLS = Object.freeze([
+  'query_context',
+  'update_backlog',
+  'list_organizations',
+  'list_workflows',
+  'get_workflow',
+  'start_workflow',
+  'get_workflow_run',
+  'approve_workflow_step',
+  'cancel_workflow_run',
+]);
 export const EXPECTED_SKILLS = Object.freeze([
   'code-review',
   'create-bug',

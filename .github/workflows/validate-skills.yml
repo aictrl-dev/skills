@@ -67,3 +67,21 @@ jobs:
         env:
           AICTRL_OPENCODE_CONNECTIVITY_ORIGIN: https://sandbox.aictrl.dev
         run: npm run smoke:opencode
+
+  production-mcp:
+    name: Production MCP exact-nine contract
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify authenticated catalog and organization boundary
+        env:
+          AICTRL_API_KEY: ${{ secrets.AICTRL_API_KEY }}
+        run: npm run smoke:production-mcp
