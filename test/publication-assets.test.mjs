@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { ROOT, readJson } from '../scripts/public-catalog.mjs';
+import { EXPECTED_SKILLS, ROOT, readJson } from '../scripts/public-catalog.mjs';
 
 const submission = (path) => readFileSync(join(ROOT, 'submission', path), 'utf8');
 
@@ -52,6 +52,21 @@ test('Codex submission requires the exact nine-tool public MCP catalog', () => {
     'approve_workflow_step',
     'cancel_workflow_run',
   ]);
+});
+
+test('GitHub social preview has reproducible source and upload dimensions', () => {
+  const source = readFileSync(join(ROOT, 'assets/github-social-preview.svg'), 'utf8');
+  const image = readFileSync(join(ROOT, 'assets/github-social-preview.png'));
+
+  assert.match(source, /width="1280" height="640"/);
+  assert.match(source, /Engineering skills/);
+  assert.match(source, /Claude Code/);
+  assert.match(source, /Codex/);
+  assert.match(source, /OpenCode/);
+  assert.match(source, new RegExp(`${EXPECTED_SKILLS.length} portable skills`));
+  assert.equal(image.subarray(1, 4).toString('ascii'), 'PNG');
+  assert.equal(image.readUInt32BE(16), 1280);
+  assert.equal(image.readUInt32BE(20), 640);
 });
 
 test('Codex reviewer fixture is dependency-free, passing, and leaves requested work absent', () => {

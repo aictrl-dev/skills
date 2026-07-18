@@ -20,6 +20,8 @@ required_public_files=(
   .claude-plugin/marketplace.json
   .codex-plugin/plugin.json
   .mcp.json
+  assets/github-social-preview.png
+  assets/github-social-preview.svg
   assets/icon.svg
   opencode/bin/install.js
   package.json
