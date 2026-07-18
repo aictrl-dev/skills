@@ -6,11 +6,10 @@ import { fileURLToPath } from 'node:url';
 import {
   EXPECTED_PUBLIC_MCP_TOOLS,
   PUBLIC_MCP_URL,
+  PUBLIC_MCP_ANNOTATIONS,
 } from './public-catalog.mjs';
 
-const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
-const update = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
-const create = { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
+const { read, update, create } = PUBLIC_MCP_ANNOTATIONS;
 
 const EXPECTED_TOOL_CONTRACTS = Object.freeze({
   query_context: {
@@ -71,8 +70,8 @@ export function assertProductionCatalog(tools) {
     'Production MCP contract metadata differs from the canonical tool allow-list.',
   );
   assert.deepEqual(
-    tools.map((tool) => tool?.name),
-    EXPECTED_PUBLIC_MCP_TOOLS,
+    tools.map((tool) => tool?.name).sort(),
+    [...EXPECTED_PUBLIC_MCP_TOOLS].sort(),
     'Production MCP catalog differs from the approved exact-nine contract.',
   );
 
@@ -91,8 +90,8 @@ export function assertProductionCatalog(tools) {
     );
     assert.deepEqual(tool.inputSchema?.required, contract.required, `${name} required inputs drifted.`);
     assert.deepEqual(
-      Object.keys(tool.inputSchema?.properties ?? {}),
-      contract.properties,
+      Object.keys(tool.inputSchema?.properties ?? {}).sort(),
+      [...contract.properties].sort(),
       `${name} input properties drifted.`,
     );
     assert.equal(
@@ -124,18 +123,18 @@ export async function scanProductionMcp({
   }
   const tools = catalogResponse.result?.tools;
   assertProductionCatalog(tools);
-  assertSafePublicPayload(tools);
+  assertSafePublicPayload(tools, '$', apiKey);
 
   const organizations = parseToolPayload(
     await callTool(request, 'list_organizations', {}),
     'list_organizations',
   );
   assert.ok(Array.isArray(organizations.organizations), 'list_organizations did not return an organizations array.');
-  assertSafePublicPayload(organizations);
+  assertSafePublicPayload(organizations, '$', apiKey);
   for (const organization of organizations.organizations) {
     assert.deepEqual(
-      Object.keys(organization),
-      ['id', 'slug', 'name', 'role'],
+      Object.keys(organization).sort(),
+      ['id', 'name', 'role', 'slug'],
       'list_organizations returned fields outside the public membership contract.',
     );
     assert.equal(typeof organization.id, 'string');
@@ -152,13 +151,13 @@ export async function scanProductionMcp({
   for (const workflow of workflows.workflows) {
     assert.equal(typeof workflow?.organization?.id, 'string', 'A workflow omitted owning organization metadata.');
   }
-  assertSafePublicPayload(workflows);
+  assertSafePublicPayload(workflows, '$', apiKey);
 
   const denied = await callTool(request, 'list_workflows', {
     organization_id: '00000000-0000-0000-0000-000000000000',
   });
   assert.equal(denied?.result?.isError, true, 'A non-member organization probe did not fail closed.');
-  assertSafePublicPayload(denied.result);
+  assertSafePublicPayload(denied.result, '$', apiKey);
 
   return { tools, organizations, workflows };
 }
@@ -276,16 +275,23 @@ function parseToolPayload(response, name) {
   return JSON.parse(text);
 }
 
-function assertSafePublicPayload(value, path = '$') {
+function assertSafePublicPayload(value, path = '$', apiKey) {
   if (path === '$') {
     assert.doesNotMatch(
       JSON.stringify(value),
-      /-----BEGIN [A-Z ]*PRIVATE KEY-----|\bgh[opsu]_[A-Za-z0-9]{20,}\b|\bsk-[A-Za-z0-9]{20,}\b|Bearer\s+[A-Za-z0-9._~-]{16,}/,
+      /-----BEGIN [A-Z ]*PRIVATE KEY-----|\bgh[opsur]_[A-Za-z0-9]{20,}\b|\bsk-[A-Za-z0-9]{20,}\b|Bearer\s+[A-Za-z0-9._~-]{16,}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
       'Public MCP response contained a credential-shaped value.',
     );
+    if (apiKey?.length >= 12) {
+      assert.equal(
+        containsString(value, apiKey),
+        false,
+        'Public MCP response echoed the production API key.',
+      );
+    }
   }
   if (Array.isArray(value)) {
-    value.forEach((child, index) => assertSafePublicPayload(child, `${path}[${index}]`));
+    value.forEach((child, index) => assertSafePublicPayload(child, `${path}[${index}]`, apiKey));
     return;
   }
   if (!value || typeof value !== 'object') return;
@@ -296,8 +302,15 @@ function assertSafePublicPayload(value, path = '$') {
       .replaceAll(/[^a-zA-Z0-9]/g, '')
       .toLowerCase();
     assert.doesNotMatch(normalizedKey, FORBIDDEN_OUTPUT_KEY_STEMS, `Sensitive key ${path}.${key} leaked.`);
-    assertSafePublicPayload(child, `${path}.${key}`);
+    assertSafePublicPayload(child, `${path}.${key}`, apiKey);
   }
+}
+
+function containsString(value, expected) {
+  if (typeof value === 'string') return value.includes(expected);
+  if (Array.isArray(value)) return value.some((child) => containsString(child, expected));
+  if (!value || typeof value !== 'object') return false;
+  return Object.values(value).some((child) => containsString(child, expected));
 }
 
 function parseMcpResponse(body, contentType = '') {

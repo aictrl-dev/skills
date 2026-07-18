@@ -4,12 +4,13 @@ import {
   assertProductionCatalog,
   scanProductionMcp,
 } from '../scripts/smoke-production-mcp-public.mjs';
-import { EXPECTED_PUBLIC_MCP_TOOLS } from '../scripts/public-catalog.mjs';
+import {
+  EXPECTED_PUBLIC_MCP_TOOLS,
+  PUBLIC_MCP_ANNOTATIONS,
+} from '../scripts/public-catalog.mjs';
 
 function catalog() {
-  const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
-  const update = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
-  const create = { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
+  const { read, update, create } = PUBLIC_MCP_ANNOTATIONS;
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
   const id = (description) => ({ type: 'string', minLength: 1, description });
   const array = { type: 'array', items: { type: 'string', minLength: 1 } };
@@ -126,6 +127,12 @@ function rpcResult(id, result, eventStream = false) {
 
 test('accepts exactly nine tools with approved schemas and safety annotations', () => {
   assert.doesNotThrow(() => assertProductionCatalog(catalog()));
+
+  const reordered = catalog().reverse();
+  reordered[0].inputSchema.properties = Object.fromEntries(
+    Object.entries(reordered[0].inputSchema.properties).reverse(),
+  );
+  assert.doesNotThrow(() => assertProductionCatalog(reordered));
 });
 
 test('rejects catalog, schema, annotation, description, and custom-UI drift', () => {
@@ -163,7 +170,7 @@ test('runs authenticated organization, no-org workflow, and fail-closed probes',
     if (name === 'list_organizations') {
       return rpcResult(request.id, {
         content: [{ type: 'text', text: JSON.stringify({
-          organizations: [{ id: 'org-1', slug: 'fixture', name: 'Fixture', role: 'admin' }],
+          organizations: [{ role: 'admin', name: 'Fixture', slug: 'fixture', id: 'org-1' }],
         }) }],
       });
     }
@@ -254,5 +261,30 @@ test('fails closed without authentication, on HTTP rejection, and on sensitive o
       fetchImpl: async () => rpcResult(1, { tools: leakingCatalog }),
     }),
     /credential-shaped value/,
+  );
+
+  for (const credential of [
+    ['ghr', 'abcdefghijklmnopqrstuvwxyz123456'].join('_'),
+    ['eyJabcdefghijklmno', 'abcdefghijklmnop', 'abcdefghijklmnop'].join('.'),
+  ]) {
+    const catalogWithCredential = catalog();
+    catalogWithCredential[0].description = `Unsafe example ${credential}`;
+    await assert.rejects(
+      () => scanProductionMcp({
+        apiKey: 'secret',
+        fetchImpl: async () => rpcResult(1, { tools: catalogWithCredential }),
+      }),
+      /credential-shaped value/,
+    );
+  }
+
+  const catalogEchoingKey = catalog();
+  catalogEchoingKey[0].description = 'exact-production-key';
+  await assert.rejects(
+    () => scanProductionMcp({
+      apiKey: 'exact-production-key',
+      fetchImpl: async () => rpcResult(1, { tools: catalogEchoingKey }),
+    }),
+    /echoed the production API key/,
   );
 });
