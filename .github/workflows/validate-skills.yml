@@ -67,3 +67,24 @@ jobs:
         env:
           AICTRL_OPENCODE_CONNECTIVITY_ORIGIN: https://sandbox.aictrl.dev
         run: npm run smoke:opencode
+
+  production-mcp:
+    name: Production MCP exact-nine contract
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || !github.event.pull_request.head.repo.fork
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify authenticated catalog and organization boundary
+        env:
+          AICTRL_API_KEY: ${{ secrets.AICTRL_API_KEY }}
+        run: |
+          if [ -z "$AICTRL_API_KEY" ]; then
+            echo "::notice title=Production MCP smoke not configured::Set the AICTRL_API_KEY repository secret to activate this protected production gate."
+            exit 0
+          fi
+          npm run smoke:mcp-production
