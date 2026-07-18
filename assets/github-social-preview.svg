@@ -15,7 +15,7 @@
   <text x="88" y="240" fill="#fafafa" font-family="'DejaVu Sans Mono', monospace" font-size="64" font-weight="700" letter-spacing="-2.2">Engineering skills</text>
   <text x="88" y="320" fill="#fafafa" font-family="'DejaVu Sans Mono', monospace" font-size="64" font-weight="700" letter-spacing="-2.2">for AI coding agents</text>
 
-  <text x="92" y="390" fill="#a1a1aa" font-family="'Noto Sans', sans-serif" font-size="29" font-weight="400">Local value. Connected workflows. Team control.</text>
+  <text x="88" y="390" fill="#a1a1aa" font-family="'Noto Sans', sans-serif" font-size="29" font-weight="400">Local value. Connected workflows. Team control.</text>
 
   <g transform="translate(88 454)">
     <rect width="222" height="56" rx="12" fill="#18181b" stroke="#3f3f46" stroke-width="2"/>
