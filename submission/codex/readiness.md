@@ -11,7 +11,7 @@
 - [x] Starter prompts are limited to three.
 - [x] Reviewer materials contain exactly five positive and three negative cases.
 - [x] The dedicated public fixture repository, issue, protected baseline, and workflow PR exist.
-- [ ] `aictrl-dev/aictrl-plugin-reviewer-fixture#2` receives independent approval and merges through protected `main`.
+- [x] `aictrl-dev/aictrl-plugin-reviewer-fixture#2` received independent approval at its exact head and merged through protected `main` as `066025ded78c41ef6968eab0c3e141017bbac8ad`.
 - [x] The unified distribution PR merged and `v1.1.0-beta.2` was released from exact commit `696bf2eedfbf9d6e51d6890c4dabadc994e98501`.
 - [ ] A clean external user installs the tagged root plugin and completes one local skill.
 - [ ] The release owner approves the final portal-rendered logo and listing.
@@ -19,7 +19,8 @@
 ## MCP and OAuth
 
 - [x] The canonical resource URL is publicly reachable at `https://aictrl.dev/mcp`.
-- [ ] Protected production tests cover the exact nine-tool allow-list, schemas, safety annotations, organization authorization, and redaction.
+- [x] Protected production tests cover the exact nine-tool allow-list, schemas, safety annotations, organization authorization, and redaction ([run 29651112276](https://github.com/aictrl-dev/skills/actions/runs/29651112276)).
+- [x] The fixture repository is connected to its least-privilege AICtrl organization, `implement-code-change@1.0.0` is active there, and the protected Git workflow is published as repository-owned workflow version 1.
 - [ ] A clean Codex/ChatGPT client completes dynamic registration, PKCE, OAuth cancellation/retry, refresh, and reconnect.
 - [ ] The connected fixture workflow reaches pause, unchanged-revision approval, completion, and result retrieval.
 - [ ] The final portal scan accepts the empty browser CSP and exact tool metadata.
