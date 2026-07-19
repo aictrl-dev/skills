@@ -38,8 +38,10 @@
 
 ## Publisher and publication
 
-- [x] The publisher identity is verified in the owning OpenAI organization.
-- [x] The submitter has Apps Management write permission in that organization.
+- [ ] Publisher identity verification was submitted in the owning OpenAI
+  organization and remains pending OpenAI approval.
+- [x] The submitter has Apps Management write permission, evidenced by access to
+  create a plugin draft in that organization.
 - [ ] Availability regions and policy attestations are approved.
 - [ ] The plugin is submitted, approved, explicitly published, and smoke-tested from the universal plugin directory.
 
