@@ -13,9 +13,12 @@
 - [x] The dedicated public fixture repository, issue, protected baseline, and workflow PR exist.
 - [x] `aictrl-dev/aictrl-plugin-reviewer-fixture#2` received independent approval at its exact head and merged through protected `main` as `066025ded78c41ef6968eab0c3e141017bbac8ad`.
 - [x] The unified distribution PR merged and `v1.1.0-beta.2` was released from exact commit `696bf2eedfbf9d6e51d6890c4dabadc994e98501`.
-- [x] A clean Codex process installed the tagged root plugin and completed
-  `spec-review` without an AICtrl account, API key, or MCP connection
-  ([evidence](https://github.com/aictrl-dev/aictrl/issues/3866#issuecomment-5011262315)).
+- [x] A clean external user installs the tagged root plugin and completes one
+  local skill.
+  Evidence: on 2026-07-19, a clean Codex process installed the tagged root
+  plugin and completed `spec-review` without an AICtrl account, API key, or MCP
+  connection
+  ([run evidence](https://github.com/aictrl-dev/aictrl/issues/3866#issuecomment-5011262315)).
 - [ ] The release owner approves the final portal-rendered logo and listing.
 
 ## MCP and OAuth
@@ -24,10 +27,12 @@
 - [x] Protected production tests cover the exact nine-tool allow-list, schemas, safety annotations, organization authorization, and redaction ([run 29651112276](https://github.com/aictrl-dev/skills/actions/runs/29651112276)).
 - [x] The fixture repository is connected to its least-privilege AICtrl organization, `implement-code-change@1.0.0` is active there, and the protected Git workflow is published as repository-owned workflow version 1.
 - [ ] A clean Codex/ChatGPT client completes dynamic registration, PKCE, OAuth cancellation/retry, refresh, and reconnect.
-- [x] A native Codex OAuth run reached the fixture's pause, matched the protected
-  revision, received explicit unchanged-revision approval, completed, and
-  returned its result and pull request
-  ([evidence](https://github.com/aictrl-dev/aictrl/issues/3866#issuecomment-5016703203)).
+- [x] The connected fixture workflow reaches pause, unchanged-revision approval,
+  completion, and result retrieval.
+  Evidence: on 2026-07-19, a native Codex OAuth run reached the fixture's pause,
+  matched the protected revision, received explicit unchanged-revision
+  approval, completed, and returned its result and pull request
+  ([run evidence](https://github.com/aictrl-dev/aictrl/issues/3866#issuecomment-5016703203)).
   > **Known platform issue:** the rehearsal's premature `merge_ready`
   > projection is tracked in
   > [aictrl-dev/aictrl#4084](https://github.com/aictrl-dev/aictrl/issues/4084).

@@ -7,6 +7,22 @@ import { EXPECTED_SKILLS, ROOT, readJson } from '../scripts/public-catalog.mjs';
 
 const submission = (path) => readFileSync(join(ROOT, 'submission', path), 'utf8');
 
+const assertKnownIssuesAreNotes = (readiness) => {
+  const knownIssueMarker = /\*\*Known(?: platform)? issue:\*\*/i;
+  const knownIssueLines = readiness
+    .split(/\r?\n/)
+    .filter((line) => knownIssueMarker.test(line));
+
+  assert.ok(knownIssueLines.length > 0, 'missing an explicitly labelled known-issue note');
+  for (const line of knownIssueLines) {
+    assert.match(
+      line,
+      /^\s*>\s+/,
+      'known issues must be blockquote notes, not readiness controls',
+    );
+  }
+};
+
 test('Codex reviewer pack contains exactly five positive and three negative cases', () => {
   const cases = submission('codex/test-cases.md');
   assert.equal(cases.match(/^### P\d+\b/gm)?.length, 5);
@@ -56,8 +72,17 @@ test('Codex submission requires the exact nine-tool public MCP catalog', () => {
 
 test('Codex readiness records known platform defects as notes, not passed controls', () => {
   const readiness = submission('codex/readiness.md');
-  assert.match(readiness, /> \*\*Known platform issue:\*\*/);
-  assert.doesNotMatch(readiness, /^-\s+\[x\].*#4084/gm);
+  assertKnownIssuesAreNotes(readiness);
+
+  for (const checkedDefect of [
+    '- [x] **Known platform issue:** aictrl-dev/aictrl#4100',
+    '- [x] **Known issue:** https://github.com/aictrl-dev/aictrl/issues/4100',
+  ]) {
+    assert.throws(
+      () => assertKnownIssuesAreNotes(checkedDefect),
+      /known issues must be blockquote notes/,
+    );
+  }
 });
 
 test('GitHub social preview has reproducible source and upload dimensions', () => {
