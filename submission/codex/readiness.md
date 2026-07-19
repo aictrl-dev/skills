@@ -28,10 +28,10 @@
   revision, received explicit unchanged-revision approval, completed, and
   returned its result and pull request
   ([evidence](https://github.com/aictrl-dev/aictrl/issues/3866#issuecomment-5016703203)).
-- [x] The rehearsal's premature `merge_ready` projection is recorded separately
-  as the platform defect
-  [aictrl-dev/aictrl#4084](https://github.com/aictrl-dev/aictrl/issues/4084);
-  it is not represented as portal-package or skill-bundle readiness.
+  > **Known platform issue:** the rehearsal's premature `merge_ready`
+  > projection is tracked in
+  > [aictrl-dev/aictrl#4084](https://github.com/aictrl-dev/aictrl/issues/4084).
+  > It is not represented as portal-package or skill-bundle readiness.
 - [ ] The final portal scan accepts the empty browser CSP and exact tool metadata.
 - [ ] The portal-issued domain challenge is installed and verified without entering source control.
 - [ ] The reviewer account works without MFA, email confirmation, SMS, private-network access, or support intervention.

@@ -54,6 +54,12 @@ test('Codex submission requires the exact nine-tool public MCP catalog', () => {
   ]);
 });
 
+test('Codex readiness records known platform defects as notes, not passed controls', () => {
+  const readiness = submission('codex/readiness.md');
+  assert.match(readiness, /> \*\*Known platform issue:\*\*/);
+  assert.doesNotMatch(readiness, /^-\s+\[x\].*#4084/gm);
+});
+
 test('GitHub social preview has reproducible source and upload dimensions', () => {
   const source = readFileSync(join(ROOT, 'assets/github-social-preview.svg'), 'utf8');
   const image = readFileSync(join(ROOT, 'assets/github-social-preview.png'));
