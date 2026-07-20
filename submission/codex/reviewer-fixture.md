@@ -15,8 +15,9 @@ an AICtrl production backlog repository.
 - Baseline verification: dependency-free `npm test` passes two tests at the original test baseline and its reviewed successors.
 - Default branch: protected `main`; one independent approval, stale-review dismissal, last-push approval, conversation resolution, and admin enforcement are required. Force pushes and branch deletion are disabled.
 
-The no-MFA portal demo account and clean-client OAuth-to-completion rehearsal
-remain pending. Do not submit until those controls pass.
+The native Codex OAuth-to-completion rehearsal is recorded below. The no-MFA
+portal demo account plus cancellation, refresh, and reconnect evidence remain
+pending. Do not submit until those controls pass.
 
 ## Required controls
 
@@ -40,6 +41,21 @@ updates one merge-ready pull request without merging or deploying. The approval
 case uses the paused run; the cancellation case uses a separate fresh run.
 
 ## Rehearsal evidence
+
+The 2026-07-19 connected rehearsal used native `codex mcp login aictrl` and
+workflow run `1f1b6590-d6e1-50e1-a2c2-f1b4e5587331`. Before approval, the
+run revision, required expected revision, and protected fixture `main` all
+matched `b209e41df04e20a38657bb77a933104f2bdff458`. Explicit approval produced
+fixture [PR #4](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/pull/4)
+without merging or deploying. The full redacted record is attached to
+[aictrl-dev/aictrl#3866](https://github.com/aictrl-dev/aictrl/issues/3866#issuecomment-5016703203).
+
+The rehearsal also showed that the workflow projected `merge_ready` before
+GitHub review had completed and omitted its declared checks output. That
+platform behavior is tracked in
+[aictrl-dev/aictrl#4084](https://github.com/aictrl-dev/aictrl/issues/4084);
+portal materials must not describe the terminal projection as independent proof
+that CI and review were complete.
 
 Record only non-secret evidence:
 
