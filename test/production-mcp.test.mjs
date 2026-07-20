@@ -10,7 +10,13 @@ import {
 } from '../scripts/public-catalog.mjs';
 
 function catalog() {
-  const { read, update, create } = PUBLIC_MCP_ANNOTATIONS;
+  const {
+    read,
+    privateUpdate,
+    update,
+    create,
+    privateDestructive,
+  } = PUBLIC_MCP_ANNOTATIONS;
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
   const id = (description) => ({ type: 'string', minLength: 1, description });
   const array = { type: 'array', items: { type: 'string', minLength: 1 } };
@@ -56,7 +62,7 @@ function catalog() {
       params: { type: 'object' },
       version: { type: 'string', enum: ['v1'] },
     }, ['organization_id', 'domain', 'action']),
-    definition('update_backlog', update, {
+    definition('update_backlog', privateUpdate, {
       organization_id: org,
       entity: { type: 'string', enum: ['task'] },
       action: { type: 'string', enum: ['create', 'update'] },
@@ -89,7 +95,7 @@ function catalog() {
       expected_revision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
       note: { type: 'string', maxLength: 2000 },
     }, ['organization_id', 'run_id', 'decision', 'expected_revision']),
-    definition('cancel_workflow_run', update, {
+    definition('cancel_workflow_run', privateDestructive, {
       organization_id: org,
       run_id: id('Run'),
       reason: { type: 'string', maxLength: 2000 },

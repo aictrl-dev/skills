@@ -9,7 +9,13 @@ import {
   PUBLIC_MCP_ANNOTATIONS,
 } from './public-catalog.mjs';
 
-const { read, update, create } = PUBLIC_MCP_ANNOTATIONS;
+const {
+  read,
+  privateUpdate,
+  update,
+  create,
+  privateDestructive,
+} = PUBLIC_MCP_ANNOTATIONS;
 
 const EXPECTED_TOOL_CONTRACTS = Object.freeze({
   query_context: {
@@ -18,7 +24,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     properties: ['organization_id', 'domain', 'action', 'query', 'params', 'version'],
   },
   update_backlog: {
-    annotations: update,
+    annotations: privateUpdate,
     required: ['organization_id', 'entity', 'action', 'params'],
     properties: ['organization_id', 'entity', 'action', 'params', 'version'],
   },
@@ -53,7 +59,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     properties: ['organization_id', 'run_id', 'decision', 'expected_revision', 'note'],
   },
   cancel_workflow_run: {
-    annotations: update,
+    annotations: privateDestructive,
     required: ['organization_id', 'run_id'],
     properties: ['organization_id', 'run_id', 'reason'],
   },
