@@ -12,10 +12,9 @@ import {
 function catalog() {
   const {
     read,
-    privateUpdate,
+    privateMutation,
     update,
     create,
-    privateDestructive,
   } = PUBLIC_MCP_ANNOTATIONS;
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
   const id = (description) => ({ type: 'string', minLength: 1, description });
@@ -62,7 +61,7 @@ function catalog() {
       params: { type: 'object' },
       version: { type: 'string', enum: ['v1'] },
     }, ['organization_id', 'domain', 'action']),
-    definition('update_backlog', privateUpdate, {
+    definition('update_backlog', privateMutation, {
       organization_id: org,
       entity: { type: 'string', enum: ['task'] },
       action: { type: 'string', enum: ['create', 'update'] },
@@ -95,7 +94,7 @@ function catalog() {
       expected_revision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
       note: { type: 'string', maxLength: 2000 },
     }, ['organization_id', 'run_id', 'decision', 'expected_revision']),
-    definition('cancel_workflow_run', privateDestructive, {
+    definition('cancel_workflow_run', privateMutation, {
       organization_id: org,
       run_id: id('Run'),
       reason: { type: 'string', maxLength: 2000 },
@@ -132,6 +131,10 @@ function rpcResult(id, result, eventStream = false) {
 }
 
 test('accepts exactly nine tools with approved schemas and safety annotations', () => {
+  assert.deepEqual(
+    Object.keys(PUBLIC_MCP_ANNOTATIONS),
+    ['read', 'privateMutation', 'update', 'create'],
+  );
   assert.doesNotThrow(() => assertProductionCatalog(catalog()));
 
   const reordered = catalog().reverse();

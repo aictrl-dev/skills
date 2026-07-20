@@ -11,10 +11,9 @@ import {
 
 const {
   read,
-  privateUpdate,
+  privateMutation,
   update,
   create,
-  privateDestructive,
 } = PUBLIC_MCP_ANNOTATIONS;
 
 const EXPECTED_TOOL_CONTRACTS = Object.freeze({
@@ -24,7 +23,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     properties: ['organization_id', 'domain', 'action', 'query', 'params', 'version'],
   },
   update_backlog: {
-    annotations: privateUpdate,
+    annotations: privateMutation,
     required: ['organization_id', 'entity', 'action', 'params'],
     properties: ['organization_id', 'entity', 'action', 'params', 'version'],
   },
@@ -59,7 +58,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     properties: ['organization_id', 'run_id', 'decision', 'expected_revision', 'note'],
   },
   cancel_workflow_run: {
-    annotations: privateDestructive,
+    annotations: privateMutation,
     required: ['organization_id', 'run_id'],
     properties: ['organization_id', 'run_id', 'reason'],
   },
