@@ -26,7 +26,7 @@
 - [x] The canonical resource URL is publicly reachable at `https://aictrl.dev/mcp`.
 - [x] Protected production tests cover the exact nine-tool allow-list, schemas, safety annotations, organization authorization, and redaction ([run 29651112276](https://github.com/aictrl-dev/skills/actions/runs/29651112276)).
 - [x] The fixture repository is connected to its least-privilege AICtrl organization, `implement-code-change@1.0.0` is active there, and the protected Git workflow is published as repository-owned workflow version 1.
-- [ ] A clean Codex/ChatGPT client completes dynamic registration, PKCE, OAuth cancellation/retry, refresh, and reconnect.
+- [ ] The no-MFA portal reviewer account completes dynamic registration and PKCE from clean ChatGPT web and mobile sessions.
 - [x] The connected fixture workflow reaches pause, unchanged-revision approval,
   completion, and result retrieval.
   Evidence: on 2026-07-19, a native Codex OAuth run reached the fixture's pause,
@@ -40,6 +40,8 @@
 - [ ] The final portal scan accepts the empty browser CSP and exact tool metadata.
 - [ ] The portal-issued domain challenge is installed and verified without entering source control.
 - [ ] The reviewer account works without MFA, email confirmation, SMS, private-network access, or support intervention.
+- [ ] All five positive and three negative cases pass with the final expected results on ChatGPT web and mobile.
+- [ ] The first-party Developer Mode demo URL is live and returns the validated MP4 without authentication.
 
 ## Publisher and publication
 

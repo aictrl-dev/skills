@@ -17,6 +17,7 @@ any owner-only item in `readiness.md` remains unresolved.
 | Support | `https://aictrl.dev/support` |
 | Privacy policy | `https://aictrl.dev/privacy` |
 | Terms of service | `https://aictrl.dev/terms` |
+| Demo recording | `https://aictrl.dev/plugin-demo/aictrl-chatgpt-developer-mode-demo.mp4` |
 | Brand color | `#4c6ef5` |
 | Logo | `assets/icon.svg` |
 

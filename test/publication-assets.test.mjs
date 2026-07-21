@@ -27,8 +27,15 @@ test('Codex reviewer pack contains exactly five positive and three negative case
   const cases = submission('codex/test-cases.md');
   assert.equal(cases.match(/^### P\d+\b/gm)?.length, 5);
   assert.equal(cases.match(/^### N\d+\b/gm)?.length, 3);
-  assert.match(cases, /aictrl-dev\/skills/);
   assert.match(cases, /aictrl-dev\/aictrl-plugin-reviewer-fixture/);
+  assert.match(cases, /List my aictrl\.dev organizations/);
+  assert.match(cases, /search the connected code for implement-code-change/);
+  assert.match(cases, /OpenAI plugin reviewer fixture task/);
+  assert.match(cases, /openai-plugin-review-fixture-v1/);
+  assert.doesNotMatch(
+    cases,
+    /Show me the evidence for the paused gate, then approve it\.|Cancel this active implementation run and show the retained result\./,
+  );
 });
 
 test('publication copy uses the unified repository and shared version', () => {

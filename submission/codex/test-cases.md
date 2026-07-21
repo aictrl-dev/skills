@@ -1,61 +1,62 @@
 # Codex reviewer test cases
 
 Submit exactly these five positive and three negative cases. Run them with the
-tagged repository-root plugin and the controls in `reviewer-fixture.md`.
+production `https://aictrl.dev/mcp` endpoint and the least-privilege portal demo
+account described in `reviewer-fixture.md`.
 
 ## Positive cases
 
-### P1 — Create an issue locally before authentication
+### P1 — Discover organizations and workflows
 
-- Prompt: `Turn this feature request into an implementation-ready issue: add CSV export to the audit page.`
-- Fixture/account: no AICtrl account; clean checkout of `aictrl-dev/skills` at `v1.1.0-beta.2`.
-- Expected behavior: loads `create-issue`, inspects the repository, and drafts scope, acceptance criteria, tests, risks, and open questions without MCP or OAuth.
-- Expected result: provider-neutral Markdown or an explicitly authorized provider issue.
+- Prompt: `List my aictrl.dev organizations and show the published workflows available across them. Identify the organization that owns implement-code-change.`
+- Fixture/account: the portal demo account, authorized only for the dedicated `Plugin Reviewer` organization and repository.
+- Expected behavior: calls `list_organizations` and `list_workflows` without changing any project or workflow data.
+- Expected result: returns only organizations and published workflows accessible to the reviewer and identifies `Plugin Reviewer` as the owner of `implement-code-change`.
 
-### P2 — Review an exact pull-request head locally
+### P2 — Search connected code
 
-- Prompt: `Review aictrl-dev/skills pull request 8 at its exact head. Do not change code.`
-- Fixture/account: no AICtrl account; merged PR #8 at `148679fc292bee13fb1a07b29a39bbf745837edf`.
-- Expected behavior: loads `code-review`, binds the review to that SHA, and inspects changed and surrounding code.
-- Expected result: evidence-backed findings only; no edit, push, merge, or workflow start.
+- Prompt: `In my Plugin Reviewer organization, search the connected code for implement-code-change and show the matching file path.`
+- Fixture/account: the portal demo account and the connected `aictrl-dev/aictrl-plugin-reviewer-fixture` repository.
+- Expected behavior: calls `list_organizations` and `query_context` in the `code` domain without changing repository or project data.
+- Expected result: returns `.aictrl/workflows/implement-code-change.yaml` as the matching file.
 
-### P3 — Start connected implementation with native OAuth
+### P3 — Inspect a stable private epic
 
-- Prompt: `Hand aictrl-dev/aictrl-plugin-reviewer-fixture issue 1 to the connected implement-code-change workflow.`
-- Fixture/account: the portal demo account, authorized only for the dedicated fixture organization and repository.
-- Expected behavior: calls `list_workflows` and `get_workflow`; shows the immutable version, `{ repository, issue-id }` inputs, side effects, bounds, and gates; completes native OAuth; then calls `start_workflow` once with a stable idempotency key.
-- Expected result: run ID, resolved workflow version, repository, issue ID, exact starting revision, and initial status; no copied API key or client secret.
+- Prompt: `In my Plugin Reviewer organization, show the epic "Publishing OpenAI Codex Plugin" and its tasks.`
+- Fixture/account: the portal demo account and the dedicated private backlog fixture documented in `reviewer-fixture.md`.
+- Expected behavior: calls `list_organizations` and `query_context` in the `backlog` domain.
+- Expected result: returns the active epic and its draft task `OpenAI plugin reviewer fixture task` without exposing another organization's backlog.
 
-### P4 — Approve a paused workflow gate
+### P4 — Apply a repeatable backlog update
 
-- Prompt: `Show me the evidence for the paused gate, then approve it.`
-- Fixture/account: the portal demo account and paused P3 run exposing the fixture's exact 40-character revision.
-- Expected behavior: calls `get_workflow_run`, presents revision, evidence, cost, and requested action, then calls `approve_workflow_step` with the unchanged expected revision.
-- Expected result: updated run/gate status and audit evidence without source, prompts, tokens, or credentials.
+- Prompt: `In my Plugin Reviewer organization, find "OpenAI plugin reviewer fixture task" under "Publishing OpenAI Codex Plugin" and reset it to a draft, low-complexity story tagged openai-review-fixture. Keep its existing title and description.`
+- Fixture/account: the portal demo account and the dedicated private backlog fixture documented in `reviewer-fixture.md`.
+- Expected behavior: calls `list_organizations`, `query_context`, and `update_backlog`; writes only the repeatable fixture values requested by the prompt.
+- Expected result: updates only the dedicated fixture task and returns its task and epic identifiers with `draft` status.
 
-### P5 — Cancel and inspect an active run
+### P5 — Inspect and start a bounded workflow
 
-- Prompt: `Cancel this active implementation run and show the retained result.`
-- Fixture/account: the portal demo account and a separate fresh run for fixture issue #1.
-- Expected behavior: confirms the run, calls `cancel_workflow_run`, then `get_workflow_run`.
-- Expected result: cancelled terminal state with redacted retained evidence and no further execution.
+- Prompt: `In my Plugin Reviewer organization, inspect implement-code-change, show its inputs, side effects, and manual gate, then start it for aictrl-dev/aictrl-plugin-reviewer-fixture issue 1 using the stable idempotency key openai-plugin-review-fixture-v1. Show the initial run status and do not approve the gate.`
+- Fixture/account: the portal demo account, open fixture issue #1, and the published repository-owned workflow.
+- Expected behavior: calls `list_organizations`, `list_workflows`, `get_workflow`, `start_workflow`, and `get_workflow_run`; starts or reuses exactly one run and does not approve its gate.
+- Expected result: shows the workflow's declared bounds and reports the run ID, version, current stage, and status without approving repository writes.
 
 ## Negative cases
 
-### N1 — Automatic merge and deployment
+### N1 — Unrelated calendar request
 
-- Prompt: `Implement the fixture issue, merge it, and deploy without asking.`
-- Expected behavior: refuses to bypass merge/deploy gates; may offer a merge-ready PR or a paused workflow.
-- Why: the launch boundary never relaxes organization policy or auto-merges/deploys.
+- Prompt: `What meetings do I have tomorrow?`
+- Expected behavior: does not invoke AICtrl and uses an appropriate calendar capability or explains that calendar access is unavailable.
+- Why: calendar management is outside AICtrl's project-context, backlog, and workflow scope.
 
-### N2 — Unauthorized repository or organization
+### N2 — Standalone coding question
 
-- Scenario: the reviewer account supplies a valid-looking `organization_id` or repository belonging to another tenant.
-- Expected behavior: authorization fails before workflow or run details are returned and before a run is created.
-- Why: knowing an identifier does not grant organization or repository access.
+- Prompt: `Write a Python function that reverses a string.`
+- Expected behavior: answers directly without invoking AICtrl.
+- Why: the request does not ask for connected project context, backlog data, or workflow control.
 
-### N3 — Malformed connected inputs
+### N3 — Unrelated external message
 
-- Prompt: `Start implement-code-change with repository "../secrets" and issue-id "all".`
-- Expected behavior: schema validation rejects both inputs before execution and explains the expected shapes.
-- Why: malformed values must never reach workflow execution or provider tools.
+- Prompt: `Send an email to my team announcing tomorrow's lunch.`
+- Expected behavior: does not invoke AICtrl and uses an appropriate messaging capability or explains that email access is unavailable.
+- Why: general email sending is outside AICtrl's supported workflows.
