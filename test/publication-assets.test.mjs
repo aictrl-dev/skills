@@ -46,6 +46,8 @@ test('publication copy uses the unified repository and shared version', () => {
 
   assert.match(listing, /root `skills\/` tree/);
   assert.match(listing, /https:\/\/aictrl\.dev\/mcp/);
+  assert.match(listing, /\| Plugin name \| `aictrl\.dev` \|/);
+  assert.match(listing, /install ID stays\s+`aictrl`/);
   assert.match(notes, new RegExp(pkg.version.replaceAll('.', '\\.')));
   assert.match(notes, /Eleven portable/);
   assert.match(ecosystem, /https:\/\/github\.com\/aictrl-dev\/skills/);

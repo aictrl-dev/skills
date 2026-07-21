@@ -8,7 +8,7 @@ any owner-only item in `readiness.md` remains unresolved.
 
 | Portal field | Value |
 | --- | --- |
-| Plugin name | `AICtrl` |
+| Plugin name | `aictrl.dev` |
 | Short description | `Engineering skills and controlled workflows` |
 | Long description | `Use eleven portable engineering skills locally, then hand implementation work to versioned AICtrl workflows with approvals, evidence, history, and policy controls.` |
 | Category | `Productivity` |
@@ -24,6 +24,9 @@ any owner-only item in `readiness.md` remains unresolved.
 Select the verified `aictrl.dev` business identity. Stop if that identity is
 absent, the public URLs do not match it, or the submitter lacks Apps Management
 write access.
+
+The public directory name is `aictrl.dev`. The repository-root install ID stays
+`aictrl`; do not rename the package or MCP server to match the display name.
 
 ## MCP
 
