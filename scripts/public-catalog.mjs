@@ -6,7 +6,7 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PUBLIC_MCP_URL = 'https://aictrl.dev/mcp';
 export const PUBLIC_MCP_ANNOTATIONS = Object.freeze({
   read: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: false }),
-  update: Object.freeze({ readOnlyHint: false, destructiveHint: true, openWorldHint: true }),
+  update: Object.freeze({ readOnlyHint: false, destructiveHint: true, openWorldHint: false }),
   create: Object.freeze({ readOnlyHint: false, destructiveHint: false, openWorldHint: true }),
 });
 export const EXPECTED_PUBLIC_MCP_TOOLS = Object.freeze([

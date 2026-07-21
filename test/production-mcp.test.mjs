@@ -10,7 +10,11 @@ import {
 } from '../scripts/public-catalog.mjs';
 
 function catalog() {
-  const { read, update, create } = PUBLIC_MCP_ANNOTATIONS;
+  const {
+    read,
+    update,
+    create,
+  } = PUBLIC_MCP_ANNOTATIONS;
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
   const id = (description) => ({ type: 'string', minLength: 1, description });
   const array = { type: 'array', items: { type: 'string', minLength: 1 } };
@@ -126,6 +130,10 @@ function rpcResult(id, result, eventStream = false) {
 }
 
 test('accepts exactly nine tools with approved schemas and safety annotations', () => {
+  assert.deepEqual(
+    Object.keys(PUBLIC_MCP_ANNOTATIONS),
+    ['read', 'update', 'create'],
+  );
   assert.doesNotThrow(() => assertProductionCatalog(catalog()));
 
   const reordered = catalog().reverse();

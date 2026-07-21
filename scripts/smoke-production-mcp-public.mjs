@@ -9,7 +9,11 @@ import {
   PUBLIC_MCP_ANNOTATIONS,
 } from './public-catalog.mjs';
 
-const { read, update, create } = PUBLIC_MCP_ANNOTATIONS;
+const {
+  read,
+  update,
+  create,
+} = PUBLIC_MCP_ANNOTATIONS;
 
 const EXPECTED_TOOL_CONTRACTS = Object.freeze({
   query_context: {
