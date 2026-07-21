@@ -12,7 +12,6 @@ import {
 const {
   read,
   update,
-  openWorldUpdate,
   create,
 } = PUBLIC_MCP_ANNOTATIONS;
 
@@ -53,7 +52,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     properties: ['organization_id', 'run_id'],
   },
   approve_workflow_step: {
-    annotations: openWorldUpdate,
+    annotations: update,
     required: ['organization_id', 'run_id', 'decision', 'expected_revision'],
     properties: ['organization_id', 'run_id', 'decision', 'expected_revision', 'note'],
   },

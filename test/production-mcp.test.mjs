@@ -13,7 +13,6 @@ function catalog() {
   const {
     read,
     update,
-    openWorldUpdate,
     create,
   } = PUBLIC_MCP_ANNOTATIONS;
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
@@ -87,7 +86,7 @@ function catalog() {
       organization_id: org,
       run_id: id('Run'),
     }, ['organization_id', 'run_id']),
-    definition('approve_workflow_step', openWorldUpdate, {
+    definition('approve_workflow_step', update, {
       organization_id: org,
       run_id: id('Run'),
       decision: { type: 'string', enum: ['approve', 'reject'] },
@@ -133,7 +132,7 @@ function rpcResult(id, result, eventStream = false) {
 test('accepts exactly nine tools with approved schemas and safety annotations', () => {
   assert.deepEqual(
     Object.keys(PUBLIC_MCP_ANNOTATIONS),
-    ['read', 'update', 'openWorldUpdate', 'create'],
+    ['read', 'update', 'create'],
   );
   assert.doesNotThrow(() => assertProductionCatalog(catalog()));
 
