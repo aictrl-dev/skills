@@ -16,12 +16,13 @@ an AICtrl production backlog repository.
 - Default branch: protected `main`; one independent approval, stale-review dismissal, last-push approval, conversation resolution, and admin enforcement are required. Force pushes and branch deletion are disabled.
 
 The native Codex OAuth-to-completion rehearsal is recorded below. The no-MFA
-portal demo account plus cancellation, refresh, and reconnect evidence remain
-pending. Do not submit until those controls pass.
+portal demo account and exact web/mobile reviewer-case rehearsal remain pending.
+Do not submit until those controls pass.
 
 ## Required controls
 
 - The reviewer account can see only its intended AICtrl organization and the fixture repository.
+- The private `Plugin Reviewer` backlog contains an active `Publishing OpenAI Codex Plugin` epic and one dedicated `OpenAI plugin reviewer fixture task`; no production backlog is used.
 - The GitHub integration may create a feature branch and pull request but cannot merge or deploy.
 - The repository-owned workflow is reviewed through protected `main`; plugin installation never provisions it.
 - Credentials, recovery codes, OAuth tokens, GitHub installation tokens, domain challenges, and reviewer sessions never enter this repository or release evidence.
@@ -31,14 +32,14 @@ pending. Do not submit until those controls pass.
 Before every reviewer run:
 
 1. Confirm protected `main` remains at the recorded baseline or a reviewed successor.
-2. Close or label prior generated pull requests so the next result is unambiguous; retain them as audit evidence.
+2. Reset only the dedicated private backlog task to the repeatable values declared in P4.
 3. Confirm fixture issue #1 remains open and matches the current baseline.
 4. Confirm the reviewer account and repository connection remain least-privilege.
-5. Record the default-branch SHA and UTC start time outside the prompt.
+5. Confirm P5's stable idempotency key resolves to exactly one run and record the default-branch SHA and UTC start time outside the prompt.
 
-The workflow validates that exact revision, pauses before writes, and creates or
-updates one merge-ready pull request without merging or deploying. The approval
-case uses the paused run; the cancellation case uses a separate fresh run.
+The workflow validates that exact revision and pauses before writes. The portal
+case stops after reporting the initial run state; it does not approve, merge, or
+deploy.
 
 ## Rehearsal evidence
 
