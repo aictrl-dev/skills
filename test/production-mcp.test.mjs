@@ -12,8 +12,8 @@ import {
 function catalog() {
   const {
     read,
-    privateMutation,
     update,
+    openWorldUpdate,
     create,
   } = PUBLIC_MCP_ANNOTATIONS;
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
@@ -61,7 +61,7 @@ function catalog() {
       params: { type: 'object' },
       version: { type: 'string', enum: ['v1'] },
     }, ['organization_id', 'domain', 'action']),
-    definition('update_backlog', privateMutation, {
+    definition('update_backlog', update, {
       organization_id: org,
       entity: { type: 'string', enum: ['task'] },
       action: { type: 'string', enum: ['create', 'update'] },
@@ -87,14 +87,14 @@ function catalog() {
       organization_id: org,
       run_id: id('Run'),
     }, ['organization_id', 'run_id']),
-    definition('approve_workflow_step', update, {
+    definition('approve_workflow_step', openWorldUpdate, {
       organization_id: org,
       run_id: id('Run'),
       decision: { type: 'string', enum: ['approve', 'reject'] },
       expected_revision: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
       note: { type: 'string', maxLength: 2000 },
     }, ['organization_id', 'run_id', 'decision', 'expected_revision']),
-    definition('cancel_workflow_run', privateMutation, {
+    definition('cancel_workflow_run', update, {
       organization_id: org,
       run_id: id('Run'),
       reason: { type: 'string', maxLength: 2000 },
@@ -133,7 +133,7 @@ function rpcResult(id, result, eventStream = false) {
 test('accepts exactly nine tools with approved schemas and safety annotations', () => {
   assert.deepEqual(
     Object.keys(PUBLIC_MCP_ANNOTATIONS),
-    ['read', 'privateMutation', 'update', 'create'],
+    ['read', 'update', 'openWorldUpdate', 'create'],
   );
   assert.doesNotThrow(() => assertProductionCatalog(catalog()));
 
