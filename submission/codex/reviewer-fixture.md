@@ -7,17 +7,18 @@ an AICtrl production backlog repository.
 
 - Repository: [`aictrl-dev/aictrl-plugin-reviewer-fixture`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture)
 - Original test baseline: [`09b5d36ae163a39fe6b3f56ce347a8cb026afd2c`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/commit/09b5d36ae163a39fe6b3f56ce347a8cb026afd2c)
-- Current protected-main revision: [`b209e41df04e20a38657bb77a933104f2bdff458`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/commit/b209e41df04e20a38657bb77a933104f2bdff458)
+- Current protected-main revision: [`d2c064af2bf93491fbbc3dca18105faddaaa89c7`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/commit/d2c064af2bf93491fbbc3dca18105faddaaa89c7)
 - Fixture issue: [`#1`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/issues/1)
 - Repository-owned workflow: [`#2`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/pull/2), independently approved at exact head [`ee2ef4d8f4051fb4bb4e46c058a7ba659e1d842b`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/commit/ee2ef4d8f4051fb4bb4e46c058a7ba659e1d842b) and merged as [`066025ded78c41ef6968eab0c3e141017bbac8ad`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/commit/066025ded78c41ef6968eab0c3e141017bbac8ad).
-- Workflow clarification: [`#3`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/pull/3) subsequently advanced protected `main` from the PR #2 merge commit to the current revision above on 2026-07-19.
-- Connected publication: the repository is connected in automatic sync mode; org skill `implement-code-change@1.0.0` is active; `.aictrl/workflows/implement-code-change.yaml` is published as active repository-owned workflow version 1.
+- Workflow clarification: [`#3`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/pull/3) advanced protected `main` after the PR #2 merge. [`#5`](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/pull/5) subsequently added bounded review and merge-readiness verification and advanced `main` to the current revision above on 2026-07-21.
+- Connected publication: the repository is connected in automatic sync mode; org skill `implement-code-change@1.0.0` is active; `.aictrl/workflows/implement-code-change.yaml` is published as active repository-owned workflow version 2.
 - Baseline verification: dependency-free `npm test` passes two tests at the original test baseline and its reviewed successors.
 - Default branch: protected `main`; one independent approval, stale-review dismissal, last-push approval, conversation resolution, and admin enforcement are required. Force pushes and branch deletion are disabled.
 
 The native Codex OAuth-to-completion rehearsal is recorded below. The no-MFA
-portal demo account and exact web/mobile reviewer-case rehearsal remain pending.
-Do not submit until those controls pass.
+portal demo account and exact ChatGPT web reviewer cases passed on 2026-07-22;
+the mobile reviewer-case rehearsal remains pending. Do not submit until the
+remaining readiness controls pass.
 
 ## Required controls
 
@@ -42,6 +43,12 @@ case stops after reporting the initial run state; it does not approve, merge, or
 deploy.
 
 ## Rehearsal evidence
+
+The exact ChatGPT web portal rehearsal passed all five positive and three
+negative cases on 2026-07-22 using the dedicated reviewer identity. It included
+the repeatable backlog update and started or reused a single bounded workflow
+run without approving the manual gate. See the dated
+[reproduction record](./rehearsal-2026-07-22.md).
 
 The 2026-07-19 connected rehearsal used native `codex mcp login aictrl` and
 workflow run `1f1b6590-d6e1-50e1-a2c2-f1b4e5587331`. Before approval, the
