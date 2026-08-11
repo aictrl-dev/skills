@@ -8,15 +8,21 @@ issue, endpoint/flag implementation, and test source. This behavioral desk
 check made no pull-request mutation. An independent fresh-agent forward test
 then drafted the requested title/body from the same scenario; it excluded the
 unrelated working tree and labelled the green-suite and deployed claims as
-unverified.
+unverified. Its title was `feat: add asynchronous export endpoint validation`,
+and its body retained `Closes #<linked issue>` while adding no unsupported
+metadata.
 
 | Criterion | Result |
 |---|---|
 | Pinned revision and unrelated working-tree boundary | PASS |
+| Linked issue, endpoint/flag implementation, and test source inspected | PASS |
+| Title names endpoint behavior, not files | PASS |
 | Problem, behavior, scope, rollout/risk, and verification body structure | PASS |
-| Authored rollout and test-result claims kept distinct from configuration and test source | PASS |
-| Unknown deployment and execution evidence made explicit | PASS |
-| Explicit confirmation required before host mutation | PASS |
+| Default-off flag treated as configuration, not a live rollout | PASS |
+| Test source kept distinct from a green-suite result | PASS |
+| Unknown rollout and executed-verification evidence made explicit | PASS |
+| Linked-issue close keyword retained; no unsupported metadata preserved | PASS |
+| Draft-only flow required explicit confirmation before host mutation | PASS |
 
 Verdict: PASS — the skill produces a reviewer-ready draft that is grounded in
 the exact change and honest about what has and has not been verified.
