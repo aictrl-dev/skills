@@ -73,6 +73,23 @@ Define the reusable failure signature before listing siblings.
 |---|---|---|---|
 | | | | |
 
+## Recommended actions
+
+Choose and justify one action for the current state; do not leave the reader to
+infer a priority from a portfolio.
+
+- **Recommended now:**
+- **Why this over the alternatives:**
+- **Preconditions and required authorization:**
+- **Stop condition and safe fallback:**
+- **Do not:**
+
+| Sequence | Action | Action class | Cause IDs | Decision criteria | Verification / success signal |
+|---|---|---|---|---|---|
+| 1 | | Containment / recovery / evidence gathering | | | |
+| 2 | | Local correction / systemic prevention | | | |
+| 3 | | Horizontal hardening / methodology / detection | | | |
+
 ## Prevention portfolio
 
 | Initiative | Action class | Cause IDs | Failure class reduced | Priority | Owner type | Verification | Success signals | Residual risk |

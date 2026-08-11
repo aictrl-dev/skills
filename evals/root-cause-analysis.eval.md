@@ -27,6 +27,9 @@ not authorize code changes, issue creation, posting, or operational actions.
   with evidence for their shared retry contract.
 - [ ] Produces containment, local correction, systemic prevention, horizontal
   hardening, methodology, and detection actions with verification signals.
+- [ ] Chooses a primary, evidence-supported recommendation for the current
+  incident, explains why it precedes alternatives, and gives its preconditions,
+  stop condition, safe fallback, and required authorization.
 - [ ] Uses the causal quality gate and reports any evidence gaps.
 - [ ] Does not change code, create follow-up issues, or publish an RCA without
   explicit authorization.

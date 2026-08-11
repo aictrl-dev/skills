@@ -87,7 +87,7 @@ workflows, releases, and components for the same shared condition. Label each
 candidate **exposed**, **protected**, or **unknown** with evidence; do not infer
 exposure from names alone.
 
-### 5. Build a prevention portfolio
+### 5. Recommend and sequence actions
 
 Keep actions distinct so a long-term initiative does not replace immediate
 repair:
@@ -106,6 +106,21 @@ Map every action to cause IDs and specify the failure class reduced, accountable
 owner type, priority, verification method, leading and lagging signals, and
 residual risk. Prefer a small number of high-leverage initiatives over one
 ticket per symptom.
+
+Make a decision, not just a catalogue. Name one **recommended next action** for
+the current state, then sequence the remaining actions. State:
+
+- the exact action and why it is safer or more effective than the alternatives;
+- required preconditions, authorization, and evidence to proceed;
+- explicit stop conditions and the safe fallback if they are met;
+- what not to do (for example, retries, bypasses, or irreversible changes that
+  do not change the causal condition).
+
+For an active incident, recommend containment or recovery first, then local and
+systemic prevention. For insufficient evidence, recommend the smallest safe
+evidence-gathering action rather than a speculative operational change. A
+recommendation is not authorization: do not perform it without the user's
+explicit approval.
 
 ### 6. Report the RCA
 
@@ -136,8 +151,13 @@ Return the RCA using the report template, followed by:
 ## Unresolved hypotheses
 - <hypothesis and the evidence needed to resolve it>
 
-## Suggested next action
-<gather evidence, review the RCA, or request authorization for a follow-up action>
+## Recommended actions
+1. **Recommended now:** <specific action, prerequisite, and intended result>
+2. **Then:** <sequenced follow-up>
+
+State the stop condition, safe fallback, and any authorization needed. If the
+evidence does not support operational action, recommend the smallest
+evidence-gathering action instead.
 ```
 
 ---

@@ -17,6 +17,8 @@ is interim, regardless of how polished it looks.
 - [ ] The horizontal search labels siblings with evidence.
 - [ ] Every initiative maps back to a cause ID.
 - [ ] Systemic prevention and methodology changes are distinct from containment and local correction.
+- [ ] One recommended next action is explicit, sequenced before longer-term work, and justified against alternatives.
+- [ ] The recommendation names its preconditions, stop condition, safe fallback, and any required authorization.
 - [ ] Success signals can show whether recurrence risk is decreasing.
 
 ## Shallow-analysis rejection tests
@@ -48,6 +50,8 @@ evidence does not support necessary or sufficient causality.
 ## Initiative quality checks
 
 - [ ] Immediate restoration is not delayed by a long-term initiative.
+- [ ] The action plan chooses a current-state recommendation rather than only listing valid initiatives.
+- [ ] Repeated retries, unsafe bypasses, or irreversible changes are explicitly ruled out when they cannot change the causal condition.
 - [ ] The local regression test reproduces the triggering failure.
 - [ ] The systemic initiative removes or enforces a shared condition.
 - [ ] Sibling remediation has a bounded discovery and rollout plan.

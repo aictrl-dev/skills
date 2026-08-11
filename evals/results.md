@@ -13,11 +13,13 @@ external action was performed.
 | Immediate idempotency fix distinguished from systemic causes | PASS |
 | Retry ownership, identifier propagation, and observability kept as causal branches | PASS |
 | No-blame and evidence-based sibling exposure controls | PASS |
-| Prevention portfolio and quality gate | PASS |
+| Prioritized recommendation, prevention portfolio, and quality gate | PASS |
 | No unauthorized mutation | PASS |
 
 Verdict: PASS — the skill produces an interim or decision-ready RCA based on
-evidence, rather than a single-cause narrative or a blame assignment.
+evidence, rather than a single-cause narrative or a blame assignment. It names
+a current-state recommendation with preconditions and a safe fallback instead
+of leaving the reader to prioritize a catalogue of initiatives.
 
 ## explain-change Mermaid render validation — 2026-08-11
 
