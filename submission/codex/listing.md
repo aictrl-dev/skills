@@ -10,7 +10,7 @@ any owner-only item in `readiness.md` remains unresolved.
 | --- | --- |
 | Plugin name | `aictrl.dev` |
 | Short description | `Engineering skills and controlled workflows` |
-| Long description | `Use eleven portable engineering skills locally, then hand implementation work to versioned AICtrl workflows with approvals, evidence, history, and policy controls.` |
+| Long description | `Use essential engineering skills locally, then hand implementation work to versioned AICtrl workflows with approvals, evidence, history, and policy controls.` |
 | Category | `Productivity` |
 | Developer name | `aictrl.dev` |
 | Website | `https://aictrl.dev` |

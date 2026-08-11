@@ -16,7 +16,7 @@
   "interface": {
     "displayName": "AICtrl",
     "shortDescription": "Engineering skills and controlled workflows",
-    "longDescription": "Use eleven portable engineering skills locally, then hand implementation work to versioned AICtrl workflows with approvals, evidence, history, and policy controls.",
+    "longDescription": "Use essential engineering skills locally, then hand implementation work to versioned AICtrl workflows with approvals, evidence, history, and policy controls.",
     "developerName": "aictrl.dev",
     "category": "Productivity",
     "capabilities": ["Read", "Write", "MCP"],

@@ -1,8 +1,8 @@
-[![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-11-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/skills)
+[![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-essential-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/skills)
 
 # AICtrl engineering skills and plugin
 
-Eleven free, vendor-neutral AI engineering-workflow skills in one canonical
+Essential, vendor-neutral AI engineering-workflow skills in one canonical
 tree. Install the skills alone, or install the AICtrl plugin to add the same
 skills plus OAuth-connected controlled workflow execution.
 
@@ -56,6 +56,7 @@ Then ask for the task naturally or invoke a supported slash command, for example
 | [design-review](skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
 | [measurement-plan](skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
 | [recording-product-demo](skills/recording-product-demo/SKILL.md) | Point it at a repo with a web UI — it boots the app, preps demo data/auth, records a narrated time-locked Playwright demo synced to an ElevenLabs voiceover, and builds a publish kit (MP4 + captions + embed). | `/recording-product-demo` |
+| [explain-change](skills/explain-change/SKILL.md) | PR, commit range, or design document → a grounded technical explainer of the design, difficult trade-offs, and real rollout state. | `/explain-change` |
 
 ### design-review in action
 

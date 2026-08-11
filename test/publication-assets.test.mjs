@@ -49,7 +49,7 @@ test('publication copy uses the unified repository and shared version', () => {
   assert.match(listing, /\| Plugin name \| `aictrl\.dev` \|/);
   assert.match(listing, /install ID stays\s+`aictrl`/);
   assert.match(notes, new RegExp(pkg.version.replaceAll('.', '\\.')));
-  assert.match(notes, /Eleven portable/);
+  assert.match(notes, /Essential, local-first/);
   assert.match(ecosystem, /https:\/\/github\.com\/aictrl-dev\/skills/);
   assert.doesNotMatch(ecosystem, /aictrl-dev\/aictrl-plugin\/tree/);
   for (const text of [listing, notes, ecosystem]) {
@@ -103,7 +103,7 @@ test('GitHub social preview has reproducible source and upload dimensions', () =
   assert.match(source, /Claude Code/);
   assert.match(source, /Codex/);
   assert.match(source, /OpenCode/);
-  assert.match(source, new RegExp(`${EXPECTED_SKILLS.length} portable skills`));
+  assert.match(source, /Essential engineering skills/);
   assert.equal(image.subarray(1, 4).toString('ascii'), 'PNG');
   assert.equal(image.readUInt32BE(16), 1280);
   assert.equal(image.readUInt32BE(20), 640);
