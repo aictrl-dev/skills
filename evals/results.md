@@ -40,6 +40,25 @@ Verdict: PASS — the real PR exercise identified and corrected a renderer-only
 draft defect while retaining a repository-grounded explanation. The skill now
 requires this verification record and configuration-to-runtime trace.
 
+## explain-change — multi-repository forward trial — 2026-08-11
+
+Method: applied the skill to two access-controlled pull requests at their
+pinned heads without posting or modifying either. The first concerned bounded
+input normalization before model work; the second concerned verification before
+scheduled synchronization. Each completed draft's Mermaid diagram rendered
+with the pinned CLI on the first attempt.
+
+| Criterion | Result |
+|---|---|
+| Explains the central boundary or decision rather than narrating files | PASS |
+| Treats PR-reported test totals as unverified without an executed run artifact | PASS |
+| Distinguishes repository configuration from a verified live rollout | PASS |
+| Complete drafts render with pinned Mermaid CLI 11.16.0 | PASS (2 diagrams, 1 attempt each) |
+
+Verdict: PASS — the trials added a reusable evidence-level distinction for test
+execution and deployment state, without disclosing repository or pull-request
+identifiers.
+
 ## explain-change — 2026-08-11 (scenario walk-through by author)
 
 Method: walked the public skill through the scenario in

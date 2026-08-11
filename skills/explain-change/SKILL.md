@@ -70,6 +70,12 @@ and line/location. If the target supports permanent links, cite the pinned
 revision rather than a moving branch. Label an important but unverified point
 as an **open question**; never present it as fact.
 
+Treat test evidence at the right level: a test's source proves the behavior it
+expects, not that it passed. Only a test run performed in this session or a
+pinned, inspectable CI artifact proves execution. Likewise, an environment
+file, feature flag, or Terraform change proves intended configuration at the
+revision, not that it has been applied to a live environment.
+
 Before drafting, remove or generalize secrets, access tokens, connection
 details, customer data, internal hostnames, and sensitive values from snippets
 or command output.
@@ -99,6 +105,18 @@ canonical source and verify its defining property in the code. For example, do
 not call a table an outbox unless the event write and state change share a
 transaction; do not call a value a fencing token unless stale writes compare it
 at the mutation boundary.
+
+For rollout claims, keep these evidence levels separate:
+
+| Evidence | What it establishes | What it does not establish |
+|---|---|---|
+| Pinned source | behavior implemented in that revision | deployment or execution |
+| Configuration/flag/IaC | intended enabled state for an environment | that configuration was applied |
+| Pinned CI run or release/deployment record | test execution or deployed revision | broad production health without operational evidence |
+
+Use conditional language such as “configured to enable in sandbox” when only
+repository configuration is available. Do not turn an authored PR summary of
+test counts, rollout status, or expected outcome into verified evidence.
 
 ### 3. Use diagrams only when they encode information
 
@@ -185,6 +203,10 @@ Use this shape, adapting detail to the audience:
 - <pinned source link and symbol>
 - <canonical pattern source, if a pattern was verified>
 
+## Evidence limits
+- Test evidence: <test source read, test run executed, or unverified PR claim>
+- Rollout evidence: <source, configuration, deployment record, or operational evidence>
+
 ## Diagram verification
 - Mermaid CLI: <version, or `not applicable`>
 - Result: <rendered N/N diagrams, or blocked>
@@ -197,6 +219,8 @@ Re-walk the claim ledger before showing the draft:
 - [ ] Every cited file, symbol, test, URL, issue, and revision exists.
 - [ ] The explanation distinguishes evidence, inference, and open questions.
 - [ ] The rollout state is explicit and does not over-claim completeness.
+- [ ] Test-source coverage, executed test results, configuration, and deployed
+  state are labeled as distinct evidence levels.
 - [ ] Every Mermaid block rendered successfully with the recorded renderer
   version, or the artifact is explicitly blocked and not presented as complete.
 - [ ] The draft records the Mermaid result, number of attempts, and any
@@ -219,6 +243,10 @@ Return an explanation with source links or repository locations, followed by:
 
 ## Open questions
 - <only facts that could not be verified>
+
+## Evidence limits
+- Test evidence: <test source read, test run executed, or unverified PR claim>
+- Rollout evidence: <source, configuration, deployment record, or operational evidence>
 
 ## Diagram verification
 - Mermaid CLI: <version, or `not applicable`>
