@@ -18,6 +18,28 @@ Verdict: PASS — diagram validation is deterministic when the pinned renderer i
 available; the skill keeps a bounded repair loop and blocks presentation or
 posting when that prerequisite or rendering fails.
 
+## explain-change — PR #4664 live dry run — 2026-08-11
+
+Method: used the skill against the immutable current head
+`7b9ad0ca07100b97e4089ee6349e1c3aa3cfc037` of
+`aictrl-dev/aictrl#4664`, without posting or modifying the pull request. Read
+the workflow declaration, shared chat-trigger enforcement, notification-channel
+persistence, credential resolution, and focused tests. The first Mermaid
+sequence diagram failed with `RENDER_ERROR`; only its rejected `Note` construct
+was replaced, and the complete draft then rendered successfully.
+
+| Criterion | Result |
+|---|---|
+| Configuration claim traced through runtime enforcement and persistence | PASS |
+| Workflow-scoped credential boundary checked at its later resolver | PASS |
+| First diagram failure repaired without changing its technical claim | PASS |
+| Final complete draft rendered with pinned Mermaid CLI 11.16.0 | PASS (1/1 diagrams, 2 attempts) |
+| Pull request remained read-only | PASS |
+
+Verdict: PASS — the real PR exercise identified and corrected a renderer-only
+draft defect while retaining a repository-grounded explanation. The skill now
+requires this verification record and configuration-to-runtime trace.
+
 ## explain-change — 2026-08-11 (scenario walk-through by author)
 
 Method: walked the public skill through the scenario in

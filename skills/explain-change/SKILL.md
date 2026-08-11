@@ -44,6 +44,12 @@ Use the repository host's read-only API/CLI or a local clone at the exact
 commit. Inspect the diff **and** the surrounding implementation, including
 types, configuration, data constraints, callers, and relevant tests.
 
+For a change that declares policy in configuration (for example a workflow,
+trigger, permission, or feature rule), trace both the declaration and the
+shared runtime path that enforces it. Follow any context or credential from
+the ingress point through persistence to its later consumer; configuration
+alone does not prove the claimed boundary is enforced.
+
 Compare both sides of the change:
 
 - What did the prior revision allow, lose, or make difficult?
@@ -116,7 +122,8 @@ repeats nearby prose.
 ### 4. Render Mermaid, then repair
 
 When the draft contains Mermaid, create a temporary Markdown file and validate
-every block before showing the draft:
+every block before showing the draft. Render a diagram as soon as its block is
+written, then validate the complete draft again before presenting it:
 
 ```bash
 SCRATCH="$(mktemp -d)"
@@ -137,6 +144,11 @@ most three repair attempts. A timeout, unavailable renderer, unsafe URI,
 unclosed fence, or three failed attempts means the artifact is **not**
 render-verified: do not show it as a completed draft or post it. Report the
 failure, the affected diagram, and the next safe action instead.
+
+Use the least-fragile syntax that preserves the lesson. In a sequence diagram,
+prefer participant declarations and message arrows; add `Note` syntax only
+after the message flow itself renders. Do not assume that a diagram accepted by
+one Markdown renderer is accepted by the pinned CLI.
 
 Rendering proves compatibility with the committed Mermaid CLI version, not
 pixel-identical output on every documentation host. Never enable remote icon
@@ -172,6 +184,11 @@ Use this shape, adapting detail to the audience:
 ## Evidence and further reading
 - <pinned source link and symbol>
 - <canonical pattern source, if a pattern was verified>
+
+## Diagram verification
+- Mermaid CLI: <version, or `not applicable`>
+- Result: <rendered N/N diagrams, or blocked>
+- Attempts: <number>; correction: <briefly name the changed diagram construct, if any>
 ```
 
 Re-walk the claim ledger before showing the draft:
@@ -182,6 +199,8 @@ Re-walk the claim ledger before showing the draft:
 - [ ] The rollout state is explicit and does not over-claim completeness.
 - [ ] Every Mermaid block rendered successfully with the recorded renderer
   version, or the artifact is explicitly blocked and not presented as complete.
+- [ ] The draft records the Mermaid result, number of attempts, and any
+  diagram-only correction; it does not conceal an initial render failure.
 - [ ] The draft contains no secret or sensitive operational data.
 
 Show the draft with its evidence ledger (or an evidence summary for a
@@ -200,6 +219,11 @@ Return an explanation with source links or repository locations, followed by:
 
 ## Open questions
 - <only facts that could not be verified>
+
+## Diagram verification
+- Mermaid CLI: <version, or `not applicable`>
+- Result: <rendered N/N diagrams, or blocked>
+- Attempts: <number>; correction: <brief description or `none`>
 
 ## Suggested next action
 <review the draft, post it after confirmation, or supply the missing source>
