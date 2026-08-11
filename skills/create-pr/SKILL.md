@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: Draft or improve a reviewer-ready pull request title and body from an exact revision, linked issue or specification, implementation context, and verification evidence. Use when the user says "create a PR", "draft a PR", "write the PR body", "improve this pull request description", or "update the PR title and body".
+description: Draft or improve a reviewer-ready pull request title and body from an exact revision, linked issue, implementation context, and verification evidence. Use when the user says "create a PR", "draft a PR", "write the PR body", "improve this pull request description", or "update the PR title and body".
 ---
 
 # Create a Pull Request
@@ -33,7 +33,9 @@ promotion path.
 Resolve the linked issue before preparing a mutation. If it is not supplied and
 cannot be verified from the existing pull request, ask the user for its link or
 identifier; do not create or edit the pull request until it is known. Do not
-guess from a branch name, commit message, or similar issue title.
+guess from a branch name, commit message, or similar issue title. A
+specification may provide additional requirements, but never substitutes for
+the linked issue at the mutation gate.
 
 When repository guidance maps a linked issue to project or issue metadata, plan
 that update explicitly. For example, a documented mapping may require
@@ -47,8 +49,8 @@ mapping before a mutation that requires it.
 1. Confirm the established PR route, linked issue, and immutable head. For an
    existing PR, read its stored title/body and confirm that its head and base
    match the route being described.
-2. Read the exact diff, linked issue or specification, relevant surrounding
-   code, and relevant tests.
+2. Read the exact diff, linked issue, relevant surrounding code, and relevant
+   tests. Read a specification as supplementary context when available.
    Do not rely on an unrelated local working tree or authored PR text as proof.
 3. Build a compact evidence ledger before drafting. Classify each material
    statement by its strongest source:

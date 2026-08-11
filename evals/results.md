@@ -16,7 +16,8 @@ performing either mutation; the no-link/no-route case requires those details
 from the user. The forward test also ruled out direct feature-to-`main`, marked
 the unverified `development`-to-release promotion as an open route detail, and
 asked for the issue, base, promotion path, and project-field mapping in the
-second request.
+second request. The second request's specification was treated as supplementary
+context, not a substitute for the required issue link.
 
 | Criterion | Result |
 |---|---|
@@ -27,9 +28,9 @@ second request.
 | Default-off flag treated as configuration, not a live rollout | PASS |
 | Test source kept distinct from a green-suite result | PASS |
 | Unknown rollout and executed-verification evidence made explicit | PASS |
-| Linked-issue close keyword retained; no unsupported metadata preserved | PASS |
+| Verified linked-issue close keyword retained; no unsupported metadata preserved | PASS |
 | Documented PR route and issue field mapping identified without mutation | PASS |
-| Missing issue link and PR route escalated instead of guessed | PASS |
+| Missing issue link and PR route escalated; specification not treated as a substitute | PASS |
 | Draft-only flow required explicit confirmation before PR or metadata mutation | PASS |
 
 Verdict: PASS — the skill produces a reviewer-ready draft that is grounded in

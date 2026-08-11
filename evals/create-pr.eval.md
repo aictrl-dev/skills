@@ -16,8 +16,9 @@ to target `main`, and maps a linked issue's `Status` project field to
 Ask for a reviewer-ready PR title and body, but do not authorize creating or
 editing a pull request.
 
-For a second request, ask to create a PR from a branch with neither a linked
-issue nor repository evidence for its target or promotion path.
+For a second request, provide a specification but no linked issue and no
+repository evidence for the branch's target or promotion path; ask to create a
+PR.
 
 ## Pass criteria
 
@@ -34,12 +35,12 @@ issue nor repository evidence for its target or promotion path.
   suite claim without an executed command or pinned CI result.
 - [ ] States the remaining rollout and verification facts as unknown or
   unverified, rather than omitting them.
-- [ ] Keeps the linked issue close keyword when appropriate and preserves only
-  accurate existing metadata.
+- [ ] Includes the verified linked issue in the close keyword and preserves
+  only accurate existing metadata.
 - [ ] Resolves the documented `feature/*` to `development` route, does not
   assume direct feature-to-`main` is allowed, and identifies the documented
   `Status = Development` update without performing it.
-- [ ] In the second request, asks for the issue link plus base/promotion path
-  instead of guessing or creating a pull request.
+- [ ] In the second request, asks for the issue link plus base/promotion path;
+  it does not treat the specification as a substitute or create a pull request.
 - [ ] Shows the draft and evidence status without creating or editing a pull
   request or updating issue/project metadata before explicit final confirmation.
