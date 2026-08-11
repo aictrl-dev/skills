@@ -133,6 +133,26 @@ export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAU
     return { valid: true, renderer: null, diagrams, failures };
   }
 
+  // Parse and safety failures must be deterministic even on a machine that
+  // lacks the renderer. A missing optional tool must not mask unsafe input.
+  for (const diagram of extracted.diagrams) {
+    const result = diagrams[diagram.index - 1];
+    const preflightError = safeDiagramError(diagram);
+    if (preflightError) {
+      result.status = 'failed';
+      failures.push({
+        index: diagram.index,
+        startLine: diagram.startLine,
+        code: 'UNSAFE_DIAGRAM',
+        error: preflightError,
+        source: diagram.source,
+      });
+    }
+  }
+  if (failures.length > 0) {
+    return { valid: false, renderer: null, diagrams, failures };
+  }
+
   const command = cliPath(root);
   if (!existsSync(command)) {
     return {
@@ -171,18 +191,6 @@ export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAU
     const renderer = await rendererVersion(command, scratch);
     for (const diagram of extracted.diagrams) {
       const result = diagrams[diagram.index - 1];
-      const preflightError = safeDiagramError(diagram);
-      if (preflightError) {
-        result.status = 'failed';
-        failures.push({
-          index: diagram.index,
-          startLine: diagram.startLine,
-          code: 'UNSAFE_DIAGRAM',
-          error: preflightError,
-          source: diagram.source,
-        });
-        continue;
-      }
 
       const input = join(scratch, `diagram-${diagram.index}.mmd`);
       const output = join(scratch, `diagram-${diagram.index}.svg`);

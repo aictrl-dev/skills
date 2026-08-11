@@ -43,6 +43,10 @@ deployment record.
 - [ ] Includes a diagram-verification record with rendered diagram count,
   attempt count, and a brief diagram-only correction when an initial render
   fails.
+- [ ] Rejects an unsafe Mermaid URI before checking whether the renderer is
+  installed; a missing renderer must not mask the safety failure.
+- [ ] Does not enable or recommend a browser-sandbox bypass for a reader-facing
+  explainer; any CI-only test harness exception is explicitly isolated.
 - [ ] Labels test source as coverage evidence and does not repeat the PR's
   claimed test result as verified without an executed or pinned run artifact.
 - [ ] Describes the sandbox flag as intended repository configuration, not a

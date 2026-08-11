@@ -59,6 +59,23 @@ Verdict: PASS — the trials added a reusable evidence-level distinction for tes
 execution and deployment state, without disclosing repository or pull-request
 identifiers.
 
+## explain-change Mermaid safety preflight — 2026-08-11
+
+Method: ran the verifier's unsafe-URI fixture while explicitly pointing its
+renderer path at a missing binary, then ran the complete test and validation
+suites. The test-harness-only no-sandbox switch remains excluded from the
+reader-facing workflow.
+
+| Criterion | Result |
+|---|---|
+| Unsafe URI is rejected before renderer availability is checked | PASS |
+| Missing renderer cannot mask the `UNSAFE_DIAGRAM` result | PASS |
+| Normal skill instructions forbid the no-sandbox bypass | PASS |
+| Repository test and validation suites | PASS (27 tests) |
+
+Verdict: PASS — Mermaid input safety is now independent of renderer setup, and
+the harness exception is scoped so it is not guidance for explainers.
+
 ## explain-change — 2026-08-11 (scenario walk-through by author)
 
 Method: walked the public skill through the scenario in

@@ -48,9 +48,11 @@ test('fails closed when the renderer is unavailable', () => {
   assert.equal(result.report.failures[0].code, 'MISSING_RENDERER');
 });
 
-test('rejects remote or executable URIs before rendering', () => {
-  const result = verify('unsafe.md');
+test('rejects remote or executable URIs before checking renderer availability', () => {
+  const result = verify('unsafe.md', { ...process.env, MERMAID_CLI: '/missing/mmdc' });
   assert.equal(result.status, 1);
+  assert.equal(result.report.renderer, null);
+  assert.equal(result.report.diagrams[0].status, 'failed');
   assert.equal(result.report.failures[0].code, 'UNSAFE_DIAGRAM');
 });
 

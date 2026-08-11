@@ -156,6 +156,13 @@ install a renderer or bypass the browser sandbox: if the renderer is
 unavailable, report the missing prerequisite and treat render verification as
 blocked.
 
+The verifier normally preserves Chromium's sandbox. Its
+`MERMAID_ALLOW_NO_SANDBOX=1` switch exists solely for this repository's
+integration tests in an already-isolated CI/container harness; never set it
+while creating an explainer or recommend it to readers. If ordinary validation
+requires that switch, report the sandbox prerequisite as blocked rather than
+weakening the renderer's isolation.
+
 For a failed diagram, revise only that Mermaid block while preserving its
 technical claim, then rerun the helper against the complete draft. Make at
 most three repair attempts. A timeout, unavailable renderer, unsafe URI,
