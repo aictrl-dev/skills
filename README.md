@@ -1,8 +1,8 @@
-[![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-12-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/skills)
+[![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-essential-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/skills)
 
 # AICtrl engineering skills and plugin
 
-Twelve free, vendor-neutral AI engineering-workflow skills in one canonical
+Essential, vendor-neutral AI engineering-workflow skills in one canonical
 tree. Install the skills alone, or install the AICtrl plugin to add the same
 skills plus OAuth-connected controlled workflow execution.
 

@@ -2,7 +2,7 @@
 
 Maintenance release of AICtrl's engineering plugin for Codex and ChatGPT.
 
-- Twelve portable, local-first skills cover issue creation, bug reporting, spec
+- Essential, local-first skills cover issue creation, bug reporting, spec
   review, implementation, code review, finding judgment, review replies,
   workflow authoring, design review, measurement planning, demo recording, and
   change explanation.

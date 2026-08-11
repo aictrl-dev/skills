@@ -7,7 +7,7 @@
 - [x] Codex CLI completes clean root install, repeat install, version upgrade, and removal in CI.
 - [x] Claude Code completes clean marketplace add, install, repeat install, and removal in CI.
 - [x] OpenCode installs the packed artifact, reaches the sandbox OAuth boundary, repeats idempotently, and removes only AICtrl-managed state.
-- [x] All twelve skills come from the one canonical root tree and are checksum-verified.
+- [x] All skills come from the one canonical root tree and are checksum-verified.
 - [x] Starter prompts are limited to three.
 - [x] Reviewer materials contain exactly five positive and three negative cases.
 - [x] The dedicated public fixture repository, issue, protected baseline, and workflow PR exist.

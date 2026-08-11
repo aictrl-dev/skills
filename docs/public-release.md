@@ -21,7 +21,7 @@ npm pack . --dry-run --json --ignore-scripts
 ```
 
 Confirm that all manifests and `package.json` use the same version, the packed
-npm artifact contains all twelve root skills, and every clean-client test
+npm artifact contains the complete canonical root skill catalog, and every clean-client test
 installs and removes the package without changing unrelated client state.
 Connected workflow execution must use the single `aictrl` MCP server at
 `https://aictrl.dev/mcp` and stop at a merge-ready pull request.
