@@ -32,6 +32,7 @@ export const EXPECTED_SKILLS = Object.freeze([
   'measurement-plan',
   'recording-product-demo',
   'reply-to-code-review',
+  'root-cause-analysis',
   'spec-review',
 ]);
 

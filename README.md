@@ -52,6 +52,7 @@ Then ask for the task naturally or invoke a supported slash command, for example
 | [code-review](skills/code-review/SKILL.md) | Exact PR head → actionable correctness, security, reliability, and test findings; no code changes. | `/code-review` |
 | [judge-review-findings](skills/judge-review-findings/SKILL.md) | Current-head findings → TRUE/FALSE/UNCERTAIN plus FIX/DEFER/IGNORE judgments. | `/judge-review-findings` |
 | [reply-to-code-review](skills/reply-to-code-review/SKILL.md) | Accepted review findings → fixes, verification, evidence-backed replies, and bounded re-review. | `/reply-to-code-review` |
+| [root-cause-analysis](skills/root-cause-analysis/SKILL.md) | Incident or recurring failure → evidence-driven causal analysis, sibling exposure map, and prevention portfolio. | `/root-cause-analysis` |
 | [create-workflow](skills/create-workflow/SKILL.md) | Workflow intent → validated AICtrl workflow v2 YAML with portable inline task nodes. | `/create-workflow` |
 | [design-review](skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
 | [measurement-plan](skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
