@@ -18,6 +18,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Install browser for Mermaid render validation
+        run: npx puppeteer browsers install chrome
       - name: Test public distribution contracts
         run: npm test
       - name: Validate catalog, plugin metadata, portability, and secrets

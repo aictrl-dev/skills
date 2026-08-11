@@ -44,6 +44,12 @@ Use the repository host's read-only API/CLI or a local clone at the exact
 commit. Inspect the diff **and** the surrounding implementation, including
 types, configuration, data constraints, callers, and relevant tests.
 
+For a change that declares policy in configuration (for example a workflow,
+trigger, permission, or feature rule), trace both the declaration and the
+shared runtime path that enforces it. Follow any context or credential from
+the ingress point through persistence to its later consumer; configuration
+alone does not prove the claimed boundary is enforced.
+
 Compare both sides of the change:
 
 - What did the prior revision allow, lose, or make difficult?
@@ -63,6 +69,12 @@ Evidence should name a durable symbol, constraint, or test as well as a file
 and line/location. If the target supports permanent links, cite the pinned
 revision rather than a moving branch. Label an important but unverified point
 as an **open question**; never present it as fact.
+
+Treat test evidence at the right level: a test's source proves the behavior it
+expects, not that it passed. Only a test run performed in this session or a
+pinned, inspectable CI artifact proves execution. Likewise, an environment
+file, feature flag, or Terraform change proves intended configuration at the
+revision, not that it has been applied to a live environment.
 
 Before drafting, remove or generalize secrets, access tokens, connection
 details, customer data, internal hostnames, and sensitive values from snippets
@@ -94,6 +106,18 @@ not call a table an outbox unless the event write and state change share a
 transaction; do not call a value a fencing token unless stale writes compare it
 at the mutation boundary.
 
+For rollout claims, keep these evidence levels separate:
+
+| Evidence | What it establishes | What it does not establish |
+|---|---|---|
+| Pinned source | behavior implemented in that revision | deployment or execution |
+| Configuration/flag/IaC | intended enabled state for an environment | that configuration was applied |
+| Pinned CI run or release/deployment record | test execution or deployed revision | broad production health without operational evidence |
+
+Use conditional language such as “configured to enable in sandbox” when only
+repository configuration is available. Do not turn an authored PR summary of
+test counts, rollout status, or expected outcome into verified evidence.
+
 ### 3. Use diagrams only when they encode information
 
 Choose the diagram type by the information it must preserve:
@@ -113,7 +137,49 @@ experimental Mermaid diagram types in public artifacts. Give every diagram a
 caption that states the claim it makes, and remove any diagram that merely
 repeats nearby prose.
 
-### 4. Draft and verify
+### 4. Render Mermaid, then repair
+
+When the draft contains Mermaid, create a temporary Markdown file and validate
+every block before showing the draft. Render a diagram as soon as its block is
+written, then validate the complete draft again before presenting it:
+
+```bash
+SCRATCH="$(mktemp -d)"
+node skills/explain-change/scripts/verify-mermaid.mjs \
+  --input "$SCRATCH/explainer.md" > "$SCRATCH/mermaid-result.json"
+```
+
+The helper uses the repository's pinned Mermaid CLI and writes a JSON result
+with a renderer version, diagram ordinal, source line, and any sanitized error.
+It skips renderer setup when there are no Mermaid blocks. Do not silently
+install a renderer or bypass the browser sandbox: if the renderer is
+unavailable, report the missing prerequisite and treat render verification as
+blocked.
+
+The verifier normally preserves Chromium's sandbox. Its
+`MERMAID_ALLOW_NO_SANDBOX=1` switch exists solely for this repository's
+integration tests in an already-isolated CI/container harness; never set it
+while creating an explainer or recommend it to readers. If ordinary validation
+requires that switch, report the sandbox prerequisite as blocked rather than
+weakening the renderer's isolation.
+
+For a failed diagram, revise only that Mermaid block while preserving its
+technical claim, then rerun the helper against the complete draft. Make at
+most three repair attempts. A timeout, unavailable renderer, unsafe URI,
+unclosed fence, or three failed attempts means the artifact is **not**
+render-verified: do not show it as a completed draft or post it. Report the
+failure, the affected diagram, and the next safe action instead.
+
+Use the least-fragile syntax that preserves the lesson. In a sequence diagram,
+prefer participant declarations and message arrows; add `Note` syntax only
+after the message flow itself renders. Do not assume that a diagram accepted by
+one Markdown renderer is accepted by the pinned CLI.
+
+Rendering proves compatibility with the committed Mermaid CLI version, not
+pixel-identical output on every documentation host. Never enable remote icon
+packs or add remote/executable URIs merely to make a diagram render.
+
+### 5. Draft and verify
 
 Use this shape, adapting detail to the audience:
 
@@ -143,6 +209,15 @@ Use this shape, adapting detail to the audience:
 ## Evidence and further reading
 - <pinned source link and symbol>
 - <canonical pattern source, if a pattern was verified>
+
+## Evidence limits
+- Test evidence: <test source read, test run executed, or unverified PR claim>
+- Rollout evidence: <source, configuration, deployment record, or operational evidence>
+
+## Diagram verification
+- Mermaid CLI: <version, or `not applicable`>
+- Result: <rendered N/N diagrams, or blocked>
+- Attempts: <number>; correction: <briefly name the changed diagram construct, if any>
 ```
 
 Re-walk the claim ledger before showing the draft:
@@ -151,7 +226,12 @@ Re-walk the claim ledger before showing the draft:
 - [ ] Every cited file, symbol, test, URL, issue, and revision exists.
 - [ ] The explanation distinguishes evidence, inference, and open questions.
 - [ ] The rollout state is explicit and does not over-claim completeness.
-- [ ] Every diagram uses supported syntax and earns its place.
+- [ ] Test-source coverage, executed test results, configuration, and deployed
+  state are labeled as distinct evidence levels.
+- [ ] Every Mermaid block rendered successfully with the recorded renderer
+  version, or the artifact is explicitly blocked and not presented as complete.
+- [ ] The draft records the Mermaid result, number of attempts, and any
+  diagram-only correction; it does not conceal an initial render failure.
 - [ ] The draft contains no secret or sensitive operational data.
 
 Show the draft with its evidence ledger (or an evidence summary for a
@@ -170,6 +250,15 @@ Return an explanation with source links or repository locations, followed by:
 
 ## Open questions
 - <only facts that could not be verified>
+
+## Evidence limits
+- Test evidence: <test source read, test run executed, or unverified PR claim>
+- Rollout evidence: <source, configuration, deployment record, or operational evidence>
+
+## Diagram verification
+- Mermaid CLI: <version, or `not applicable`>
+- Result: <rendered N/N diagrams, or blocked>
+- Attempts: <number>; correction: <brief description or `none`>
 
 ## Suggested next action
 <review the draft, post it after confirmation, or supply the missing source>

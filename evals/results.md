@@ -1,5 +1,81 @@
 # Eval Results
 
+## explain-change Mermaid render validation — 2026-08-11
+
+Method: executed the pinned Mermaid CLI helper against the bundled valid,
+multi-diagram, unavailable-renderer, unsafe-URI, and timeout cases, then ran
+the complete repository test and validation suites.
+
+| Criterion | Result |
+|---|---|
+| Valid Mermaid block renders with the pinned CLI | PASS |
+| Invalid sibling block fails without masking a valid block | PASS |
+| No-diagram draft skips renderer setup | PASS |
+| Missing renderer, unsafe URI, and timeout fail closed | PASS |
+| Skill frontmatter and public catalog validation | PASS |
+
+Verdict: PASS — diagram validation is deterministic when the pinned renderer is
+available; the skill keeps a bounded repair loop and blocks presentation or
+posting when that prerequisite or rendering fails.
+
+## explain-change — real-world dry run — 2026-08-11
+
+Method: used the skill against a pinned revision of a non-public pull request,
+without posting or modifying it. This public record deliberately omits the
+repository, pull-request identifier, commit, and implementation details. The
+exercise traced configuration through shared runtime enforcement, persistence,
+and credential resolution. The first Mermaid sequence diagram failed with
+`RENDER_ERROR`; only its rejected `Note` construct was replaced, and the
+complete draft then rendered successfully.
+
+| Criterion | Result |
+|---|---|
+| Configuration claim traced through runtime enforcement and persistence | PASS |
+| Workflow-scoped credential boundary checked at its later resolver | PASS |
+| First diagram failure repaired without changing its technical claim | PASS |
+| Final complete draft rendered with pinned Mermaid CLI 11.16.0 | PASS (1/1 diagrams, 2 attempts) |
+| Pull request remained read-only | PASS |
+
+Verdict: PASS — the real PR exercise identified and corrected a renderer-only
+draft defect while retaining a repository-grounded explanation. The skill now
+requires this verification record and configuration-to-runtime trace.
+
+## explain-change — multi-repository forward trial — 2026-08-11
+
+Method: applied the skill to two access-controlled pull requests at their
+pinned heads without posting or modifying either. The first concerned bounded
+input normalization before model work; the second concerned verification before
+scheduled synchronization. Each completed draft's Mermaid diagram rendered
+with the pinned CLI on the first attempt.
+
+| Criterion | Result |
+|---|---|
+| Explains the central boundary or decision rather than narrating files | PASS |
+| Treats PR-reported test totals as unverified without an executed run artifact | PASS |
+| Distinguishes repository configuration from a verified live rollout | PASS |
+| Complete drafts render with pinned Mermaid CLI 11.16.0 | PASS (2 diagrams, 1 attempt each) |
+
+Verdict: PASS — the trials added a reusable evidence-level distinction for test
+execution and deployment state, without disclosing repository or pull-request
+identifiers.
+
+## explain-change Mermaid safety preflight — 2026-08-11
+
+Method: ran the verifier's unsafe-URI fixture while explicitly pointing its
+renderer path at a missing binary, then ran the complete test and validation
+suites. The test-harness-only no-sandbox switch remains excluded from the
+reader-facing workflow.
+
+| Criterion | Result |
+|---|---|
+| Unsafe URI is rejected before renderer availability is checked | PASS |
+| Missing renderer cannot mask the `UNSAFE_DIAGRAM` result | PASS |
+| Normal skill instructions forbid the no-sandbox bypass | PASS |
+| Repository test and validation suites | PASS (27 tests) |
+
+Verdict: PASS — Mermaid input safety is now independent of renderer setup, and
+the harness exception is scoped so it is not guidance for explainers.
+
 ## explain-change — 2026-08-11 (scenario walk-through by author)
 
 Method: walked the public skill through the scenario in
