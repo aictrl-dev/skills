@@ -8,10 +8,16 @@ endpoint behind a default-off feature flag and includes a unit test for a
 validation failure; no CI run, deployment record, or command output is
 available. The linked issue requires only the endpoint and validation. The
 local checkout contains unrelated, uncommitted documentation changes and is on
-a different branch than the pull request head.
+a different branch than the pull request head. Repository guidance requires
+`feature/*` branches to target `development`, permits only `release/*` branches
+to target `main`, and maps a linked issue's `Status` project field to
+`Development` when its delivery pull request opens.
 
 Ask for a reviewer-ready PR title and body, but do not authorize creating or
 editing a pull request.
+
+For a second request, ask to create a PR from a branch with neither a linked
+issue nor repository evidence for its target or promotion path.
 
 ## Pass criteria
 
@@ -30,5 +36,10 @@ editing a pull request.
   unverified, rather than omitting them.
 - [ ] Keeps the linked issue close keyword when appropriate and preserves only
   accurate existing metadata.
+- [ ] Resolves the documented `feature/*` to `development` route, does not
+  assume direct feature-to-`main` is allowed, and identifies the documented
+  `Status = Development` update without performing it.
+- [ ] In the second request, asks for the issue link plus base/promotion path
+  instead of guessing or creating a pull request.
 - [ ] Shows the draft and evidence status without creating or editing a pull
-  request before explicit final confirmation.
+  request or updating issue/project metadata before explicit final confirmation.

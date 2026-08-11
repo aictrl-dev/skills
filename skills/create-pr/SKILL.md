@@ -10,13 +10,45 @@ from verified facts. This skill drafts the title and body; it does not create a
 branch, commit, request review, merge, deploy, or mutate a pull request without
 the user's confirmation immediately before that action.
 
+## Resolve the PR route and linked issue
+
+Read repository agent guidance, contribution and release documentation, CI
+branch filters, branch protection when visible, and recent merged pull
+requests. Establish and show:
+
+| Decision | Required evidence |
+|---|---|
+| Source and immutable head | Current branch and commit identifier |
+| PR base | Documented allowed source-to-base route |
+| Promotion path | Required integration, release, backport, or merge sequence |
+| Linked issue | Supplied issue URL/identifier or a verified existing closing reference |
+| Issue/project fields | Documented project, field, allowed value, and trigger |
+
+Do not infer that a feature branch can target `main` because it is the default
+branch. Use a direct feature-to-main route only when repository evidence permits
+it. If the route is absent or conflicting, show it as unresolved for a draft;
+before creating or editing a pull request, ask the user for the exact base and
+promotion path.
+
+Resolve the linked issue before preparing a mutation. If it is not supplied and
+cannot be verified from the existing pull request, ask the user for its link or
+identifier; do not create or edit the pull request until it is known. Do not
+guess from a branch name, commit message, or similar issue title.
+
+When repository guidance maps a linked issue to project or issue metadata, plan
+that update explicitly. For example, a documented mapping may require
+`Status = Development` when a delivery pull request is opened. Never invent a
+field, value, project, trigger, or permission from a familiar workflow. If the
+mapping is absent, state that field provisioning is unresolved and ask for the
+mapping before a mutation that requires it.
+
 ## Ground the draft
 
-1. Resolve the repository, target base, and immutable head revision. For an
-   existing PR, read its stored title/body and confirm that its head is the
-   revision being described.
-2. Read repository contribution guidance, the exact diff, linked issue or
-   specification when present, relevant surrounding code, and relevant tests.
+1. Confirm the established PR route, linked issue, and immutable head. For an
+   existing PR, read its stored title/body and confirm that its head and base
+   match the route being described.
+2. Read the exact diff, linked issue or specification, relevant surrounding
+   code, and relevant tests.
    Do not rely on an unrelated local working tree or authored PR text as proof.
 3. Build a compact evidence ledger before drafting. Classify each material
    statement by its strongest source:
@@ -74,22 +106,23 @@ rollback facts. State an unknown rollout state or remaining risk explicitly.>
 - `<test source>` — <coverage it defines; not a claimed result>
 ```
 
-If no issue is linked, omit the closing keyword and start with `No linked
-issue.` Do not mark a checklist item complete or say a test is green without
-executed evidence. Prefer durable file, symbol, test, configuration, run, or
-revision references where they help review; avoid file-by-file narration and
+Do not mark a checklist item complete or say a test is green without executed
+evidence. Prefer durable file, symbol, test, configuration, run, or revision
+references where they help review; avoid file-by-file narration and
 implementation history that does not affect review or rollback.
 
 ## Confirm before mutation
 
-Show the title, body, pinned head revision, and any unknown or unverified
-claims. For a proposal or wording review, stop there.
+Show the title, body, pinned head revision, PR route, linked issue, proposed
+field updates, and any unknown or unverified claims. For a proposal or wording
+review, stop there.
 
 Create or edit the host pull request only after the user explicitly confirms
-the final draft immediately before the mutation. Then read the saved title and
-body back from the host, verify the issue link and required headings remain
-intact, and report the URL and exact head revision. If the head changed, repeat
-the grounding and drafting steps before asking for confirmation again.
+the final draft, base branch, and any issue/project field updates immediately
+before the mutation. Then read the saved title and body back from the host,
+verify the issue link, route, required headings, and requested field values,
+and report the URL and exact head revision. If the head, route, or issue changed,
+repeat the grounding and drafting steps before asking for confirmation again.
 
 ## Final check
 
@@ -100,7 +133,12 @@ the grounding and drafting steps before asking for confirmation again.
   deployed state are not conflated.
 - [ ] The body names the problem, behavior, scope, rollout and risks, and
   verification without overstatement.
-- [ ] No PR mutation occurs without fresh, explicit confirmation.
+- [ ] The base and promotion path are supported by repository evidence or
+  explicitly supplied by the user.
+- [ ] The linked issue is verified; any field update names its project, field,
+  value, and documented trigger.
+- [ ] No PR or issue/project metadata mutation occurs without fresh, explicit
+  confirmation.
 
 ---
 **Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=create-pr&utm_listing=github-skills&utm_platform=portable&utm_skill=create-pr).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=create-pr&utm_listing=github-skills&utm_platform=portable&utm_skill=create-pr)
