@@ -7,7 +7,7 @@ SKILLS="$ROOT/skills"
 expected=(
   code-review create-bug create-issue create-workflow design-review explain-change
   implement-code-change judge-review-findings measurement-plan
-  recording-product-demo reply-to-code-review spec-review
+  recording-product-demo reply-to-code-review root-cause-analysis spec-review
 )
 
 [[ -f "$ROOT/.claude-plugin/plugin.json" ]] || {

@@ -1,5 +1,24 @@
 # Eval Results
 
+## root-cause-analysis — 2026-08-11 (scenario walk-through by author)
+
+Method: followed `skills/root-cause-analysis/SKILL.md` against the seeded
+scenario in `evals/root-cause-analysis.eval.md`, using the report template and
+causal quality gate. This is a behavioral desk check of the portable skill; no
+external action was performed.
+
+| Criterion | Result |
+|---|---|
+| Falsifiable invariant and fact/inference boundary | PASS |
+| Immediate idempotency fix distinguished from systemic causes | PASS |
+| Retry ownership, identifier propagation, and observability kept as causal branches | PASS |
+| No-blame and evidence-based sibling exposure controls | PASS |
+| Prevention portfolio and quality gate | PASS |
+| No unauthorized mutation | PASS |
+
+Verdict: PASS — the skill produces an interim or decision-ready RCA based on
+evidence, rather than a single-cause narrative or a blame assignment.
+
 ## explain-change Mermaid render validation — 2026-08-11
 
 Method: executed the pinned Mermaid CLI helper against the bundled valid,
