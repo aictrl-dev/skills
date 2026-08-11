@@ -46,17 +46,17 @@ account described in `reviewer-fixture.md`.
 ### N1 — Unrelated calendar request
 
 - Prompt: `What meetings do I have tomorrow?`
-- Expected behavior: does not invoke AICtrl and uses an appropriate calendar capability or explains that calendar access is unavailable.
-- Why: calendar management is outside AICtrl's project-context, backlog, and workflow scope.
+- Expected behavior: does not invoke aictrl.dev and uses an appropriate calendar capability or explains that calendar access is unavailable.
+- Why: calendar management is outside aictrl.dev's project-context, backlog, and workflow scope.
 
 ### N2 — Standalone coding question
 
 - Prompt: `Write a Python function that reverses a string.`
-- Expected behavior: answers directly without invoking AICtrl.
+- Expected behavior: answers directly without invoking aictrl.dev.
 - Why: the request does not ask for connected project context, backlog data, or workflow control.
 
 ### N3 — Unrelated external message
 
 - Prompt: `Send an email to my team announcing tomorrow's lunch.`
-- Expected behavior: does not invoke AICtrl and uses an appropriate messaging capability or explains that email access is unavailable.
-- Why: general email sending is outside AICtrl's supported workflows.
+- Expected behavior: does not invoke aictrl.dev and uses an appropriate messaging capability or explains that email access is unavailable.
+- Why: general email sending is outside aictrl.dev's supported workflows.

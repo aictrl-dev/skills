@@ -1,6 +1,6 @@
 # Public plugin release
 
-This repository is the release source for the AICtrl skills, Claude plugin,
+This repository is the release source for the aictrl.dev skills, Claude plugin,
 Codex plugin, and `@aictrl/opencode` package. One Git commit and one semantic
 version identify all of them. The canonical skill bodies live only under
 `skills/`; vendor directories must never contain generated copies.

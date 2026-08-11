@@ -1,5 +1,41 @@
 # Eval Results
 
+## create-pr — 2026-08-11 (scenario walk-through and forward test)
+
+Method: followed `skills/create-pr/SKILL.md` against the seeded scenario in
+`evals/create-pr.eval.md`, grounding the draft in the pinned revision, linked
+issue, endpoint/flag implementation, and test source. This behavioral desk
+check made no pull-request mutation. An independent fresh-agent forward test
+then drafted the requested title/body from the same scenario; it excluded the
+unrelated working tree and labelled the green-suite and deployed claims as
+unverified. Its title was `feat: add asynchronous export endpoint validation`,
+and its body retained `Closes #<linked issue>` while adding no unsupported
+metadata. The updated scenario records the documented `feature/*` to
+`development` route and proposed `Status = Development` field update without
+performing either mutation; the no-link/no-route case requires those details
+from the user. The forward test also ruled out direct feature-to-`main`, marked
+the unverified `development`-to-release promotion as an open route detail, and
+asked for the issue, base, promotion path, and project-field mapping in the
+second request. The second request's specification was treated as supplementary
+context, not a substitute for the required issue link.
+
+| Criterion | Result |
+|---|---|
+| Pinned revision and unrelated working-tree boundary | PASS |
+| Linked issue, endpoint/flag implementation, and test source inspected | PASS |
+| Title names endpoint behavior, not files | PASS |
+| Problem, behavior, scope, rollout/risk, and verification body structure | PASS |
+| Default-off flag treated as configuration, not a live rollout | PASS |
+| Test source kept distinct from a green-suite result | PASS |
+| Unknown rollout and executed-verification evidence made explicit | PASS |
+| Verified linked-issue close keyword retained; no unsupported metadata preserved | PASS |
+| Documented PR route and issue field mapping identified without mutation | PASS |
+| Missing issue link and PR route escalated; specification not treated as a substitute | PASS |
+| Draft-only flow required explicit confirmation before PR or metadata mutation | PASS |
+
+Verdict: PASS — the skill produces a reviewer-ready draft that is grounded in
+the exact change and honest about what has and has not been verified.
+
 ## root-cause-analysis — 2026-08-11 (scenario walk-through by author)
 
 Method: followed `skills/root-cause-analysis/SKILL.md` against the seeded

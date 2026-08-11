@@ -1,4 +1,4 @@
-# AICtrl workflow authoring guide (v2)
+# aictrl.dev workflow authoring guide (v2)
 
 The complete authoring reference for `aictrl/workflow/v2` files. This guide is
 self-contained: the JSON Schema it describes ships alongside it at

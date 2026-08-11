@@ -1,6 +1,6 @@
 # SPEC — create-workflow
 
-`create-workflow` is the vendor-neutral authoring skill for portable AICtrl workflow-as-code files.
+`create-workflow` is the vendor-neutral authoring skill for portable aictrl.dev workflow-as-code files.
 
 ## Contract
 
@@ -34,13 +34,13 @@ portable workflows should prefer the inline-task example.
 
 ## Validation boundary
 
-The offline validator proves schema structure, duplicate/dangling node checks, cycle checks, and bounded loop nesting. Organization-scoped skill/workflow resolution and CEL runtime semantics are validated by AICtrl when the file is applied.
+The offline validator proves schema structure, duplicate/dangling node checks, cycle checks, and bounded loop nesting. Organization-scoped skill/workflow resolution and CEL runtime semantics are validated by aictrl.dev when the file is applied.
 
 ## Sync procedure
 
 When the public workflow schema changes:
 
-1. Copy the released v2 schema and examples from the public AICtrl source release.
+1. Copy the released v2 schema and examples from the public aictrl.dev source release.
 2. Copy the released v1 schema into `reference/v1/workflow.schema.json` so v2 references resolve offline.
 3. Remove stale release-state annotations and internal-only references without changing validation keywords.
 4. Compare normalized schemas with `description` annotations removed; every remaining validation keyword and value must match the source release.
