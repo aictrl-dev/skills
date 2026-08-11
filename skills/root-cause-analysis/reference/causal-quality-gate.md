@@ -44,7 +44,7 @@ For every root or contributing cause, answer:
 5. Who can change it, through what mechanism?
 6. What evidence could strengthen or falsify it?
 
-Prefer “contributed to,” “made possible,” or “failed to contain” when the
+Prefer "contributed to," "made possible," or "failed to contain" when the
 evidence does not support necessary or sufficient causality.
 
 ## Initiative quality checks
