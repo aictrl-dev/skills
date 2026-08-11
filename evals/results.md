@@ -1,5 +1,23 @@
 # Eval Results
 
+## explain-change Mermaid render validation — 2026-08-11
+
+Method: executed the pinned Mermaid CLI helper against the bundled valid,
+multi-diagram, unavailable-renderer, unsafe-URI, and timeout cases, then ran
+the complete repository test and validation suites.
+
+| Criterion | Result |
+|---|---|
+| Valid Mermaid block renders with the pinned CLI | PASS |
+| Invalid sibling block fails without masking a valid block | PASS |
+| No-diagram draft skips renderer setup | PASS |
+| Missing renderer, unsafe URI, and timeout fail closed | PASS |
+| Skill frontmatter and public catalog validation | PASS |
+
+Verdict: PASS — diagram validation is deterministic when the pinned renderer is
+available; the skill keeps a bounded repair loop and blocks presentation or
+posting when that prerequisite or rendering fails.
+
 ## explain-change — 2026-08-11 (scenario walk-through by author)
 
 Method: walked the public skill through the scenario in

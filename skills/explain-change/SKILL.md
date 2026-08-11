@@ -113,7 +113,36 @@ experimental Mermaid diagram types in public artifacts. Give every diagram a
 caption that states the claim it makes, and remove any diagram that merely
 repeats nearby prose.
 
-### 4. Draft and verify
+### 4. Render Mermaid, then repair
+
+When the draft contains Mermaid, create a temporary Markdown file and validate
+every block before showing the draft:
+
+```bash
+SCRATCH="$(mktemp -d)"
+node skills/explain-change/scripts/verify-mermaid.mjs \
+  --input "$SCRATCH/explainer.md" > "$SCRATCH/mermaid-result.json"
+```
+
+The helper uses the repository's pinned Mermaid CLI and writes a JSON result
+with a renderer version, diagram ordinal, source line, and any sanitized error.
+It skips renderer setup when there are no Mermaid blocks. Do not silently
+install a renderer or bypass the browser sandbox: if the renderer is
+unavailable, report the missing prerequisite and treat render verification as
+blocked.
+
+For a failed diagram, revise only that Mermaid block while preserving its
+technical claim, then rerun the helper against the complete draft. Make at
+most three repair attempts. A timeout, unavailable renderer, unsafe URI,
+unclosed fence, or three failed attempts means the artifact is **not**
+render-verified: do not show it as a completed draft or post it. Report the
+failure, the affected diagram, and the next safe action instead.
+
+Rendering proves compatibility with the committed Mermaid CLI version, not
+pixel-identical output on every documentation host. Never enable remote icon
+packs or add remote/executable URIs merely to make a diagram render.
+
+### 5. Draft and verify
 
 Use this shape, adapting detail to the audience:
 
@@ -151,7 +180,8 @@ Re-walk the claim ledger before showing the draft:
 - [ ] Every cited file, symbol, test, URL, issue, and revision exists.
 - [ ] The explanation distinguishes evidence, inference, and open questions.
 - [ ] The rollout state is explicit and does not over-claim completeness.
-- [ ] Every diagram uses supported syntax and earns its place.
+- [ ] Every Mermaid block rendered successfully with the recorded renderer
+  version, or the artifact is explicitly blocked and not presented as complete.
 - [ ] The draft contains no secret or sensitive operational data.
 
 Show the draft with its evidence ledger (or an evidence summary for a
