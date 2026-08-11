@@ -52,9 +52,13 @@ contract. This is the proximal mechanism, not automatically the root cause.
 
 - `<cause ID>` — `<cause statement and why it qualifies>`
 
-### Contributing conditions, triggers, and missing safeguards
+### Contributing conditions, triggers, and failed or missing safeguards
 
 - `<cause ID or trigger>` — `<condition>`
+
+### Consequences
+
+- `<cause ID>` — `<downstream effect and why it is an effect, not a cause>`
 
 ### Unresolved hypotheses
 
