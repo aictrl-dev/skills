@@ -1,6 +1,6 @@
-# AICtrl reviewer fixture
+# aictrl.dev reviewer fixture
 
-This dependency-free repository is the deterministic baseline for AICtrl's
+This dependency-free repository is the deterministic baseline for aictrl.dev's
 public plugin review cases. It intentionally contains one small JavaScript
 module and a fast Node test suite.
 

@@ -6,7 +6,7 @@
 - [x] The root marketplace declares installation, authentication, and category policy.
 - [x] Codex CLI completes clean root install, repeat install, version upgrade, and removal in CI.
 - [x] Claude Code completes clean marketplace add, install, repeat install, and removal in CI.
-- [x] OpenCode installs the packed artifact, reaches the sandbox OAuth boundary, repeats idempotently, and removes only AICtrl-managed state.
+- [x] OpenCode installs the packed artifact, reaches the sandbox OAuth boundary, repeats idempotently, and removes only aictrl.dev-managed state.
 - [x] All skills come from the one canonical root tree and are checksum-verified.
 - [x] Starter prompts are limited to three.
 - [x] Reviewer materials contain exactly five positive and three negative cases.
@@ -16,7 +16,7 @@
 - [x] A clean external user installs the tagged root plugin and completes one
   local skill.
   Evidence: on 2026-07-19, a clean Codex process installed the tagged root
-  plugin and completed `spec-review` without an AICtrl account, API key, or MCP
+  plugin and completed `spec-review` without an aictrl.dev account, API key, or MCP
   connection
   ([run evidence](https://github.com/aictrl-dev/aictrl/issues/3866#issuecomment-5011262315)).
 - [ ] The release owner approves the final portal-rendered logo and listing.
@@ -25,7 +25,7 @@
 
 - [x] The canonical resource URL is publicly reachable at `https://aictrl.dev/mcp`.
 - [x] Protected production tests cover the exact nine-tool allow-list, schemas, safety annotations, organization authorization, and redaction ([run 29651112276](https://github.com/aictrl-dev/skills/actions/runs/29651112276)).
-- [x] The fixture repository is connected to its least-privilege AICtrl organization, `implement-code-change@1.0.0` is active there, and the protected Git workflow is published as repository-owned workflow version 2.
+- [x] The fixture repository is connected to its least-privilege aictrl.dev organization, `implement-code-change@1.0.0` is active there, and the protected Git workflow is published as repository-owned workflow version 2.
 - [x] All five positive and three negative portal cases pass on ChatGPT web
   using the dedicated reviewer identity.
   Evidence: [2026-07-22 web rehearsal](./rehearsal-2026-07-22.md).

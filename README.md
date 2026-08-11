@@ -1,9 +1,9 @@
 [![GitHub Stars](https://img.shields.io/github/stars/aictrl-dev/skills?style=flat-square&label=stars)](https://github.com/aictrl-dev/skills) [![Skills](https://img.shields.io/badge/skills-essential-blue?style=flat-square)](https://github.com/aictrl-dev/skills/tree/main/skills)
 
-# AICtrl engineering skills and plugin
+# aictrl.dev engineering skills and plugin
 
 Essential, vendor-neutral AI engineering-workflow skills in one canonical
-tree. Install the skills alone, or install the AICtrl plugin to add the same
+tree. Install the skills alone, or install the aictrl.dev plugin to add the same
 skills plus OAuth-connected controlled workflow execution.
 
 ## Install
@@ -54,7 +54,7 @@ Then ask for the task naturally or invoke a supported slash command, for example
 | [judge-review-findings](skills/judge-review-findings/SKILL.md) | Current-head findings → TRUE/FALSE/UNCERTAIN plus FIX/DEFER/IGNORE judgments. | `/judge-review-findings` |
 | [reply-to-code-review](skills/reply-to-code-review/SKILL.md) | Accepted review findings → fixes, verification, evidence-backed replies, and bounded re-review. | `/reply-to-code-review` |
 | [root-cause-analysis](skills/root-cause-analysis/SKILL.md) | Incident or recurring failure → evidence-driven causal analysis, sibling exposure map, and prevention portfolio. | `/root-cause-analysis` |
-| [create-workflow](skills/create-workflow/SKILL.md) | Workflow intent → validated AICtrl workflow v2 YAML with portable inline task nodes. | `/create-workflow` |
+| [create-workflow](skills/create-workflow/SKILL.md) | Workflow intent → validated aictrl.dev workflow v2 YAML with portable inline task nodes. | `/create-workflow` |
 | [design-review](skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
 | [measurement-plan](skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
 | [recording-product-demo](skills/recording-product-demo/SKILL.md) | Point it at a repo with a web UI — it boots the app, preps demo data/auth, records a narrated time-locked Playwright demo synced to an ElevenLabs voiceover, and builds a publish kit (MP4 + captions + embed). | `/recording-product-demo` |
@@ -78,7 +78,7 @@ Every critique names the element. Every fix is concrete. No generic "improve cla
 
 ## Why these exist
 
-These skills are free and standalone. [AICtrl](https://aictrl.dev/?utm_source=oss-skills&utm_medium=readme&utm_campaign=repo&utm_listing=github-skills&utm_platform=portable)
+These skills are free and standalone. [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=readme&utm_campaign=repo&utm_listing=github-skills&utm_platform=portable)
 adds controlled remote execution, approvals, policy, history, integrations, and
 cost limits. The first connected path is `implement-code-change`; local mode
 remains available for every launch skill.

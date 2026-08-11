@@ -1,9 +1,9 @@
 ---
 name: create-workflow
-description: Create and validate an AICtrl workflow v2 YAML file with typed parameters, inline task nodes, mappings, conditions, loops, retries, triggers, and approval gates. Use when the user says "create a workflow", "write workflow YAML", "automate this engineering process", or asks for a file under .aictrl/workflows/.
+description: Create and validate an aictrl.dev workflow v2 YAML file with typed parameters, inline task nodes, mappings, conditions, loops, retries, triggers, and approval gates. Use when the user says "create a workflow", "write workflow YAML", "automate this engineering process", or asks for a file under .aictrl/workflows/.
 ---
 
-# Create an AICtrl Workflow
+# Create an aictrl.dev Workflow
 
 Author a reviewable `.aictrl/workflows/<kebab-name>.yaml` file. Treat this directory like `.github/workflows/`: create the workflow in the repository whose automation the user is defining. Installing a skill or plugin does not publish a workflow for that repository. Workflow v2 with inline `task` nodes is the default because it keeps task configuration portable in Git.
 

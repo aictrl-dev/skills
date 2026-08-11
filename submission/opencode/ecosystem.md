@@ -35,7 +35,7 @@ Title: `[FEATURE]: List @aictrl/opencode in the Ecosystem`
 Use the feature-request form and confirm its duplicate checkbox. Description:
 
 > Add `@aictrl/opencode` to the Plugins table. It gives OpenCode users essential
-> portable SDLC skills plus an optional OAuth-connected AICtrl workflow MCP.
+> portable SDLC skills plus an optional OAuth-connected aictrl.dev workflow MCP.
 > The public npm package has passed clean install, MCP discovery, repeat install,
 > and uninstall verification.
 
@@ -44,10 +44,10 @@ Use the feature-request form and confirm its duplicate checkbox. Description:
 Append one row to the English `Plugins` table, matching its current alignment:
 
 ```markdown
-| [@aictrl/opencode](https://github.com/aictrl-dev/skills)                                      | Install essential portable SDLC skills and optional OAuth-connected AICtrl workflows              |
+| [@aictrl/opencode](https://github.com/aictrl-dev/skills)                                      | Install essential portable SDLC skills and optional OAuth-connected aictrl.dev workflows              |
 ```
 
-PR title: `docs: add AICtrl to the OpenCode ecosystem`
+PR title: `docs: add aictrl.dev to the OpenCode ecosystem`
 
 Complete the upstream PR template with the issue closing reference, mark only
 Documentation, describe the single row, record the published version and clean

@@ -78,7 +78,7 @@ Use the submitted plugin itself; do not create a duplicate plugin definition.
 1. Open `https://chatgpt.com/?surface=work`.
 2. Open **Settings → Plugins → Aictrl.dev**.
 3. Open the plugin's overflow menu and select **Reconnect**.
-4. On the AICtrl OAuth page, sign in with the dedicated reviewer email and
+4. On the aictrl.dev OAuth page, sign in with the dedicated reviewer email and
    password supplied in the portal.
 5. Do not save the password in the browser.
 6. Confirm ChatGPT reports `Aictrl.dev is now connected`.
@@ -86,7 +86,7 @@ Use the submitted plugin itself; do not create a duplicate plugin definition.
 
 As an authorization control, P1 must return exactly the reviewer organization.
 If it returns a personal or production organization, stop: the browser is using
-the wrong AICtrl OAuth identity. Reconnect before continuing.
+the wrong aictrl.dev OAuth identity. Reconnect before continuing.
 
 ## Run the cases
 
@@ -132,7 +132,7 @@ The first P1 attempt used the pre-existing demo OAuth identity. It returned four
 unrelated organizations and no published workflow, so the attempt was rejected
 as a setup failure. Reconnecting the same plugin with the dedicated reviewer
 credentials corrected the boundary. This is evidence that the result is scoped
-to the authenticated AICtrl identity rather than to the plugin installation.
+to the authenticated aictrl.dev identity rather than to the plugin installation.
 
 ### Final reviewer run
 
@@ -143,9 +143,9 @@ to the authenticated AICtrl identity rather than to the plugin installation.
 | P3 | PASS | Returned active `Publishing OpenAI Codex Plugin` and two draft tasks, including `OpenAI plugin reviewer fixture task`. |
 | P4 | PASS | Fixture task `366c277a-68ac-457d-a234-6a02f1d93a66` was reset to the requested repeatable values; title and description were preserved. |
 | P5 | PASS | Run `577b3178-113f-524e-b6d3-43e92ddbf3b0` used the stable key and initially reported `queued`, `wave-0`, `0/4`, required action `none`, and `$0.00`; the gate was not approved. |
-| N1 | PASS | Calendar request received a direct capability-boundary response; no AICtrl tool trace. |
-| N2 | PASS | ChatGPT returned a local Python function directly; no AICtrl tool trace. |
-| N3 | PASS | Email request received a direct capability-boundary response; no AICtrl tool trace. |
+| N1 | PASS | Calendar request received a direct capability-boundary response; no aictrl.dev tool trace. |
+| N2 | PASS | ChatGPT returned a local Python function directly; no aictrl.dev tool trace. |
+| N3 | PASS | Email request received a direct capability-boundary response; no aictrl.dev tool trace. |
 
 ## Evidence handling
 
@@ -170,4 +170,4 @@ bundle and attach its redacted output to the corresponding review record.
 5. Record web and mobile results separately; do not infer mobile success from
    this web pass.
 6. Leave the reviewer account connected only if the next submission step needs
-   it; otherwise reconnect the browser to the operator's normal AICtrl identity.
+   it; otherwise reconnect the browser to the operator's normal aictrl.dev identity.

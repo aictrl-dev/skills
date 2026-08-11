@@ -1,6 +1,6 @@
-# AICtrl 1.1.0-beta.2 — Codex release notes
+# aictrl.dev 1.1.0-beta.2 — Codex release notes
 
-Maintenance release of AICtrl's engineering plugin for Codex and ChatGPT.
+Maintenance release of aictrl.dev's engineering plugin for Codex and ChatGPT.
 
 - Essential, local-first skills cover issue creation, bug reporting, spec
   review, implementation, code review, finding judgment, review replies,

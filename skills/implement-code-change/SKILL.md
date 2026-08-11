@@ -1,6 +1,6 @@
 ---
 name: implement-code-change
-description: Implement an engineering issue through tests, code, review, and CI, with separate story and bug paths and an optional connected AICtrl workflow. Use when the user says "implement issue 123", "fix this bug", "make this code change", or "take this ticket to a merge-ready PR".
+description: Implement an engineering issue through tests, code, review, and CI, with separate story and bug paths and an optional connected aictrl.dev workflow. Use when the user says "implement issue 123", "fix this bug", "make this code change", or "take this ticket to a merge-ready PR".
 ---
 
 # Implement a Code Change
@@ -10,7 +10,7 @@ Take one engineering issue to a verified, merge-ready pull request. Never merge 
 ## Choose the execution mode
 
 - **Local mode** is always available and uses the coding agent's repository, shell, git, and provider capabilities.
-- **Connected mode** is optional. Use it only when the user asks to hand off or run the work in AICtrl and the six workflow lifecycle tools are available. Explain that connected execution records workflow history, evidence, limits, and approvals before starting it.
+- **Connected mode** is optional. Use it only when the user asks to hand off or run the work in aictrl.dev and the six workflow lifecycle tools are available. Explain that connected execution records workflow history, evidence, limits, and approvals before starting it.
 
 ## Local workflow
 

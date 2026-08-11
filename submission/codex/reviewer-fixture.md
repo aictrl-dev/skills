@@ -1,7 +1,7 @@
 # Codex reviewer fixture
 
 Use the dedicated public fixture below for connected reviewer cases. Never use
-an AICtrl production backlog repository.
+an aictrl.dev production backlog repository.
 
 ## Provisioned resources
 
@@ -22,7 +22,7 @@ remaining readiness controls pass.
 
 ## Required controls
 
-- The reviewer account can see only its intended AICtrl organization and the fixture repository.
+- The reviewer account can see only its intended aictrl.dev organization and the fixture repository.
 - The private `Plugin Reviewer` backlog contains an active `Publishing OpenAI Codex Plugin` epic and one dedicated `OpenAI plugin reviewer fixture task`; no production backlog is used.
 - The GitHub integration may create a feature branch and pull request but cannot merge or deploy.
 - The repository-owned workflow is reviewed through protected `main`; plugin installation never provisions it.
