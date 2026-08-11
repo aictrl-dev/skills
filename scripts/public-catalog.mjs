@@ -26,6 +26,7 @@ export const EXPECTED_SKILLS = Object.freeze([
   'create-issue',
   'create-workflow',
   'design-review',
+  'explain-change',
   'implement-code-change',
   'judge-review-findings',
   'measurement-plan',

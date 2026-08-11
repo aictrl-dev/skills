@@ -1,5 +1,31 @@
 # Eval Results
 
+## explain-change — 2026-08-11 (scenario walk-through by author)
+
+Method: walked the public skill through the scenario in
+`evals/explain-change.eval.md`, tracing each required decision to its explicit
+workflow instruction. This is a behavioral desk check of the portable skill;
+it does not claim a live-host posting or fresh-agent integration run.
+
+| Criterion | Result |
+|---|---|
+| Pins the requested source and treats the local checkout and PR prose as insufficient evidence | PASS |
+| Requires a claim ledger tied to code, configuration, and tests | PASS |
+| Teaches the stale-writer failure and generation boundary rather than narrating files | PASS |
+| Requires a defining-property check before naming a transactional outbox | PASS |
+| Makes default-off or unwired rollout state explicit | PASS |
+| Limits diagrams to stable, information-bearing Mermaid types | PASS |
+| Returns reading order, evidence status, and open questions | PASS |
+| Keeps posting as a separately confirmed external mutation | PASS |
+
+Verdict: PASS — the public port preserves the internal skill's truth and
+teaching controls without depending on a particular repository, wiki layout,
+issue convention, or hosting CLI.
+
+Pending (human): run the scenario in a fresh agent session against a public
+repository pull request and verify that the generated draft grounds every claim
+in the selected commit.
+
 ## public eight-skill launch catalog — 2026-07-13
 
 Method: ran `./scripts/validate-skills.sh` over the full eleven-skill repository,

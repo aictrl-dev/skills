@@ -20,7 +20,7 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 - `create-workflow`
 
 Adjacent public skills: `design-review`, `measurement-plan`, and
-`recording-product-demo`. The repository contains eleven skills total.
+`recording-product-demo`, and `explain-change`. The repository contains twelve skills total.
 
 ## Adding a skill
 1. Create `skills/<name>/SKILL.md` with frontmatter `name` + `description` (description = the trigger).

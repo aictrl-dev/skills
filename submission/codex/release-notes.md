@@ -2,9 +2,10 @@
 
 Maintenance release of AICtrl's engineering plugin for Codex and ChatGPT.
 
-- Eleven portable, local-first skills cover issue creation, bug reporting, spec
+- Twelve portable, local-first skills cover issue creation, bug reporting, spec
   review, implementation, code review, finding judgment, review replies,
-  workflow authoring, design review, measurement planning, and demo recording.
+  workflow authoring, design review, measurement planning, demo recording, and
+  change explanation.
 - Connected `implement-code-change` uses native OAuth and the six lifecycle-tool
   subset of the nine-tool public catalog, with explicit approvals, cancellation,
   revision evidence, and bounds.

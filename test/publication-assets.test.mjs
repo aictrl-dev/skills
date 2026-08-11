@@ -49,7 +49,7 @@ test('publication copy uses the unified repository and shared version', () => {
   assert.match(listing, /\| Plugin name \| `aictrl\.dev` \|/);
   assert.match(listing, /install ID stays\s+`aictrl`/);
   assert.match(notes, new RegExp(pkg.version.replaceAll('.', '\\.')));
-  assert.match(notes, /Eleven portable/);
+  assert.match(notes, /Twelve portable/);
   assert.match(ecosystem, /https:\/\/github\.com\/aictrl-dev\/skills/);
   assert.doesNotMatch(ecosystem, /aictrl-dev\/aictrl-plugin\/tree/);
   for (const text of [listing, notes, ecosystem]) {
