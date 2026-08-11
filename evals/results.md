@@ -1,5 +1,26 @@
 # Eval Results
 
+## create-pr — 2026-08-11 (scenario walk-through and forward test)
+
+Method: followed `skills/create-pr/SKILL.md` against the seeded scenario in
+`evals/create-pr.eval.md`, grounding the draft in the pinned revision, linked
+issue, endpoint/flag implementation, and test source. This behavioral desk
+check made no pull-request mutation. An independent fresh-agent forward test
+then drafted the requested title/body from the same scenario; it excluded the
+unrelated working tree and labelled the green-suite and deployed claims as
+unverified.
+
+| Criterion | Result |
+|---|---|
+| Pinned revision and unrelated working-tree boundary | PASS |
+| Problem, behavior, scope, rollout/risk, and verification body structure | PASS |
+| Authored rollout and test-result claims kept distinct from configuration and test source | PASS |
+| Unknown deployment and execution evidence made explicit | PASS |
+| Explicit confirmation required before host mutation | PASS |
+
+Verdict: PASS — the skill produces a reviewer-ready draft that is grounded in
+the exact change and honest about what has and has not been verified.
+
 ## root-cause-analysis — 2026-08-11 (scenario walk-through by author)
 
 Method: followed `skills/root-cause-analysis/SKILL.md` against the seeded

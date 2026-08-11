@@ -49,6 +49,7 @@ Then ask for the task naturally or invoke a supported slash command, for example
 | [create-bug](skills/create-bug/SKILL.md) | Symptoms or regression → reproducible, evidence-backed bug and regression-test requirement. | `/create-bug` |
 | [spec-review](skills/spec-review/SKILL.md) | Issue/spec → repository-grounded readiness verdict and concrete gap fixes. | `/spec-review` |
 | [implement-code-change](skills/implement-code-change/SKILL.md) | Issue → tested, reviewed, merge-ready PR locally or through an optional connected workflow. | `/implement-code-change` |
+| [create-pr](skills/create-pr/SKILL.md) | Exact revision + evidence → concise reviewer-ready PR title and body, with rollout and verification claims kept honest. | `/create-pr` |
 | [code-review](skills/code-review/SKILL.md) | Exact PR head → actionable correctness, security, reliability, and test findings; no code changes. | `/code-review` |
 | [judge-review-findings](skills/judge-review-findings/SKILL.md) | Current-head findings → TRUE/FALSE/UNCERTAIN plus FIX/DEFER/IGNORE judgments. | `/judge-review-findings` |
 | [reply-to-code-review](skills/reply-to-code-review/SKILL.md) | Accepted review findings → fixes, verification, evidence-backed replies, and bounded re-review. | `/reply-to-code-review` |

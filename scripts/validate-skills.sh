@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SKILLS="$ROOT/skills"
 
 expected=(
-  code-review create-bug create-issue create-workflow design-review explain-change
+  code-review create-bug create-issue create-pr create-workflow design-review explain-change
   implement-code-change judge-review-findings measurement-plan
   recording-product-demo reply-to-code-review root-cause-analysis spec-review
 )
