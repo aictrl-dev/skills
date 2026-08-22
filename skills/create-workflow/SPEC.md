@@ -22,6 +22,8 @@ create-workflow/
   reference/
     authoring-guide.md
     workflow.schema.json
+    v1/
+      workflow.schema.json
     examples/
       inline-review-fix.yaml
       pr-review-and-triage.yaml
