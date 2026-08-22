@@ -159,6 +159,26 @@ Pending (human): run the scenario in a fresh agent session against a public
 repository pull request and verify that the generated draft grounds every claim
 in the selected commit.
 
+## create-workflow chat catch-all schema sync — 2026-08-22
+
+Method: synchronized the bundled v1 trigger definitions and authoring guidance
+with source commit `748107cc025bfaab890a4e37161c8e29a64c3c20`, then ran the
+deterministic schema-equivalence, trigger-contract, example, and public-skill
+checks.
+
+| Criterion | Result |
+|---|---|
+| Validation keywords are equivalent to the source schema after removing `description` annotations | PASS |
+| Command chat trigger without `chats` remains valid | PASS |
+| Commandless chat trigger with a non-empty `chats` allowlist is valid | PASS |
+| Commandless chat trigger with missing or empty `chats` is rejected | PASS |
+| All bundled workflow examples pass schema and static DAG validation | PASS |
+| Public skill checks and checksum manifest pass | PASS |
+
+Verdict: PASS — the portable bundle documents and validates both exact-command
+and allowlisted commandless chat triggers without exposing source-only release
+annotations.
+
 ## public eight-skill launch catalog — 2026-07-13
 
 Method: ran `./scripts/validate-skills.sh` over the full eleven-skill repository,

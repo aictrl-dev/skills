@@ -400,6 +400,15 @@ triggers:
       prompt:
         from: message
         field: text
+
+# Fire for ordinary non-command messages from an explicit Telegram chat:
+  - type: chat-message
+    provider: telegram
+    chats: [123456789]             # required and non-empty when command is omitted
+    inputs:
+      prompt:
+        from: message
+        field: text
 ```
 
 - `label`, `comment`, `pr-ready`, and `pr-opened` require `on: pull-request`.
@@ -408,8 +417,10 @@ triggers:
 - For GitHub triggers, `inputs` maps workflow parameter names to JSONPath
   expressions (each must start with `$`) evaluated against the webhook payload;
   max 20 entries.
-- `chat-message` has no `on` field. Its required fields are `provider` and
-  `command`; `command` must be an exact, case-sensitive slash command. Its
+- `chat-message` has no `on` field. `provider` is required. When present,
+  `command` must be an exact, case-sensitive slash command; a command trigger may
+  omit `chats` to accept any chat. When `command` is omitted, the trigger matches
+  ordinary non-command messages and requires a non-empty `chats` allowlist. Its
   `inputs` values are `{ from, field }` mappings, where `from` is `message`,
   `channel_post`, or `interaction`, and `field` is a dot-path rather than JSONPath.
   Telegram has runtime support; Slack and Discord definitions can be stored but
