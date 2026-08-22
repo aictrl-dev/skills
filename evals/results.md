@@ -159,7 +159,7 @@ Pending (human): run the scenario in a fresh agent session against a public
 repository pull request and verify that the generated draft grounds every claim
 in the selected commit.
 
-## create-workflow chat catch-all schema sync — 2026-08-22
+## create-workflow commandless chat trigger schema sync — 2026-08-22
 
 Method: synchronized the bundled v1 trigger definitions and authoring guidance
 with source commit `748107cc025bfaab890a4e37161c8e29a64c3c20`, then ran the
