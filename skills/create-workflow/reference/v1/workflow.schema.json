@@ -208,9 +208,18 @@
     },
     "chatMessageTrigger": {
       "type": "object",
-      "required": ["type", "provider", "command"],
+      "required": ["type", "provider"],
       "additionalProperties": false,
-      "description": "Fires the workflow when a supported chat provider receives a message whose first token equals command. This trigger is not pull-request scoped and has no on field. Its inputs map workflow parameter names to chat-source and field-path objects instead of JSONPath strings.",
+      "description": "Fires the workflow from a supported chat provider. With command, the first token must exactly match that slash command. Without command, ordinary non-command messages must come from the required non-empty chats allowlist. This trigger is not pull-request scoped and has no on field. Its inputs map workflow parameter names to chat-source and field-path objects instead of JSONPath strings.",
+      "allOf": [
+        {
+          "if": { "not": { "required": ["command"] } },
+          "then": {
+            "required": ["chats"],
+            "properties": { "chats": { "minItems": 1 } }
+          }
+        }
+      ],
       "properties": {
         "type": { "const": "chat-message" },
         "provider": {
@@ -222,11 +231,11 @@
           "minLength": 2,
           "maxLength": 64,
           "pattern": "^/[A-Za-z0-9][A-Za-z0-9_-]*$",
-          "description": "Slash command that fires this trigger when it is the first whitespace-delimited token of a chat message (e.g. `/run-review`). Same grammar as the comment trigger; matched exactly and case-sensitively."
+          "description": "Optional slash command that fires this trigger when it is the first whitespace-delimited token of a chat message (e.g. `/run-review`). Omit it to match ordinary non-command messages; a commandless trigger must declare at least one chats entry. Same grammar as the comment trigger; matched exactly and case-sensitively."
         },
         "chats": {
           "type": "array",
-          "description": "Optional allowlist of chat/channel ids this trigger fires for. Ints (Telegram) or strings (Slack/Discord) — stored as text. Omit to fire for any chat. Max 100 entries.",
+          "description": "Optional allowlist of chat/channel ids this trigger fires for. Ints (Telegram) or strings (Slack/Discord) are stored as text. Command triggers may omit it to fire for any chat; commandless triggers require at least one entry. Max 100 entries.",
           "items": { "type": ["string", "integer"] },
           "maxItems": 100
         },
