@@ -1,5 +1,97 @@
 # Eval Results
 
+## create-issue database/API contracts — 2026-08-30 (fresh-agent fixture trial)
+
+Method: a fresh agent read `skills/create-issue/SKILL.md`, its complete local
+contract-impact rubric, `evals/create-issue.eval.md`, and the exact repository
+and request fixtures under `evals/fixtures/contract-impact/`. It drafted five
+story scenarios and classified the regression request as a defect without
+creating or editing a provider issue. Claims were limited to fixture evidence;
+missing material values remained owned open questions.
+
+| Criterion | Result |
+|---|---|
+| Independent evidence-based database and API classification | PASS |
+| Complete database schema, migration, consumer, delivery, and verification contract | PASS |
+| Schema-changing cases include compact proposed Mermaid ERDs without replacing textual contracts | PASS |
+| Database case declares `No API contract change.` without invented work | PASS |
+| Complete API operation, request/response/error, authorization, compatibility, delivery, and verification contract | PASS |
+| API case declares `No database contract change.` without invented work | PASS |
+| Copy-only case contains both exact no-change declarations with concise evidence | PASS |
+| Query-only case declares `No ERD topology change.` without inventing schema work | PASS |
+| Unsupported material detail remains an owned open question tied to a blocked outcome | PASS |
+| Regression request stops and delegates to `create-bug` before contract drafting | PASS |
+| Provider neutrality, verifiable criteria, and mutation boundary remain intact | PASS |
+
+Verdict: PASS — the skill produced independently verifiable contract sections
+for affected layers, explicit evidence-backed declarations for unaffected
+layers, proposed ERDs for entity-shape and relationship changes, an explicit
+no-topology path for query-only work, no unsupported requirements, and an
+exercised defect-delegation boundary (11/11 criteria).
+
+## spec-review database/API readiness — 2026-08-30 (fresh-agent fixture trial)
+
+Method: a separate fresh agent read `skills/spec-review/SKILL.md`, its matching
+standalone contract-impact rubric, `evals/spec-review.eval.md`, the exact
+repository evidence fixture, and three literal issue bodies. It reviewed only
+those supplied facts and did not read the adjacent create-issue request fixture.
+It used owned decision text where the evidence could not establish a value:
+specifically, Issue A's desired field/index contract and Issue B's exact
+operation/request/response contract. It posted no comment, changed no issue,
+and implemented no code.
+
+| Criterion | Result |
+|---|---|
+| Repository evidence inspected beyond issue prose | PASS |
+| Acceptance traceability and independent database/API readiness reporting | PASS |
+| Incomplete database contract is `NOT READY`, including the missing proposed ERD | PASS |
+| Incomplete API contract is `NOT READY` with every seeded gap named | PASS |
+| Findings give exact locations, evidence, and replacement, criterion, or owned-decision text | PASS |
+| Supported copy-only no-change declarations are accepted as `READY` without invented work | PASS |
+| Severity and verdicts follow the shared readiness gate | PASS |
+| Review-only external-mutation and implementation boundaries remain intact | PASS |
+
+Repository verification on the updated rubric and fixtures also passed: the
+focused public-distribution suite passed 7/7; `npm test` ran 28 tests (26
+passed, 2 skipped); `npm run validate` validated all 14 public skills and the
+canonical plugin; `git diff --check` found no whitespace errors; the two rubric
+copies were byte-identical; and the 53-entry release checksum manifest exactly
+matched fresh generation. The two skips were the renderer-dependent Mermaid
+cases `renders a valid Mermaid block to SVG` and `reports invalid syntax
+without masking successful sibling diagrams`; the OpenCode installer and
+npm-package distribution tests both passed.
+
+Verdict: PASS — materially incomplete database and API contracts block
+readiness with actionable replacement text, while supported unaffected-layer
+declarations do not create artificial scope.
+
+## database/API contracts — pinned real-issue replay (2026-08-30)
+
+Method: fresh agents applied the updated `create-issue` and `spec-review`
+skills read-only to `aictrl-dev/aictrl` issues 4667 and 4635 at pinned repository
+revision `0565cb3e2d3c11a0c01bfd8731332199334c66ae`. This repeated the earlier
+field trial with the issue bodies and target revision held constant. No issue,
+repository file, or Git reference was changed.
+
+| Scenario | Expected behavior | Result |
+|---|---|---|
+| Additive account-consent state (#4667) | Produce an actual proposed ERD, keep physical table/FK choices unresolved, retain textual schema and API contracts, and return `NOT READY` for the incomplete original issue | PASS |
+| Behavioral workflow-run reads (#4635) | State `No ERD topology change.` with query/index evidence, produce no misleading diagram or DDL, retain the exact API contract, and return `NOT READY` for the incomplete original issue | PASS |
+| Existing stale/unrelated ERD | Identify that it cannot substitute for the affected PostgreSQL model and emit Mermaid rather than merely promise a later file update | PASS |
+| Fact discipline | Distinguish current, decided desired, and unresolved proposed details without inventing a physical relationship | PASS |
+
+The first #4667 replay exposed that a compliant response could merely name an
+existing canonical ERD. The rubric was tightened to require an actual focused
+repository-native diff or Mermaid artifact; stale or unrelated ERDs now require
+Mermaid plus an explicit reconciliation follow-up. A final fresh-agent replay
+produced the bounded `USERS`/`ACCOUNT_CONSENT_STATE` diagram with unresolved SQL
+types and physical mapping marked `TBD` and reported no remaining prompt defect.
+
+Limitation: the pinned revision already contains the merged implementation for
+#4635, so that scenario is a documentation reconstruction rather than a true
+pre-implementation readiness review. It still isolates the changed skill
+behavior because both field-trial rounds used the same issue and revision.
+
 ## create-pr — 2026-08-11 (scenario walk-through and forward test)
 
 Method: followed `skills/create-pr/SKILL.md` against the seeded scenario in
