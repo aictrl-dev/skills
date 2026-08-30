@@ -19,7 +19,9 @@ facts from the aictrl skills repository.
 
 - `npm run test:schema`
 - `npm run test:migrations -- jobs-expiration`
+- `npm run test:migrations -- job-team-ownership`
 - `npm run test:workers -- job-cleanup`
+- `npm run test:workers -- job-create`
 - `npm run test:contracts -- project-export`
 - `npm run test:integration -- project-export`
 - `npm run generate:db-types && git diff --exit-code generated/db.ts`
@@ -46,16 +48,36 @@ CREATE INDEX jobs_cleanup_completed_idx
   WHERE status = 'completed';
 ```
 
+`db/schema/teams.sql` contains:
+
+```sql
+CREATE TABLE teams (
+  id uuid PRIMARY KEY,
+  tenant_id uuid NOT NULL REFERENCES tenants(id),
+  name text NOT NULL,
+  UNIQUE (tenant_id, id)
+);
+```
+
+The fixture repository has no canonical ERD artifact or Mermaid validation
+command. A schema-changing issue therefore needs a compact proposed Mermaid
+`erDiagram` plus textual schema details; the diagram can be reviewed as part of
+the issue before implementation.
+
 No role, grant, row policy, view, function, trigger, extension, ownership, or
 execution-context change is planned for this fixture.
 
 `generated/db.ts` represents `completed_at` as `Date | null` and contains no
-expiration field.
+expiration or job owner-team field. It contains the current `Team` shape.
+
+`workers/job-create.ts` inserts the authenticated tenant ID and new job fields.
+It does not currently accept or persist a team assignment.
 
 `workers/job-cleanup.ts` selects completed jobs older than seven days through
-`jobs_cleanup_completed_idx`, archives their child artifacts, and then deletes
-the job. A retry reselects remaining rows; archived child artifacts are not
-duplicated because their archive key is the job ID.
+`jobs_cleanup_completed_idx` without an explicit `ORDER BY` or batch limit,
+archives their child artifacts, and then deletes the job. A retry reselects
+remaining rows; archived child artifacts are not duplicated because their
+archive key is the job ID.
 
 `tests/migrations/jobs.test.ts` migrates both empty and populated pre-change
 databases. `tests/workers/job-cleanup.test.ts` covers the current

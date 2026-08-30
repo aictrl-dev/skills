@@ -50,6 +50,16 @@ For an affected database contract, state:
 
 - **Evidence and scope:** affected entities or tables, producers, consumers,
   schema or ERD definitions, migrations, and generated artifacts.
+- **Schema/ERD artifact:** when entity shape or relationships change, name the
+  repository's canonical schema/ERD artifact and the required update. If the
+  repository has no canonical ERD, include a compact Mermaid `erDiagram`
+  limited to affected entities and their one-hop relationships. Distinguish
+  current state, decided desired state, and unresolved proposed details; never
+  render an open decision as established fact. When database behavior, data,
+  or indexes change without entity-shape or relationship changes, include the
+  exact declaration `No ERD topology change.` with evidence and document the
+  affected queries, indexes, or data movement textually. An ERD supplements;
+  it never replaces the field, constraint, index, or migration contract.
 - **Current and desired schema:** columns or fields, types, nullability,
   defaults, relations, indexes, unique/check/foreign-key constraints, and
   create/update/delete or archival lifecycle behavior.
@@ -62,7 +72,9 @@ For an affected database contract, state:
   rollout; rollback or a stated forward-only recovery plan.
 - **Verification:** independently runnable schema, migration, data-validation,
   integration, rollback/recovery, and compatibility checks as applicable,
-  with concrete commands or observable assertions.
+  with concrete commands or observable assertions. Validate an updated
+  schema/ERD artifact with the repository's renderer or checker when one
+  exists; otherwise record the artifact review needed before implementation.
 
 Use this compact shape so the classification remains visible:
 
@@ -70,6 +82,7 @@ Use this compact shape so the classification remains visible:
 ## Database contract
 Impact: <additive | behavioral | breaking/destructive | migration-only>
 - Evidence and scope: ...
+- Schema/ERD artifact: ...
 - Current and desired schema: ...
 - Database-owned objects: ...
 - Migration and delivery: ...
@@ -131,8 +144,9 @@ would require assumptions about any applicable contract item. Return `NOT
 READY` for a spec review when repository evidence exposes one of these gaps:
 
 - the impact classification is absent, generic, or contradicted by evidence;
-- an affected schema field, constraint, database object, or exact API operation
-  is unnamed;
+- an affected schema field, constraint, database object, exact API operation,
+  required schema/ERD artifact, or evidence-backed `No ERD topology change.`
+  declaration is unnamed;
 - migration ordering, backfill/transformation, validation, destructive risk,
   mixed-version behavior, recovery, or rollback is material but unspecified;
 - request, response, error, authorization, tenant/resource, privacy, or limit

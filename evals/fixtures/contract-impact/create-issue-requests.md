@@ -75,3 +75,55 @@ tenant. Version 1.7 returned `201` for the same request. The first failing
 revision and exact cause are not yet known.
 
 Draft only. No provider or writable issue target is supplied.
+
+## Request E: optional team ownership for jobs
+
+Create an engineering issue to let newly created jobs be assigned to an
+existing team in the same tenant.
+
+- Add `jobs.owner_team_id uuid NULL DEFAULT NULL`.
+- Add `FOREIGN KEY (tenant_id, owner_team_id) REFERENCES teams (tenant_id, id)
+  ON DELETE RESTRICT` and partial index `jobs_owner_team_idx (tenant_id,
+  owner_team_id, id) WHERE owner_team_id IS NOT NULL`.
+- Existing jobs remain null; no backfill is required. The job-create producer
+  may set the field only after validating an existing same-tenant team.
+- Deploy the schema and generated database types before the producer. Old
+  workers must tolerate the nullable additive field during a rolling release.
+- Reject deletion of a referenced team. Clearing or reassigning ownership is a
+  separate explicit operation and is out of scope.
+- Preserve all existing rows. Recover by disabling new assignments and
+  restoring the prior producer while retaining the additive field, constraint,
+  and data for a later reviewed migration.
+- Update the proposed ERD for `tenants`, `teams`, and `jobs`, limited to those
+  affected entities and their relationships. Keep exact types, nullability,
+  defaults, foreign keys, indexes, and lifecycle behavior in the textual
+  schema contract as well.
+- Verify the exact schema/constraint/index, same-tenant and cross-tenant
+  assignments, null ownership, restricted team deletion, mixed old/new worker
+  versions, generated types, and recovery with the repository commands.
+- No API, event, RPC, SDK, or generated API artifact changes.
+
+Draft only. No provider or writable issue target is supplied.
+
+## Request F: deterministic cleanup query
+
+Create an engineering issue to make each cleanup-worker query select at most
+100 eligible jobs in deterministic oldest-first order.
+
+- Keep the existing eligibility predicate and use `ORDER BY completed_at ASC,
+  id ASC LIMIT 100` before archive-before-delete processing.
+- The existing `jobs_cleanup_completed_idx (completed_at, id) WHERE status =
+  'completed'` supports the query. Do not change tables, fields, relations,
+  constraints, indexes, generated database types, or stored data.
+- Classify the database impact as behavioral and state `No ERD topology
+  change.` with evidence. No schema migration, backfill, or ERD update is
+  required.
+- Preserve archive-before-delete, retry, and threshold-boundary behavior.
+- Verify ordering across equal timestamps, batches of 0, 1, 100, and 101 rows,
+  interrupted retry, the existing query plan/index, and old/new worker rolling
+  compatibility with the repository commands.
+- Roll back by restoring the prior worker; no data or schema recovery is
+  required.
+- No API, event, RPC, SDK, or generated API artifact changes.
+
+Draft only. No provider or writable issue target is supplied.

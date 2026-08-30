@@ -47,10 +47,16 @@ test('issue authoring and spec review ship matching standalone contract rubrics'
 
   assert.equal(existsSync(join(ROOT, createRubric)), true);
   assert.equal(existsSync(join(ROOT, reviewRubric)), true);
-  assert.equal(
-    readFileSync(join(ROOT, createRubric), 'utf8'),
-    readFileSync(join(ROOT, reviewRubric), 'utf8'),
-  );
+  const createRubricContents = readFileSync(join(ROOT, createRubric), 'utf8');
+  const reviewRubricContents = readFileSync(join(ROOT, reviewRubric), 'utf8');
+
+  assert.ok(createRubricContents.length > 1_000);
+  assert.match(createRubricContents, /^# Database and API Contract-Impact Rubric$/m);
+  assert.match(createRubricContents, /^## Database contract$/m);
+  assert.match(createRubricContents, /^## API contract$/m);
+  assert.match(createRubricContents, /Mermaid `erDiagram`/);
+  assert.match(createRubricContents, /`No ERD topology change\.`/);
+  assert.equal(createRubricContents, reviewRubricContents);
   assert.match(createIssue, /\]\(reference\/contract-impact\.md\)/);
   assert.match(specReview, /\]\(reference\/contract-impact\.md\)/);
 });
