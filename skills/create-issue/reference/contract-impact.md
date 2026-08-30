@@ -24,9 +24,11 @@ supports it:
 ```markdown
 ## Database contract
 No database contract change.
+Evidence: <repository evidence supporting the no-change claim>
 
 ## API contract
 No API contract change.
+Evidence: <repository evidence supporting the no-change claim>
 ```
 
 ## Database contract

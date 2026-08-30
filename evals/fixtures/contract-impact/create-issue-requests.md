@@ -43,9 +43,9 @@ Create an engineering issue for a REST `POST
   complete redacted data, while CSV exports return the equivalent complete
   rows. Partial success is not allowed.
 - Use the repository's exact bounded errors, permission `project.export`,
-  non-disclosing cross-tenant behavior, redaction rules, audit boundary, five-
-  request rolling-minute limit, 10 MiB response limit, timeout behavior, and
-  retry-safe read semantics.
+  non-disclosing cross-tenant behavior, redaction rules, audit boundary,
+  five-request rolling-minute limit, 10 MiB response limit, timeout behavior,
+  and retry-safe read semantics.
 - This is an additive v1 operation. Update OpenAPI and checked-in generated
   client/types, publish them before consumers adopt `exportProject`, and do not
   alter existing operations.

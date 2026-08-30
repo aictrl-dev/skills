@@ -32,8 +32,9 @@ Method: a separate fresh agent read `skills/spec-review/SKILL.md`, its matching
 standalone contract-impact rubric, `evals/spec-review.eval.md`, the exact
 repository evidence fixture, and three literal issue bodies. It reviewed only
 those supplied facts, using owned decision text where the fixture could not
-establish a value. It posted no comment, changed no issue, and implemented no
-code.
+establish a value: specifically, Issue A's desired field/index contract and
+Issue B's exact operation/request/response contract. It posted no comment,
+changed no issue, and implemented no code.
 
 | Criterion | Result |
 |---|---|
@@ -49,7 +50,10 @@ code.
 Repository verification also passed: `npm test` ran 28 tests (26 passed, 2
 skipped), `npm run validate` validated all 14 public skills and the canonical
 plugin, `git diff --check` found no whitespace errors, and the 53-entry release
-checksum manifest exactly matched fresh generation.
+checksum manifest exactly matched fresh generation. The two skips were the
+renderer-dependent Mermaid cases `renders a valid Mermaid block to SVG` and
+`reports invalid syntax without masking successful sibling diagrams`; the
+OpenCode installer and npm-package distribution tests both passed.
 
 Verdict: PASS — materially incomplete database and API contracts block
 readiness with actionable replacement text, while supported unaffected-layer

@@ -58,9 +58,9 @@ the job. A retry reselects remaining rows; archived child artifacts are not
 duplicated because their archive key is the job ID.
 
 `tests/migrations/jobs.test.ts` migrates both empty and populated pre-change
-databases. `tests/workers/job-cleanup.test.ts` covers the current archive-before-
-delete ordering, retry after interruption, and timestamps immediately before,
-at, and after the cleanup threshold.
+databases. `tests/workers/job-cleanup.test.ts` covers the current
+archive-before-delete ordering, retry after interruption, and timestamps
+immediately before, at, and after the cleanup threshold.
 
 ## API evidence
 

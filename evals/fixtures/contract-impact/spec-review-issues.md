@@ -2,6 +2,10 @@
 
 Review each issue against `repository-evidence.md`. The omissions are
 intentional; do not repair them silently or fill them with invented values.
+The evidence establishes current behavior and repository conventions, but it
+intentionally does not choose Issue A's desired field shape/index or Issue B's
+exact operation/request/response shape. Those material values must become
+owned decisions that name the blocked outcome.
 
 ## Issue A: persist job expiration
 

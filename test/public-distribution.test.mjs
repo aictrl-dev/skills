@@ -19,6 +19,11 @@ import {
   readJson,
 } from '../scripts/public-catalog.mjs';
 
+const CONTRACT_RUBRICS = [
+  'skills/create-issue/reference/contract-impact.md',
+  'skills/spec-review/reference/contract-impact.md',
+];
+
 test('all public manifests consume one canonical skills and MCP tree', () => {
   const claude = readJson('.claude-plugin/plugin.json');
   const codex = readJson('.codex-plugin/plugin.json');
@@ -36,8 +41,7 @@ test('all public manifests consume one canonical skills and MCP tree', () => {
 });
 
 test('issue authoring and spec review ship matching standalone contract rubrics', () => {
-  const createRubric = 'skills/create-issue/reference/contract-impact.md';
-  const reviewRubric = 'skills/spec-review/reference/contract-impact.md';
+  const [createRubric, reviewRubric] = CONTRACT_RUBRICS;
   const createIssue = readFileSync(join(ROOT, 'skills/create-issue/SKILL.md'), 'utf8');
   const specReview = readFileSync(join(ROOT, 'skills/spec-review/SKILL.md'), 'utf8');
 
@@ -77,14 +81,9 @@ test('OpenCode install is idempotent and uninstall preserves unrelated state', (
     for (const skill of EXPECTED_SKILLS) {
       assert.equal(existsSync(join(opencodeRoot, 'skills', skill, 'SKILL.md')), true);
     }
-    assert.equal(existsSync(join(
-      opencodeRoot,
-      'skills/create-issue/reference/contract-impact.md',
-    )), true);
-    assert.equal(existsSync(join(
-      opencodeRoot,
-      'skills/spec-review/reference/contract-impact.md',
-    )), true);
+    for (const rubric of CONTRACT_RUBRICS) {
+      assert.equal(existsSync(join(opencodeRoot, rubric)), true);
+    }
 
     runInstaller(['--uninstall'], env);
     const uninstalled = JSON.parse(readFileSync(configFile, 'utf8'));
@@ -165,8 +164,9 @@ test('npm package contains every canonical skill and no repository-only files', 
   for (const skill of EXPECTED_SKILLS) {
     assert(paths.includes(`skills/${skill}/SKILL.md`));
   }
-  assert(paths.includes('skills/create-issue/reference/contract-impact.md'));
-  assert(paths.includes('skills/spec-review/reference/contract-impact.md'));
+  for (const rubric of CONTRACT_RUBRICS) {
+    assert(paths.includes(rubric));
+  }
   assert.equal(paths.some((path) => path.startsWith('evals/')), false);
   assert.equal(paths.some((path) => path.startsWith('test/')), false);
   assert.equal(paths.some((path) => path.startsWith('.claude-plugin/')), false);

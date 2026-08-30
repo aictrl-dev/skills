@@ -8,7 +8,8 @@ description: Create a code-grounded engineering story or task with scope, accept
 Turn a vague feature, chore, or engineering request into a provider issue that another engineer can implement without reconstructing intent. Use `create-bug` for broken or regressed behavior.
 
 Read the [shared contract-impact rubric](reference/contract-impact.md) before
-inspecting or drafting the issue.
+inspecting or drafting the issue. This authoring copy is mirrored byte-for-byte
+at `skills/spec-review/reference/contract-impact.md`; change both together.
 
 ## Workflow
 
