@@ -35,6 +35,22 @@ test('all public manifests consume one canonical skills and MCP tree', () => {
   assert.equal(codex.version, pkg.version);
 });
 
+test('issue authoring and spec review ship matching standalone contract rubrics', () => {
+  const createRubric = 'skills/create-issue/reference/contract-impact.md';
+  const reviewRubric = 'skills/spec-review/reference/contract-impact.md';
+  const createIssue = readFileSync(join(ROOT, 'skills/create-issue/SKILL.md'), 'utf8');
+  const specReview = readFileSync(join(ROOT, 'skills/spec-review/SKILL.md'), 'utf8');
+
+  assert.equal(existsSync(join(ROOT, createRubric)), true);
+  assert.equal(existsSync(join(ROOT, reviewRubric)), true);
+  assert.equal(
+    readFileSync(join(ROOT, createRubric), 'utf8'),
+    readFileSync(join(ROOT, reviewRubric), 'utf8'),
+  );
+  assert.match(createIssue, /\]\(reference\/contract-impact\.md\)/);
+  assert.match(specReview, /\]\(reference\/contract-impact\.md\)/);
+});
+
 test('OpenCode install is idempotent and uninstall preserves unrelated state', () => {
   const temp = mkdtempSync(join(tmpdir(), 'aictrl-opencode-test-'));
   const configRoot = join(temp, 'config');
@@ -61,6 +77,14 @@ test('OpenCode install is idempotent and uninstall preserves unrelated state', (
     for (const skill of EXPECTED_SKILLS) {
       assert.equal(existsSync(join(opencodeRoot, 'skills', skill, 'SKILL.md')), true);
     }
+    assert.equal(existsSync(join(
+      opencodeRoot,
+      'skills/create-issue/reference/contract-impact.md',
+    )), true);
+    assert.equal(existsSync(join(
+      opencodeRoot,
+      'skills/spec-review/reference/contract-impact.md',
+    )), true);
 
     runInstaller(['--uninstall'], env);
     const uninstalled = JSON.parse(readFileSync(configFile, 'utf8'));
@@ -141,6 +165,8 @@ test('npm package contains every canonical skill and no repository-only files', 
   for (const skill of EXPECTED_SKILLS) {
     assert(paths.includes(`skills/${skill}/SKILL.md`));
   }
+  assert(paths.includes('skills/create-issue/reference/contract-impact.md'));
+  assert(paths.includes('skills/spec-review/reference/contract-impact.md'));
   assert.equal(paths.some((path) => path.startsWith('evals/')), false);
   assert.equal(paths.some((path) => path.startsWith('test/')), false);
   assert.equal(paths.some((path) => path.startsWith('.claude-plugin/')), false);

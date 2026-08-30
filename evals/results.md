@@ -1,5 +1,60 @@
 # Eval Results
 
+## create-issue database/API contracts — 2026-08-30 (fresh-agent fixture trial)
+
+Method: a fresh agent read `skills/create-issue/SKILL.md`, its complete local
+contract-impact rubric, `evals/create-issue.eval.md`, and the exact repository
+and request fixtures under `evals/fixtures/contract-impact/`. It drafted the
+three story scenarios and classified the fourth request as a defect without
+creating or editing a provider issue. Claims were limited to fixture evidence;
+missing material values remained owned open questions.
+
+| Criterion | Result |
+|---|---|
+| Independent evidence-based database and API classification | PASS |
+| Complete database schema, migration, consumer, delivery, and verification contract | PASS |
+| Database case declares `No API contract change.` without invented work | PASS |
+| Complete API operation, request/response/error, authorization, compatibility, delivery, and verification contract | PASS |
+| API case declares `No database contract change.` without invented work | PASS |
+| Copy-only case contains both exact no-change declarations with concise evidence | PASS |
+| Unsupported material detail remains an owned open question tied to a blocked outcome | PASS |
+| Regression request stops and delegates to `create-bug` before contract drafting | PASS |
+| Provider neutrality, verifiable criteria, and mutation boundary remain intact | PASS |
+
+Verdict: PASS — the skill produced independently verifiable contract sections
+for affected layers, explicit evidence-backed declarations for unaffected
+layers, no unsupported requirements, and an exercised defect-delegation
+boundary (9/9 criteria).
+
+## spec-review database/API readiness — 2026-08-30 (fresh-agent fixture trial)
+
+Method: a separate fresh agent read `skills/spec-review/SKILL.md`, its matching
+standalone contract-impact rubric, `evals/spec-review.eval.md`, the exact
+repository evidence fixture, and three literal issue bodies. It reviewed only
+those supplied facts, using owned decision text where the fixture could not
+establish a value. It posted no comment, changed no issue, and implemented no
+code.
+
+| Criterion | Result |
+|---|---|
+| Repository evidence inspected beyond issue prose | PASS |
+| Acceptance traceability and independent database/API readiness reporting | PASS |
+| Incomplete database contract is `NOT READY` with every seeded gap named | PASS |
+| Incomplete API contract is `NOT READY` with every seeded gap named | PASS |
+| Findings give exact locations, evidence, and replacement, criterion, or owned-decision text | PASS |
+| Supported copy-only no-change declarations are accepted as `READY` without invented work | PASS |
+| Severity and verdicts follow the shared readiness gate | PASS |
+| Review-only external-mutation and implementation boundaries remain intact | PASS |
+
+Repository verification also passed: `npm test` ran 28 tests (26 passed, 2
+skipped), `npm run validate` validated all 14 public skills and the canonical
+plugin, `git diff --check` found no whitespace errors, and the 53-entry release
+checksum manifest exactly matched fresh generation.
+
+Verdict: PASS — materially incomplete database and API contracts block
+readiness with actionable replacement text, while supported unaffected-layer
+declarations do not create artificial scope.
+
 ## create-pr — 2026-08-11 (scenario walk-through and forward test)
 
 Method: followed `skills/create-pr/SKILL.md` against the seeded scenario in

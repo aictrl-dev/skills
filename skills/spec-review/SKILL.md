@@ -7,26 +7,32 @@ description: Review an engineering issue or specification against repository evi
 
 Decide whether an issue is ready to implement by comparing its claims and acceptance criteria with the actual repository.
 
+Read the [shared contract-impact rubric](reference/contract-impact.md) before
+evaluating readiness. This standalone copy must remain byte-for-byte identical
+to the authoring copy shipped with `create-issue`.
+
 ## Workflow
 
 1. Load the exact issue or specification and record its URL, revision, or identifier. If it cannot be loaded, ask for its contents rather than inventing them.
-2. Inspect repository guidance, architecture, relevant production code, schemas, APIs, UI surfaces, tests, and recent changes. Search for existing implementations and conflicting terminology.
-3. Build a traceability table from each stated requirement to code impact and verification evidence.
-4. Check for:
+2. Inspect repository guidance, architecture, relevant production code, schemas, migrations, database objects, APIs, generated artifacts, producers, consumers, UI surfaces, tests, and recent changes. Search for existing implementations and conflicting terminology.
+3. Compare the issue's database and API impact claims with repository evidence. Apply the shared readiness gate to each layer; accept explicit no-change declarations only when the evidence supports them.
+4. Build a traceability table from each stated requirement to code impact and verification evidence.
+5. Check for:
    - unclear user or outcome;
    - missing current-versus-desired behavior;
    - untestable or contradictory acceptance criteria;
-   - hidden data, API, UI, migration, authorization, observability, or rollout work;
+   - a missing or materially incomplete database or API contract under the shared rubric;
+   - hidden data, API, UI, migration, backfill, authorization, consumer synchronization, observability, compatibility/versioning, or rollout work;
    - cross-tenant, privacy, security, compatibility, and destructive-action risks;
    - missing negative, boundary, accessibility, and regression cases;
    - dependencies or decisions that materially change the solution.
-5. Classify each finding as `BLOCKER`, `MAJOR`, or `MINOR`. Name the exact section or acceptance criterion and cite repository evidence.
-6. Recommend concrete replacement text or an additional criterion for every finding. Do not stop at “clarify this.”
-7. Return one verdict:
+6. Classify each finding as `BLOCKER`, `MAJOR`, or `MINOR`. Name the exact missing or contradicted field, operation, migration step, consumer, or acceptance criterion and cite repository evidence.
+7. Recommend concrete replacement text or an additional criterion for every finding. Do not stop at “clarify this.”
+8. Return one verdict:
    - `READY` — no blocker or major gap remains;
    - `READY WITH MINOR EDITS` — only bounded wording/test improvements remain;
-   - `NOT READY` — implementation would require material assumptions.
-8. Post the review as a provider comment only when explicitly requested. Update the original issue only with explicit permission and show the proposed edit first.
+   - `NOT READY` — implementation would require material assumptions, including any affected database or API contract that fails the shared readiness gate.
+9. Post the review as a provider comment only when explicitly requested. Update the original issue only with explicit permission and show the proposed edit first.
 
 ## Output
 
@@ -35,6 +41,10 @@ Decide whether an issue is ready to implement by comparing its claims and accept
 
 ### Findings
 | Severity | Location | Finding | Evidence | Required change |
+|---|---|---|---|---|
+
+### Contract readiness
+| Layer | Claimed impact | Repository evidence | Missing or contradicted detail | Status |
 |---|---|---|---|---|
 
 ### Acceptance coverage
