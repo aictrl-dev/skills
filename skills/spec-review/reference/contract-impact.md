@@ -50,16 +50,19 @@ For an affected database contract, state:
 
 - **Evidence and scope:** affected entities or tables, producers, consumers,
   schema or ERD definitions, migrations, and generated artifacts.
-- **Schema/ERD artifact:** when entity shape or relationships change, name the
-  repository's canonical schema/ERD artifact and the required update. If the
-  repository has no canonical ERD, include a compact Mermaid `erDiagram`
-  limited to affected entities and their one-hop relationships. Distinguish
-  current state, decided desired state, and unresolved proposed details; never
-  render an open decision as established fact. When database behavior, data,
-  or indexes change without entity-shape or relationship changes, include the
-  exact declaration `No ERD topology change.` with evidence and document the
-  affected queries, indexes, or data movement textually. An ERD supplements;
-  it never replaces the field, constraint, index, or migration contract.
+- **Schema/ERD artifact:** when entity shape or relationships change, include
+  an actual proposed artifact, not only the name of a file or a promise to
+  update it. Provide a focused repository-native diff when a relevant canonical
+  ERD exists; otherwise include a compact Mermaid `erDiagram`. If the existing
+  ERD is stale or unrelated, say so, use Mermaid for the proposed shape, and
+  name the follow-up needed for that artifact. Limit either form to affected
+  entities and their one-hop relationships. Distinguish current state, decided
+  desired state, and unresolved proposed details; never render an open decision
+  as established fact. When database behavior, data, or indexes change without
+  entity-shape or relationship changes, include the exact declaration `No ERD
+  topology change.` with evidence and document the affected queries, indexes,
+  or data movement textually. An ERD supplements; it never replaces the field,
+  constraint, index, or migration contract.
 - **Current and desired schema:** columns or fields, types, nullability,
   defaults, relations, indexes, unique/check/foreign-key constraints, and
   create/update/delete or archival lifecycle behavior.

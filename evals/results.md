@@ -65,6 +65,33 @@ Verdict: PASS — materially incomplete database and API contracts block
 readiness with actionable replacement text, while supported unaffected-layer
 declarations do not create artificial scope.
 
+## database/API contracts — pinned real-issue replay (2026-08-30)
+
+Method: fresh agents applied the updated `create-issue` and `spec-review`
+skills read-only to `aictrl-dev/aictrl` issues 4667 and 4635 at pinned repository
+revision `0565cb3e2d3c11a0c01bfd8731332199334c66ae`. This repeated the earlier
+field trial with the issue bodies and target revision held constant. No issue,
+repository file, or Git reference was changed.
+
+| Scenario | Expected behavior | Result |
+|---|---|---|
+| Additive account-consent state (#4667) | Produce an actual proposed ERD, keep physical table/FK choices unresolved, retain textual schema and API contracts, and return `NOT READY` for the incomplete original issue | PASS |
+| Behavioral workflow-run reads (#4635) | State `No ERD topology change.` with query/index evidence, produce no misleading diagram or DDL, retain the exact API contract, and return `NOT READY` for the incomplete original issue | PASS |
+| Existing stale/unrelated ERD | Identify that it cannot substitute for the affected PostgreSQL model and emit Mermaid rather than merely promise a later file update | PASS |
+| Fact discipline | Distinguish current, decided desired, and unresolved proposed details without inventing a physical relationship | PASS |
+
+The first #4667 replay exposed that a compliant response could merely name an
+existing canonical ERD. The rubric was tightened to require an actual focused
+repository-native diff or Mermaid artifact; stale or unrelated ERDs now require
+Mermaid plus an explicit reconciliation follow-up. A final fresh-agent replay
+produced the bounded `USERS`/`ACCOUNT_CONSENT_STATE` diagram with unresolved SQL
+types and physical mapping marked `TBD` and reported no remaining prompt defect.
+
+Limitation: the pinned revision already contains the merged implementation for
+#4635, so that scenario is a documentation reconstruction rather than a true
+pre-implementation readiness review. It still isolates the changed skill
+behavior because both field-trial rounds used the same issue and revision.
+
 ## create-pr — 2026-08-11 (scenario walk-through and forward test)
 
 Method: followed `skills/create-pr/SKILL.md` against the seeded scenario in

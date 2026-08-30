@@ -54,6 +54,8 @@ test('issue authoring and spec review ship matching standalone contract rubrics'
   assert.match(createRubricContents, /^# Database and API Contract-Impact Rubric$/m);
   assert.match(createRubricContents, /^## Database contract$/m);
   assert.match(createRubricContents, /^## API contract$/m);
+  assert.match(createRubricContents, /actual proposed artifact/);
+  assert.match(createRubricContents, /focused repository-native diff/);
   assert.match(createRubricContents, /Mermaid `erDiagram`/);
   assert.match(createRubricContents, /`No ERD topology change\.`/);
   assert.equal(createRubricContents, reviewRubricContents);

@@ -58,7 +58,8 @@ index, delivery, and verification contract without inventing a schema change.
       when the fixture has no canonical ERD: Request A shows the changed `jobs`
       entity and its one-hop tenant relation, while Request E shows the new
       optional team relation. The diagrams do not replace textual field,
-      constraint, index, or migration details.
+      constraint, index, or migration details. Merely naming an artifact or
+      promising a later update does not pass.
 - [ ] The database-changing draft contains the unambiguous declaration `No API
       contract change.` and does not invent an API change.
 - [ ] The API-changing draft has an `API contract` section naming the exact
