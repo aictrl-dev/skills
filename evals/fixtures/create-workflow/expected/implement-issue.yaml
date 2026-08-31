@@ -1,0 +1,41 @@
+schemaVersion: aictrl/workflow/v2
+name: implement-planned-issue
+label: Implement planned issue
+description: Implement one GitHub issue and stop for human review before any merge decision.
+failureStrategy: fail-fast
+
+parameters:
+  - name: repository
+    type: repository
+    required: true
+  - name: issue-id
+    type: number
+    required: true
+    validation: { min: 1 }
+
+nodes:
+  - id: implement
+    type: task
+    skill: implement-code-change@1.0.0
+    taskType: general
+    prompt: Implement the issue, run relevant checks, and return the proposed pull request and test result. Do not merge or deploy.
+    parameters:
+      - name: repository
+        type: repository
+        required: true
+      - name: issue-id
+        type: number
+        required: true
+        validation: { min: 1 }
+    outputs:
+      pullRequestUrl: string
+      testResult: json
+    inputs:
+      repository: { from: input, name: repository }
+      issue-id: { from: input, name: issue-id }
+    timeoutMinutes: 45
+
+qualityGates:
+  - afterWave: 1
+    type: manual
+    description: Review the proposed pull request and test evidence before any separate merge decision.

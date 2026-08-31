@@ -1,25 +1,40 @@
 # Eval: create-workflow
 
-## Scenario
+## Scenarios
 
-Ask a fresh agent to create a workflow that takes a repository and issue ID,
-runs `implement-code-change`, pauses for approval before merge, and never deploys.
+Run a fresh agent against the five task requests in
+`fixtures/create-workflow/tasks.md`. Give the agent the public
+`create-workflow` skill and the task request, but not the corresponding file
+under `fixtures/create-workflow/expected/`.
+
+The suite covers:
+
+1. issue implementation with a merge-review gate;
+2. confirmed-regression repair with reproduction and regression-test evidence;
+3. conditional PR review triage;
+4. bounded review/fix convergence; and
+5. collaborator-authorized comment-triggered review.
 
 ## Deterministic checks
 
 1. Install `ajv`, `ajv-formats`, and `js-yaml` in a scratch project.
-2. Run `node skills/create-workflow/validate.mjs` against all examples
-   under `reference/examples/`.
-3. Run `./scripts/validate-skills.sh`.
+2. Run `node skills/create-workflow/validate.mjs` against every generated
+   workflow and every `fixtures/create-workflow/expected/*.yaml` shape from a
+   scratch project with `ajv`, `ajv-formats`, and `js-yaml` installed.
+3. Check each generated workflow against its task-specific shape assertions in
+   `fixtures/create-workflow/tasks.md`.
+4. Run `./scripts/validate-skills.sh`.
 
 ## Pass criteria
 
-- [ ] The output is one direct `.aictrl/workflows/<kebab-name>.yaml` file.
-- [ ] It uses `schemaVersion: aictrl/workflow/v2` and a version-pinned inline
-      `task` node for `implement-code-change`.
-- [ ] Repository and issue ID are typed workflow/task parameters with explicit mappings.
-- [ ] Merge is behind an explicit manual gate and deploy is absent.
-- [ ] The file passes the bundled schema and static DAG validator.
+- [ ] Each output is one direct `.aictrl/workflows/<kebab-name>.yaml` file.
+- [ ] Every output uses `schemaVersion: aictrl/workflow/v2`, declared typed
+      inputs, explicit mappings, and only the fixture's available pinned skills.
+- [ ] Each generated file and each expected shape passes the bundled schema and
+      static DAG validator.
+- [ ] The agent satisfies the scenario-specific gate, condition, loop, output,
+      and trigger requirements rather than merely producing schema-valid YAML.
 - [ ] The agent reports path, inputs, stages, side effects, approvals, limits,
       unresolved references, and validation result.
-- [ ] It does not apply, start, overwrite, commit, or push without authorization.
+- [ ] It does not apply, publish, start, overwrite, commit, push, merge, or
+      deploy without the separately required authorization and capability.

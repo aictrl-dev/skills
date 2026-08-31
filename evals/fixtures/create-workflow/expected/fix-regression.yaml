@@ -1,0 +1,45 @@
+schemaVersion: aictrl/workflow/v2
+name: fix-confirmed-regression
+label: Fix confirmed regression
+description: Reproduce a reported regression, add a regression test, and propose the smallest safe fix for review.
+failureStrategy: fail-fast
+
+parameters:
+  - name: repository
+    type: repository
+    required: true
+  - name: issue-id
+    type: number
+    required: true
+    validation: { min: 1 }
+
+nodes:
+  - id: repair
+    type: task
+    skill: implement-code-change@1.0.0
+    taskType: general
+    prompt: >-
+      Treat the issue as a confirmed regression: reproduce it first, add a
+      failing regression test, make the smallest safe fix, and return the
+      reproduction and test evidence. Do not merge or deploy.
+    parameters:
+      - name: repository
+        type: repository
+        required: true
+      - name: issue-id
+        type: number
+        required: true
+        validation: { min: 1 }
+    outputs:
+      reproduction: json
+      regressionTest: string
+      pullRequestUrl: string
+    inputs:
+      repository: { from: input, name: repository }
+      issue-id: { from: input, name: issue-id }
+    timeoutMinutes: 45
+
+qualityGates:
+  - afterWave: 1
+    type: manual
+    description: Review reproduction and regression-test evidence before any separate merge decision.

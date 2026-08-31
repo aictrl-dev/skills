@@ -31,7 +31,7 @@ parameters: [...]                   # optional; workflow-level inputs (see Param
 nodes: [...]                        # required; at least one node
 edges: [...]                        # optional; ordering (see Edges)
 qualityGates: [...]                 # optional; manual or auto checkpoints
-triggers: [...]                     # optional; up to 10 file-declared event triggers
+triggers: [...]                     # optional; at most one file-declared event trigger
 ```
 
 **No system fields** in the authored file: no `id` (org-level UUID), `version`,
@@ -357,7 +357,7 @@ qualityGates:
 
 ## Triggers (optional)
 
-A workflow may declare up to **10** file triggers. Five trigger types are supported:
+A workflow may declare at most **one** file trigger. Five trigger types are supported:
 `label`, `comment`, `pr-ready`, `pr-opened`, and `chat-message`.
 
 ```yaml
@@ -501,4 +501,4 @@ Before submitting a workflow file for apply:
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
 - [ ] Portable refs (kebab names) for `template:` and `workflow:`
 - [ ] **`node validate.mjs <file>` exits 0** (layer-1 schema + static DAG checks)
-- [ ] At most 10 entries in `triggers:`; each matches one of the five trigger shapes
+- [ ] At most one entry in `triggers:`; each matches one of the five trigger shapes

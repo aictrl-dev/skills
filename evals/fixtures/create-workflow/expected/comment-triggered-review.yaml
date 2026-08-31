@@ -1,0 +1,32 @@
+schemaVersion: aictrl/workflow/v2
+name: comment-triggered-review
+label: Comment-triggered pull request review
+description: Review a pull request when an authorized collaborator comments /review.
+failureStrategy: fail-fast
+
+parameters:
+  - name: pr-url
+    type: pull-request
+    required: true
+
+triggers:
+  - type: comment
+    on: pull-request
+    command: /review
+    inputs:
+      pr-url: $.issue.pull_request.html_url
+
+nodes:
+  - id: review
+    type: task
+    skill: code-review@1.4.0
+    taskType: code-review
+    prompt: Review the pull request and return findings. Do not post comments, merge, deploy, or start another workflow.
+    parameters:
+      - name: pr-url
+        type: pull-request
+        required: true
+    outputs:
+      findings: json
+    inputs:
+      pr-url: { from: input, name: pr-url }

@@ -1,0 +1,53 @@
+schemaVersion: aictrl/workflow/v2
+name: review-and-triage
+label: Review and triage severe findings
+description: Review a pull request and create a tracking issue only for high or critical findings after human review.
+failureStrategy: fail-fast
+
+parameters:
+  - name: pr-url
+    type: pull-request
+    required: true
+
+nodes:
+  - id: review
+    type: task
+    skill: code-review@1.4.0
+    taskType: code-review
+    prompt: Review the pull request for correctness, security, and reliability. Return findings and the highest severity rank.
+    parameters:
+      - name: pr-url
+        type: pull-request
+        required: true
+    outputs:
+      findings: json
+      maxSeverityRank: number
+    inputs:
+      pr-url: { from: input, name: pr-url }
+
+  - id: triage
+    type: task
+    skill: create-issue@1.0.0
+    taskType: general
+    prompt: Create one tracking issue from the supplied severe review findings.
+    when: review.output.maxSeverityRank > 2
+    parameters:
+      - name: findings
+        type: json
+        required: true
+      - name: pr-url
+        type: pull-request
+        required: true
+    outputs:
+      issueUrl: string
+    inputs:
+      findings: { from: node, node: review, extract: '$.findings[*]' }
+      pr-url: { from: input, name: pr-url }
+
+edges:
+  - { from: review, to: triage }
+
+qualityGates:
+  - afterWave: 1
+    type: manual
+    description: Confirm the review findings before creating a tracking issue.
