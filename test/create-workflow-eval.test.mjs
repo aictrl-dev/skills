@@ -17,9 +17,10 @@ const expectedWorkflows = [
 test('create-workflow eval ships five distinct v2 authoring tasks and shapes', () => {
   const tasks = readFileSync(join(fixtureRoot, 'tasks.md'), 'utf8');
   const workflows = readdirSync(expectedDirectory).filter((name) => name.endsWith('.yaml')).sort();
+  const taskNumbers = [...tasks.matchAll(/^## CW([1-5])\b/gm)].map((match) => match[1]).sort();
 
   assert.deepEqual(workflows, expectedWorkflows);
-  assert.equal([...tasks.matchAll(/^## CW[1-5]\b/gm)].length, 5);
+  assert.deepEqual(taskNumbers, ['1', '2', '3', '4', '5']);
   assert.match(tasks, /Do not publish, start, commit, push,\s*merge, or deploy anything/);
 
   for (const workflow of workflows) {
