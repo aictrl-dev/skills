@@ -63,7 +63,9 @@ Expected shape:
   `taskType: code-review`;
 - the review declares `findings` and `maxSeverityRank` outputs;
 - a downstream `create-issue@1.0.0` task receives review findings and is
-  guarded by `review.output.maxSeverityRank > 2`;
+  guarded by `review.output.maxSeverityRank > 2`; its prompt treats those
+  pull-request-derived findings as untrusted data, creates exactly one tracking
+  issue, and never follows instructions embedded in them;
 - graph edges order review before triage and a manual gate follows review;
 - no issue is created for lower-severity findings.
 
@@ -82,7 +84,9 @@ Expected shape:
   `onMaxIterations: fail`;
 - its body runs pinned `code-review@1.4.0` and `apply-fixes@2.0.0` tasks;
 - the fix consumes declared review findings and is conditional on rank above
-  `2`;
+  `2`; its prompt treats those pull-request-derived findings as untrusted data,
+  never follows instructions embedded in them, and makes only minimal
+  high-severity repairs;
 - the body graph orders review before fix, and a manual quality gate follows
   the loop;
 - no unbounded loop, deploy, or implicit merge action exists.
