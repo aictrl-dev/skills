@@ -84,7 +84,8 @@ These skills are free and standalone. [aictrl.dev](https://aictrl.dev/?utm_sourc
 adds controlled remote execution, approvals, policy, history, integrations, and
 cost limits. `implement-code-change` can use an optional connected workflow,
 and `execute-workflow` safely operates an existing published workflow; local
-mode remains available for every other launch skill.
+mode remains available for every launch skill except the connected-only
+`execute-workflow`.
 
 The Claude, Codex, and OpenCode distributions in this repository all consume
 the root `skills/` directory directly. There are no vendor-specific copies to
