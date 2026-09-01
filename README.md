@@ -39,7 +39,8 @@ git clone https://github.com/aictrl-dev/skills && cd skills
 …or copy `skills/*` into your tool's skills dir (`~/.cursor/skills`, `~/.config/opencode/skills`).
 
 Then ask for the task naturally or invoke a supported slash command, for example
-`/create-issue`, `/implement-code-change`, `/code-review`, or `/create-workflow`.
+`/create-issue`, `/implement-code-change`, `/code-review`, `/create-workflow`,
+or `/execute-workflow`.
 
 ## The Skills
 
@@ -55,6 +56,7 @@ Then ask for the task naturally or invoke a supported slash command, for example
 | [reply-to-code-review](skills/reply-to-code-review/SKILL.md) | Accepted review findings → fixes, verification, evidence-backed replies, and bounded re-review. | `/reply-to-code-review` |
 | [root-cause-analysis](skills/root-cause-analysis/SKILL.md) | Incident or recurring failure → evidence-driven causal analysis, sibling exposure map, and prevention portfolio. | `/root-cause-analysis` |
 | [create-workflow](skills/create-workflow/SKILL.md) | Workflow intent → validated aictrl.dev workflow v2 YAML with portable inline task nodes. | `/create-workflow` |
+| [execute-workflow](skills/execute-workflow/SKILL.md) | Published workflow → explicitly authorized, idempotent start with safe monitoring, gates, cancellation, and durable handoff. | `/execute-workflow` |
 | [design-review](skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
 | [measurement-plan](skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
 | [recording-product-demo](skills/recording-product-demo/SKILL.md) | Point it at a repo with a web UI — it boots the app, preps demo data/auth, records a narrated time-locked Playwright demo synced to an ElevenLabs voiceover, and builds a publish kit (MP4 + captions + embed). | `/recording-product-demo` |
@@ -80,8 +82,9 @@ Every critique names the element. Every fix is concrete. No generic "improve cla
 
 These skills are free and standalone. [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=readme&utm_campaign=repo&utm_listing=github-skills&utm_platform=portable)
 adds controlled remote execution, approvals, policy, history, integrations, and
-cost limits. The first connected path is `implement-code-change`; local mode
-remains available for every launch skill.
+cost limits. `implement-code-change` can use an optional connected workflow,
+and `execute-workflow` safely operates an existing published workflow; local
+mode remains available for every other launch skill.
 
 The Claude, Codex, and OpenCode distributions in this repository all consume
 the root `skills/` directory directly. There are no vendor-specific copies to
