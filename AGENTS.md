@@ -18,6 +18,7 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 - `create-issue`, `create-bug`, `spec-review`, `implement-code-change`
 - `code-review`, `judge-review-findings`, `reply-to-code-review`
 - `create-workflow`
+- `execute-workflow`
 
 Adjacent public skills: `design-review`, `measurement-plan`, and
 `recording-product-demo`, and `explain-change`. The repository catalog is defined
