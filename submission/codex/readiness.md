@@ -24,7 +24,7 @@
 ## MCP and OAuth
 
 - [x] The canonical resource URL is publicly reachable at `https://aictrl.dev/mcp`.
-- [x] Protected production tests cover the exact nine-tool allow-list, schemas, safety annotations, organization authorization, and redaction ([run 29651112276](https://github.com/aictrl-dev/skills/actions/runs/29651112276)).
+- [x] Protected production tests cover the exact public catalog allow-list (nine tools at the time of that run; thirteen since #36), schemas, safety annotations, organization authorization, and redaction ([run 29651112276](https://github.com/aictrl-dev/skills/actions/runs/29651112276)).
 - [x] The fixture repository is connected to its least-privilege aictrl.dev organization, `implement-code-change@1.0.0` is active there, and the protected Git workflow is published as repository-owned workflow version 2.
 - [x] All five positive and three negative portal cases pass on ChatGPT web
   using the dedicated reviewer identity.

@@ -67,8 +67,8 @@ Require exactly these production tools:
 13. `get_started`
 
 Scan again after any server change. Tool names, descriptions, input/output
-schemas, and `readOnlyHint`, `openWorldHint`, and `destructiveHint` annotations
-must match deployed behavior.
+schemas, and `readOnlyHint`, `openWorldHint`, `destructiveHint`, and
+`idempotentHint` annotations must match deployed behavior.
 
 ## Skills, prompts, and tests
 
