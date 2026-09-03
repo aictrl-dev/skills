@@ -4,13 +4,13 @@
   "version": "1.1.0-beta.2",
   "author": {
     "name": "aictrl.dev",
-    "email": "support@aictrl.dev",
+    "email": "info@aictrl.dev",
     "url": "https://aictrl.dev"
   },
   "homepage": "https://aictrl.dev",
   "repository": "https://github.com/aictrl-dev/skills",
   "license": "MIT",
-  "keywords": ["sdlc", "engineering", "code-review", "workflow", "agent-skills"],
+  "keywords": ["engineering", "sdlc", "code-review", "github", "workflow", "agent-skills"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json"
 }

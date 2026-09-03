@@ -93,6 +93,16 @@ repin or hand-edit. Connected execution always uses the `aictrl` MCP identity at
 `https://aictrl.dev/mcp`; OAuth is requested only when a connected workflow is
 used.
 
+## Privacy, terms and support
+
+The skills run locally and send nothing to aictrl.dev. The bundled `aictrl`
+MCP server is used only when you connect it with OAuth; what it collects and
+keeps is described in the [privacy policy](https://aictrl.dev/privacy) and
+[terms](https://aictrl.dev/terms). Support: [aictrl.dev/support](https://aictrl.dev/support)
+or [info@aictrl.dev](mailto:info@aictrl.dev). Security reports:
+[security.txt](https://aictrl.dev/.well-known/security.txt). Setup guidance for
+the MCP connection is in [SETUP.md](SETUP.md).
+
 ## Contributing
 
 PRs that add skills are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
