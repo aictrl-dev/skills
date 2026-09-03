@@ -12,8 +12,11 @@ import {
 function catalog() {
   const {
     read,
+    readIdempotent,
+    readOpenWorld,
+    readOpenWorldIdempotent,
     update,
-    create,
+    createIdempotent,
   } = PUBLIC_MCP_ANNOTATIONS;
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
   const id = (description) => ({ type: 'string', minLength: 1, description });
@@ -76,7 +79,7 @@ function catalog() {
       organization_id: org,
       workflow_id: id('Workflow'),
     }, ['organization_id', 'workflow_id']),
-    definition('start_workflow', create, {
+    definition('start_workflow', createIdempotent, {
       organization_id: org,
       workflow_id: id('Workflow'),
       idempotency_key: { type: 'string', minLength: 8, maxLength: 200 },
@@ -98,6 +101,24 @@ function catalog() {
       run_id: id('Run'),
       reason: { type: 'string', maxLength: 2000 },
     }, ['organization_id', 'run_id']),
+    definition('list_tasks', readOpenWorldIdempotent, {
+      organization_id: org,
+      repository_full_name: id('Repository'),
+    }, ['organization_id', 'repository_full_name']),
+    definition('start_task', createIdempotent, {
+      organization_id: org,
+      task_id: id('Task'),
+      pull_request: { type: 'object' },
+      audience: { type: 'string' },
+      idempotency_key: { type: 'string', minLength: 8, maxLength: 200 },
+    }, ['organization_id', 'task_id', 'pull_request', 'idempotency_key']),
+    definition('get_task_execution', readIdempotent, {
+      organization_id: org,
+      execution_id: id('Execution'),
+    }, ['organization_id', 'execution_id']),
+    definition('get_started', readOpenWorld, {
+      intent: { type: 'string' },
+    }, []),
   ];
   assert.deepEqual(definitions.map((tool) => tool.name), EXPECTED_PUBLIC_MCP_TOOLS);
   return definitions;
@@ -129,10 +150,10 @@ function rpcResult(id, result, eventStream = false) {
   );
 }
 
-test('accepts exactly nine tools with approved schemas and safety annotations', () => {
+test('accepts exactly the public catalog with approved schemas and safety annotations', () => {
   assert.deepEqual(
     Object.keys(PUBLIC_MCP_ANNOTATIONS),
-    ['read', 'update', 'create'],
+    ['read', 'update', 'readIdempotent', 'readOpenWorld', 'readOpenWorldIdempotent', 'createIdempotent'],
   );
   assert.doesNotThrow(() => assertProductionCatalog(catalog()));
 
@@ -145,7 +166,7 @@ test('accepts exactly nine tools with approved schemas and safety annotations', 
 
 test('rejects catalog, schema, annotation, description, and custom-UI drift', () => {
   const extra = [...catalog(), catalog()[0]];
-  assert.throws(() => assertProductionCatalog(extra), /exact-nine/);
+  assert.throws(() => assertProductionCatalog(extra), /public catalog contract/);
 
   const schema = catalog();
   schema[3].inputSchema.required = ['organization_id'];
@@ -196,7 +217,7 @@ test('runs authenticated organization, no-org workflow, and fail-closed probes',
   };
 
   const result = await scanProductionMcp({ apiKey: 'secret-key', fetchImpl });
-  assert.equal(result.tools.length, 9);
+  assert.equal(result.tools.length, EXPECTED_PUBLIC_MCP_TOOLS.length);
   assert.equal(result.organizations.organizations.length, 1);
   assert.equal(result.workflows.workflows.length, 1);
   assert.deepEqual(

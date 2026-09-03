@@ -7,7 +7,7 @@ Maintenance release of aictrl.dev's engineering plugin for Codex and ChatGPT.
   workflow authoring, design review, measurement planning, demo recording, and
   change explanation.
 - Connected `implement-code-change` uses native OAuth and the six lifecycle-tool
-  subset of the nine-tool public catalog, with explicit approvals, cancellation,
+  subset of the public catalog, with explicit approvals, cancellation,
   revision evidence, and bounds.
 - Claude, Codex, and OpenCode consume the same canonical root `skills/` tree and
   `https://aictrl.dev/mcp` declaration from one release commit.

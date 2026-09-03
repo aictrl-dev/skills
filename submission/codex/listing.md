@@ -61,6 +61,10 @@ Require exactly these production tools:
 7. `get_workflow_run`
 8. `approve_workflow_step`
 9. `cancel_workflow_run`
+10. `list_tasks`
+11. `start_task`
+12. `get_task_execution`
+13. `get_started`
 
 Scan again after any server change. Tool names, descriptions, input/output
 schemas, and `readOnlyHint`, `openWorldHint`, and `destructiveHint` annotations

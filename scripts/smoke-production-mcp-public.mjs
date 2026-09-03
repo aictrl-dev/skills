@@ -11,8 +11,11 @@ import {
 
 const {
   read,
+  readIdempotent,
+  readOpenWorld,
+  readOpenWorldIdempotent,
   update,
-  create,
+  createIdempotent,
 } = PUBLIC_MCP_ANNOTATIONS;
 
 const EXPECTED_TOOL_CONTRACTS = Object.freeze({
@@ -42,7 +45,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     properties: ['organization_id', 'workflow_id'],
   },
   start_workflow: {
-    annotations: create,
+    annotations: createIdempotent,
     required: ['organization_id', 'workflow_id', 'idempotency_key'],
     properties: ['organization_id', 'workflow_id', 'idempotency_key', 'inputs'],
   },
@@ -61,6 +64,26 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     required: ['organization_id', 'run_id'],
     properties: ['organization_id', 'run_id', 'reason'],
   },
+  list_tasks: {
+    annotations: readOpenWorldIdempotent,
+    required: ['organization_id', 'repository_full_name'],
+    properties: ['organization_id', 'repository_full_name'],
+  },
+  start_task: {
+    annotations: createIdempotent,
+    required: ['organization_id', 'task_id', 'pull_request', 'idempotency_key'],
+    properties: ['organization_id', 'task_id', 'pull_request', 'audience', 'idempotency_key'],
+  },
+  get_task_execution: {
+    annotations: readIdempotent,
+    required: ['organization_id', 'execution_id'],
+    properties: ['organization_id', 'execution_id'],
+  },
+  get_started: {
+    annotations: readOpenWorld,
+    required: [],
+    properties: ['intent'],
+  },
 });
 
 const FORBIDDEN_OUTPUT_KEY_STEMS =
@@ -76,7 +99,7 @@ export function assertProductionCatalog(tools) {
   assert.deepEqual(
     tools.map((tool) => tool?.name).sort(),
     [...EXPECTED_PUBLIC_MCP_TOOLS].sort(),
-    'Production MCP catalog differs from the approved exact-nine contract.',
+    'Production MCP catalog differs from the approved public catalog contract.',
   );
 
   for (const tool of tools) {
