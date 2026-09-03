@@ -13,6 +13,7 @@ find \
   opencode/bin \
   package.json \
   README.md \
+  SETUP.md \
   LICENSE \
   skills \
   -type f -print0 \
