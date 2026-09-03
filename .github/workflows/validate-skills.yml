@@ -71,7 +71,7 @@ jobs:
         run: npm run smoke:opencode
 
   production-mcp:
-    name: Production MCP exact-nine contract
+    name: Production MCP catalog contract
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:

@@ -7,7 +7,10 @@ export const PUBLIC_MCP_URL = 'https://aictrl.dev/mcp';
 export const PUBLIC_MCP_ANNOTATIONS = Object.freeze({
   read: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: false }),
   update: Object.freeze({ readOnlyHint: false, destructiveHint: true, openWorldHint: false }),
-  create: Object.freeze({ readOnlyHint: false, destructiveHint: false, openWorldHint: true }),
+  readIdempotent: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true }),
+  readOpenWorld: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: true }),
+  readOpenWorldIdempotent: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }),
+  createIdempotent: Object.freeze({ readOnlyHint: false, destructiveHint: false, openWorldHint: true, idempotentHint: true }),
 });
 export const EXPECTED_PUBLIC_MCP_TOOLS = Object.freeze([
   'query_context',
@@ -19,6 +22,10 @@ export const EXPECTED_PUBLIC_MCP_TOOLS = Object.freeze([
   'get_workflow_run',
   'approve_workflow_step',
   'cancel_workflow_run',
+  'list_tasks',
+  'start_task',
+  'get_task_execution',
+  'get_started',
 ]);
 export const EXPECTED_SKILLS = Object.freeze([
   'code-review',

@@ -57,7 +57,7 @@ test('publication copy uses the unified repository and shared version', () => {
   }
 });
 
-test('Codex submission requires the exact nine-tool public MCP catalog', () => {
+test('Codex submission requires the exact public MCP catalog', () => {
   const listing = submission('codex/listing.md');
   const toolBlock = listing.match(
     /Require exactly these production tools:\n\n([\s\S]*?)\n\nScan again/,
@@ -76,6 +76,10 @@ test('Codex submission requires the exact nine-tool public MCP catalog', () => {
     'get_workflow_run',
     'approve_workflow_step',
     'cancel_workflow_run',
+    'list_tasks',
+    'start_task',
+    'get_task_execution',
+    'get_started',
   ]);
 });
 
