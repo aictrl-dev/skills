@@ -42,12 +42,13 @@ submit while any owner-only item in `readiness.md` remains unresolved.
 
 ## Skills and starter prompts
 
-Upload nothing: the directory mirrors the repository. Suggested starter prompts
-(same three as the Codex listing):
+Upload nothing: the directory mirrors the repository. Example use cases as
+submitted on 2026-09-04 (one skill each; the first two work without an
+aictrl.dev account, the second can also run as the connected workflow):
 
-1. `Turn this request into an implementation-ready issue.`
-2. `Implement this issue and prepare a merge-ready pull request.`
-3. `Review this pull request at its current head revision.`
+1. `Review GitHub issue #123 in this repo and tell me whether it is ready to implement.` (`spec-review`)
+2. `Implement issue #123 and prepare a merge-ready pull request.` (`implement-code-change`)
+3. `Review pull request #456 at its current head revision.` (`code-review`)
 
 ## Reviewer notes
 

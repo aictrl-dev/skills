@@ -21,8 +21,8 @@ the plugin submission only; the connector submission is tracked in
 - [x] Submitter signed in with a Developer, Admin or Owner role on the Console organization (Admin, 2026-09-04).
 - [x] Consent to be contacted and to the Software Directory Terms given by the release owner (2026-09-04).
 - [x] Plugin information entered from `listing.md` (2026-09-04).
-- [x] Submission details entered from `listing.md`; GitHub link `https://github.com/aictrl-dev/skills`; license MIT; example use cases: spec review of an issue, implement an issue into a merge-ready PR, review a PR at its head revision (2026-09-04).
-- [x] Submitted on 2026-09-04 from repository head `61195bf0f`; status tracked in the Console. Review outcome: pending.
+- [x] Submission details entered from `listing.md`; GitHub link `https://github.com/aictrl-dev/skills`; license MIT; the three example use cases listed in `listing.md` (2026-09-04).
+- [x] Submitted on 2026-09-04 from repository head `61195bf0f`; submission acknowledged by the Console and tracked there. Review outcome: pending.
 
 ## After listing
 
