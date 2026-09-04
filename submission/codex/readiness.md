@@ -25,7 +25,7 @@
 
 - [x] The canonical resource URL is publicly reachable at `https://aictrl.dev/mcp`.
 - [x] Protected production tests covered the nine-tool allow-list, schemas, safety annotations, organization authorization, and redaction that were current at the time ([run 29651112276](https://github.com/aictrl-dev/skills/actions/runs/29651112276)).
-- [ ] Protected production tests cover the current thirteen-tool public catalog (contract widened in #36, including `idempotentHint`). Evidence: the first green `Production MCP catalog contract` run on `main` after #36 merges; link it here.
+- [x] Protected production tests cover the current thirteen-tool public catalog (contract widened in #36, including `idempotentHint`). Evidence: on 2026-09-03, the first green `Production MCP catalog contract` run on `main` after #36 merged ([run 33811081604](https://github.com/aictrl-dev/skills/actions/runs/33811081604)).
 - [x] The fixture repository is connected to its least-privilege aictrl.dev organization, `implement-code-change@1.0.0` is active there, and the protected Git workflow is published as repository-owned workflow version 2.
 - [x] All five positive and three negative portal cases pass on ChatGPT web
   using the dedicated reviewer identity.
