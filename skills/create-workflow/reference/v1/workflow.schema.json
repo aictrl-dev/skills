@@ -318,8 +318,8 @@
       "properties": {
         "type": { "const": "label" },
         "on": {
-          "const": "pull-request",
-          "description": "The event category. Must be pull-request; labels on other event types are not supported."
+          "enum": ["pull-request", "issue"],
+          "description": "The event category. `pull-request` fires when a label is added to a pull request; `issue` fires when a label is added to an issue."
         },
         "label": {
           "type": "string",

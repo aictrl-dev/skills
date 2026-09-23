@@ -411,7 +411,9 @@ triggers:
         field: text
 ```
 
-- `label`, `comment`, `pr-ready`, and `pr-opened` require `on: pull-request`.
+- `comment`, `pr-ready`, and `pr-opened` require `on: pull-request`. `label`
+  takes `on: pull-request` (a label added to a pull request) or `on: issue` (a
+  label added to an issue; map inputs from `$.issue.*` and `$.repository.*`).
 - `pr-opened` fires for every newly opened PR, including drafts. `pr-ready` fires
   when a draft becomes ready or when a PR is opened non-draft.
 - For GitHub triggers, `inputs` maps workflow parameter names to JSONPath
