@@ -314,7 +314,7 @@
       "type": "object",
       "required": ["type", "on", "label", "inputs"],
       "additionalProperties": false,
-      "description": "File-declared label trigger: fires the workflow when `pull_request.labeled` arrives with a matching label. `inputs` maps workflow parameter names to JSONPath expressions evaluated against the GitHub webhook payload.",
+      "description": "File-declared label trigger: fires the workflow when a matching label is added — `pull_request.labeled` when `on: pull-request`, `issues.labeled` when `on: issue`. `inputs` maps workflow parameter names to JSONPath expressions evaluated against that GitHub webhook payload.",
       "properties": {
         "type": { "const": "label" },
         "on": {
@@ -329,7 +329,7 @@
         },
         "inputs": {
           "type": "object",
-          "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) that are evaluated against the `pull_request.labeled` webhook payload. Unresolvable expressions throw at fire time. Max 20 entries.",
+          "description": "Maps workflow parameter names (keys) to JSONPath expressions (values) that are evaluated against the label webhook payload (`pull_request.labeled` for `on: pull-request`, e.g. `$.pull_request.html_url`; `issues.labeled` for `on: issue`, e.g. `$.issue.html_url`). Unresolvable expressions throw at fire time. Max 20 entries.",
           "additionalProperties": {
             "type": "string",
             "minLength": 2,
