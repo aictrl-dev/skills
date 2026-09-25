@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consultation — Example Pharmacy</title>
+<!--
+  ui-polish eval fixture: one step of an online pharmacy consultation, built with seeded defects.
+  Keep the content (height in feet and inches with a switch to centimetres, weight in stones and
+  pounds with a switch to kilograms, Next) when polishing.
+  Maintainers: this file is the untouched starting point of the eval; keep its defects in place.
+-->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #102a43; background: #f5efe6; }
+  header { background: #0b3954; color: #fff; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .brand { font-weight: 700; font-size: 22px; letter-spacing: -0.3px; }
+  .rating { font-size: 12px; opacity: 0.85; }
+  .bar { height: 8px; background: #d8d2c8; }
+  .bar span { display: block; height: 100%; width: 17%; background: #2e6f65; }
+  .back { background: none; border: 0; color: #fff; font-size: 20px; padding: 2px 6px; }
+  main { width: 100%; max-width: 30rem; margin: 0 auto; padding: 16px 20px 24px; min-height: calc(100vh - 110px); display: flex; flex-direction: column; justify-content: space-between; }
+  fieldset { border: 0; padding: 0; margin: 0 0 22px; }
+  .question { font-weight: 700; font-size: 16px; margin-bottom: 6px; }
+  .pair { display: flex; align-items: center; gap: 8px; }
+  .pair input { width: 88px; height: 48px; font-size: 14px; border: 1px solid #102a43; border-radius: 2px; padding: 0 8px; }
+  .pair p { margin: 0 8px 0 0; font-size: 13px; }
+  .switch { background: none; border: 0; padding: 0; margin-top: 6px; font-size: 12px; color: #6b8ea8; text-decoration: underline; cursor: pointer; }
+  .next { width: 100%; height: 48px; border: 0; border-radius: 999px; background: #3b6fd8; color: #fff; font-size: 16px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">Example Pharmacy</div>
+    <div class="rating">★★★★☆ 4.3 · 12,480 reviews</div>
+  </header>
+  <div style="background:#0b3954;padding:4px 12px 8px"><button class="back" type="button" aria-label="Back">←</button></div>
+  <div class="bar" role="progressbar" aria-valuenow="16.666666666666664" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+  <main>
+    <form onsubmit="return false">
+      <fieldset>
+        <legend class="question">What’s your height?</legend>
+        <div class="pair">
+          <input type="number" name="height_ft" min="3" max="8" inputmode="numeric"><p>Feet</p>
+          <input type="number" name="height_in" min="0" max="11" inputmode="numeric"><p>Inches</p>
+        </div>
+        <button class="switch" type="button">Switch to centimetres</button>
+      </fieldset>
+      <fieldset>
+        <legend class="question">What’s your current weight?</legend>
+        <div class="pair">
+          <input type="number" name="weight_st" min="1" max="100" inputmode="numeric"><p>Stones</p>
+          <input type="number" name="weight_lb" min="0" max="13" inputmode="numeric"><p>Pounds</p>
+        </div>
+        <button class="switch" type="button">Switch to kilograms</button>
+      </fieldset>
+    </form>
+    <button class="next" type="submit">Next ›</button>
+  </main>
+</body>
+</html>

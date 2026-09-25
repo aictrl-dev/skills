@@ -20,7 +20,7 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 - `create-workflow`
 - `execute-workflow`
 
-Adjacent public skills: `design-review`, `measurement-plan`, and
+Adjacent public skills: `design-review`, `ui-polish`, `measurement-plan`,
 `recording-product-demo`, and `explain-change`. The repository catalog is defined
 by the canonical `skills/` tree.
 
