@@ -60,8 +60,8 @@ or `/execute-workflow`.
 | [design-review](skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
 | [measurement-plan](skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
 | [recording-product-demo](skills/recording-product-demo/SKILL.md) | Point it at a repo with a web UI — it boots the app, preps demo data/auth, records a narrated time-locked Playwright demo synced to an ElevenLabs voiceover, and builds a publish kit (MP4 + captions + embed). | `/recording-product-demo` |
-| [ui-polish](skills/ui-polish/SKILL.md) | Point it at a screen — it renders phone and desktop, measures what screenshots hide (column alignment, field widths, labels, tap targets, contrast, dead space), fixes the source and re-measures until the checks pass. | `/ui-polish` |
 | [explain-change](skills/explain-change/SKILL.md) | PR, commit range, or design document → a grounded technical explainer of the design, difficult trade-offs, and real rollout state. | `/explain-change` |
+| [ui-polish](skills/ui-polish/SKILL.md) | Point it at a screen — it renders phone and desktop, measures what screenshots hide (column alignment, field widths, labels, tap targets, contrast, dead space), fixes the source and re-measures until the checks pass. | `/ui-polish` |
 
 ### design-review in action
 

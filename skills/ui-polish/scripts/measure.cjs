@@ -15,7 +15,8 @@
  *   node measure.cjs --compare <before.json> <after.json>
  *
  * Writes <out>/measure.json (all findings) and <out>/<viewport>.png, and prints a summary.
- * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors.
+ * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
+ * run itself fails (missing browser, navigation error or timeout).
  *
  * Needs Playwright with Chromium: `npm i -D playwright && npx playwright install chromium`
  * in the project, or run with NODE_PATH pointing at a node_modules that has it.
@@ -38,6 +39,9 @@ const TH = {
   actionGapVh: 0.25, // distance from the last field to the primary action larger than this share of the viewport
   typeScaleMax: 6, // more distinct font sizes than this in the scope is reported
 };
+
+// Page text is untrusted: strip control characters (ANSI/OSC escapes) before printing it to a terminal.
+const safe = (s) => String(s).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
 
 function usage(msg) {
   if (msg) console.error(msg);
@@ -70,13 +74,13 @@ function compare(beforeFile, afterFile) {
   const oldCopy = new Set(a.copy || []);
   const newCopy = (b.copy || []).filter((t) => !oldCopy.has(t));
   const unbracketed = newCopy.filter((t) => /\d/.test(t.replace(/\[[^\]]*\]/g, '')));
-  const line = (f) => `  [${f.severity}] ${f.viewport} ${f.check} — ${f.message}`;
+  const line = (f) => `  [${f.severity}] ${f.viewport} ${f.check} — ${safe(f.message)}`;
   console.log(`Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}`);
   if (fixed.length) console.log('Fixed:\n' + fixed.map(line).join('\n'));
   if (remaining.length) console.log('Remaining:\n' + remaining.map(line).join('\n'));
   if (added.length) console.log('New (regressions):\n' + added.map(line).join('\n'));
-  if (newCopy.length) console.log('New copy for the owner to review:\n' + newCopy.map((t) => `  "${t}"`).join('\n'));
-  if (unbracketed.length) console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${t}"`).join('\n'));
+  if (newCopy.length) console.log('New copy for the owner to review:\n' + newCopy.map((t) => `  "${safe(t)}"`).join('\n'));
+  if (unbracketed.length) console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${safe(t)}"`).join('\n'));
   process.exit(unbracketed.length || added.some((f) => f.severity === 'error') || remaining.some((f) => f.severity === 'error') ? 1 : 0);
 }
 
@@ -238,9 +242,15 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   if (sizes.size > TH.typeScaleMax) add('type-scale', 'info', scope, `${sizes.size} different font sizes in use (${[...sizes.keys()].sort((a, b) => a - b).join(', ')}px)`, sizes.size, `<= ${TH.typeScaleMax}`);
 
   // ---- C11 horizontal overflow
-  const over = [...scope.querySelectorAll('*')].filter((e) => visible(e) && e.getBoundingClientRect().right > vw + 1 && getComputedStyle(e).position !== 'fixed');
+  // Only visible overflow counts: content clipped by an ancestor (overflow hidden/clip/auto/scroll) that
+  // itself fits the viewport does not make the page scroll sideways.
+  const clipped = (e) => { for (let a = e.parentElement; a && a !== document.documentElement; a = a.parentElement) { const ox = getComputedStyle(a).overflowX; if (ox !== 'visible' && a.getBoundingClientRect().right <= vw + 1) return true; } return false; };
+  const over = [...scope.querySelectorAll('*')].filter((e) => visible(e) && e.getBoundingClientRect().right > vw + 1 && getComputedStyle(e).position !== 'fixed' && !clipped(e));
   const outer = over.filter((e) => !over.some((o) => o !== e && o.contains(e)));
-  if (document.documentElement.scrollWidth > vw + 1 || outer.length) add('overflow', 'error', outer[0] || document.body, `Content extends past the ${vw}px viewport`, document.documentElement.scrollWidth, `<= ${vw}px`);
+  // body overflow propagates to the viewport when html's is visible; a clipping viewport cannot scroll sideways
+  const vpOverflow = getComputedStyle(document.documentElement).overflowX !== 'visible' ? getComputedStyle(document.documentElement).overflowX : getComputedStyle(document.body).overflowX;
+  const pageScrolls = !['hidden', 'clip'].includes(vpOverflow) && document.documentElement.scrollWidth > vw + 1;
+  if (pageScrolls || outer.length) add('overflow', 'error', outer[0] || document.body, `Content extends past the ${vw}px viewport`, document.documentElement.scrollWidth, `<= ${vw}px`);
 
   // ---- C12 heading, C13 dead space and distance to the primary action
   const heads = [...scope.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')].filter(visible);
@@ -312,6 +322,6 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
   const count = (s) => result.findings.filter((f) => f.severity === s).length;
   console.log(`${target}\n${count('error')} errors · ${count('warn')} warnings · ${count('info')} info  →  ${path.join(out, 'measure.json')}`);
-  for (const f of result.findings) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${f.message}${f.selector ? `  (${f.selector})` : ''}`);
+  for (const f of result.findings) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}`);
   process.exit(count('error') ? 1 : 0);
-})().catch((e) => { console.error('measure failed:', e.message); process.exit(2); });
+})().catch((e) => { console.error('measure failed:', e.message); process.exit(3); });
