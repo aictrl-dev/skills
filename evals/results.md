@@ -1,5 +1,41 @@
 # Eval Results
 
+## ui-polish — 2026-09-25 (fresh-agent fixture trials and a real-page comparison)
+
+Method: fresh Sonnet agents were given only `skills/ui-polish/` and a scratch copy of
+`evals/fixtures/ui-polish/height-weight-step.html` (runs 2 and 3 never saw this eval file), and
+followed the skill: measure, rubric, fix, re-measure. Criteria were scored afterwards against the
+seeded lists in `evals/ui-polish.eval.md`. Separately, the skill was applied blind to a saved copy
+of a real online pharmacy's same step (not committed) and graded blind against a better reference
+page from another pharmacy, on the same scale as five other public design-review skills given the
+same task.
+
+| Criterion | Run 1 (saw eval) | Run 2 (blind) | Run 3 (blind, final) |
+|---|---|---|---|
+| Before run reports every measured seed M1–M9 | PASS | PASS | PASS |
+| After run: no errors, warnings fixed or explained | PASS (39 → 0) | PASS (39 → 0) | PASS (39 → 0) |
+| Before/after screenshots, no regression | PASS | PASS | PASS |
+| At least 3 of 4 judged seeds J1–J4 fixed and located | PASS (4/4) | FAIL (2.5/4: no reason for asking) | PASS (4/4) |
+| Content intact | PASS | PASS | PASS |
+| No invented copy | PASS | FAIL ("Step 1 of 6" derived from `aria-valuenow`) | FAIL ("Step 2 of [5]": the 2 unbracketed) |
+
+Changes made from these runs: the rubric became a verdict table that feeds the fix loop (run 1 on
+the real page fixed geometry only and stopped when the numbers passed); rubric point 10 split into
+five sub-checks so "why we ask" cannot pass silently; values derived from code count as invented;
+and `measure.cjs --compare` now lists all new copy and fails with `invented-number` on any number
+outside `[brackets]`, which flags run 3's "Step 2 of [5]" mechanically.
+
+Real-page comparison (blind grader, answer key of six gaps written before any run, scored /6):
+the rubric-in-loop version scored 5.0 on the critique and 4.5 on the redesign, against 3.0–3.5
+and 1.5–4.0 for the five other skills, with no invented copy (two of the others added
+unbracketed clinical or privacy claims). It was the only run besides its own first version to
+align the fields into equal columns (0px offset, from 17px) and fill the column on a phone.
+
+Verdict (all criteria must hold): run 1 PASS, but it saw this eval file, so it does not count as
+blind; run 2 FAIL (judged seeds and invented copy); run 3 FAIL (invented copy). The remediation for
+run 3's failure is the mechanical `invented-number` check added afterwards; a blind re-run on the
+next release is required before this skill is recorded as passing.
+
 ## create-issue database/API contracts — 2026-08-30 (fresh-agent fixture trial)
 
 Method: a fresh agent read `skills/create-issue/SKILL.md`, its complete local
