@@ -26,7 +26,7 @@ node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--sco
 ```
 
 - It renders at phone (390×844) and desktop (1366×900), writes `measure.json` and a screenshot per viewport into `--out` (resolved against the current directory), and prints every finding with a selector.
-- Scripts are off by default so the static layout is measured; add `--js` for pages that only render with JavaScript. `--offline` blocks all network requests except fonts, stylesheets and images (use it for saved copies of third-party pages).
+- Scripts are off by default so the static layout is measured; add `--js` for pages that only render with JavaScript. `--offline` blocks every network request except the target page (hermetic); `--assets-only` also lets remote fonts, stylesheets and images load, for saved copies that need their fonts, and does contact those hosts.
 - Checks and thresholds, and the usual fix for each, are in `reference/checks.md`. Errors fail the run; warnings need a fix or a stated reason.
 
 If a reference was given, measure it the same way into `ui-polish/reference`.

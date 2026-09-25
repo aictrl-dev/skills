@@ -7,7 +7,11 @@
  *
  * Usage:
  *   node measure.cjs <file-or-url> [--out <dir>] [--scope <css selector>] [--viewports phone,desktop]
- *                    [--primary <css selector>] [--js] [--offline]
+ *                    [--primary <css selector>] [--js] [--offline | --assets-only]
+ *
+ * --offline      no network at all: only the target and file:/data: resources load (hermetic).
+ * --assets-only  allow the page itself plus remote fonts, stylesheets and images, block scripts and data
+ *                requests. Use it for saved copies that need their fonts; it does contact the asset hosts.
  *   node measure.cjs --compare <before.json> <after.json>
  *
  * Writes <out>/measure.json (all findings) and <out>/<viewport>.png, and prints a summary.
@@ -24,18 +28,20 @@ const TH = {
   alignPx: 2, // columns in repeated rows may differ by at most this
   widthPx: 2, // repeated fields may differ in width by at most this
   fillRatio: 0.75, // on phone, a row of fields should span at least this share of its column
-  tapPx: 44, // minimum tap target (WCAG 2.5.5 AAA; 24px is the AA minimum)
+  tapPx: 44, // minimum tap target (WCAG 2.5.5 AAA)
+  tapErrorPx: 24, // below this a tap target is an error (WCAG 2.5.8 AA minimum)
   inputFontPx: 16, // below this, iOS Safari zooms on focus
   textPx: 14, // body text smaller than this is flagged
   contrast: 4.5, // WCAG AA for normal text
   contrastLarge: 3, // WCAG AA for large text (>= 24px, or >= 18.66px bold)
   deadSpaceVh: 0.3, // a vertical gap inside the content above the primary action larger than this share of the viewport
   actionGapVh: 0.25, // distance from the last field to the primary action larger than this share of the viewport
+  typeScaleMax: 6, // more distinct font sizes than this in the scope is reported
 };
 
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('Usage: node measure.cjs <file-or-url> [--out dir] [--scope selector] [--viewports phone,desktop] [--primary selector] [--js] [--offline]\n       node measure.cjs --compare before.json after.json');
+  console.error('Usage: node measure.cjs <file-or-url> [--out dir] [--scope selector] [--viewports phone,desktop] [--primary selector] [--js] [--offline | --assets-only]\n       node measure.cjs --compare before.json after.json');
   process.exit(2);
 }
 
@@ -51,7 +57,9 @@ function loadPlaywright() {
 function compare(beforeFile, afterFile) {
   const a = JSON.parse(fs.readFileSync(beforeFile, 'utf8'));
   const b = JSON.parse(fs.readFileSync(afterFile, 'utf8'));
-  const key = (f) => `${f.viewport}|${f.check}|${f.selector}`;
+  // Key on a stable anchor (id, name, aria-label, placeholder) when the element has one, so inserting a
+  // sibling during a fix does not shift nth-of-type indexes and turn an unchanged finding into a "new" one.
+  const key = (f) => `${f.viewport}|${f.check}|${f.anchor || f.selector}`;
   const before = new Map(a.findings.map((f) => [key(f), f]));
   const after = new Map(b.findings.map((f) => [key(f), f]));
   const fixed = [...before.keys()].filter((k) => !after.has(k)).map((k) => before.get(k));
@@ -78,7 +86,15 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   const vw = innerWidth; const vh = innerHeight;
   const scope = (scopeSel && document.querySelector(scopeSel)) || document.querySelector('main') || document.body;
   const findings = [];
-  const add = (check, severity, el, message, measured, expected) => findings.push({ check, severity, selector: sel(el), message, measured, expected });
+  const add = (check, severity, el, message, measured, expected) => findings.push({ check, severity, selector: sel(el), anchor: anchor(el), message, measured, expected });
+  function anchor(el) {
+    if (!el || el.nodeType !== 1) return '';
+    const tag = el.tagName.toLowerCase();
+    if (el.id) return `#${el.id}`;
+    for (const a of ['name', 'aria-label', 'placeholder', 'for', 'data-testid']) { const v = el.getAttribute(a); if (v) return `${tag}[${a}="${v}"]`; }
+    const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    return t && t.length <= 40 && el.children.length === 0 ? `${tag}:text("${t}")` : '';
+  }
 
   function sel(el) {
     if (!el || el.nodeType !== 1) return '';
@@ -127,19 +143,25 @@ function measureInPage({ scopeSel, primarySel, TH }) {
       if (dx > TH.alignPx) add('column-alignment', 'error', b[k].el, `Field ${k + 1} of this row is ${dx}px out of line with the same column in the row above`, dx, `<= ${TH.alignPx}px`);
     }
   }
-  const multiRows = rows.filter((r) => r.items.length >= 2);
-  const widths = multiRows.flatMap((r) => r.items.map((it) => it.w));
-  if (widths.length >= 4 && Math.max(...widths) - Math.min(...widths) > TH.widthPx) {
-    add('equal-widths', 'warn', multiRows[0].items[0].el, `Repeated fields have different widths (${[...new Set(widths)].join(', ')}px)`, Math.max(...widths) - Math.min(...widths), `<= ${TH.widthPx}px difference`);
+  // equal widths: compare each field with the same column in the next row of the same shape
+  for (let i = 1; i < rows.length; i++) {
+    const a = rows[i - 1].items; const b = rows[i].items;
+    if (a.length < 2 || a.length !== b.length) continue;
+    for (let k = 0; k < a.length; k++) {
+      const dw = Math.abs(a[k].w - b[k].w);
+      if (dw > TH.widthPx) add('equal-widths', 'warn', b[k].el, `Field ${k + 1} of this row is ${b[k].w}px wide; the same column above is ${a[k].w}px`, dw, `<= ${TH.widthPx}px difference`);
+    }
   }
 
   // ---- C3 field fill on narrow screens
   if (vw <= 480) {
     for (const r of rows) {
       const span = Math.max(...r.items.map((it) => it.r)) - Math.min(...r.items.map((it) => it.x));
+      // the column is the nearest block-level ancestor that contains every field of the row
       let col = r.items[0].el.parentElement;
-      while (col && col !== document.body && col.getBoundingClientRect().width < vw * 0.5) col = col.parentElement;
-      const colW = col ? col.getBoundingClientRect().width : vw;
+      while (col && col !== document.body && (!r.items.every((it) => col.contains(it.el)) || getComputedStyle(col).display.startsWith('inline'))) col = col.parentElement;
+      const cs = col ? getComputedStyle(col) : null;
+      const colW = col ? col.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) : vw;
       const ratio = span / colW;
       if (ratio < TH.fillRatio) add('field-fill', 'warn', r.items[0].el, `Fields in this row span ${Math.round(ratio * 100)}% of the column on a ${vw}px screen`, +ratio.toFixed(2), `>= ${TH.fillRatio}`);
     }
@@ -161,14 +183,14 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   }
 
   // ---- C6 tap targets and C7 input font size
-  const controls = [...scope.querySelectorAll('button, a[href], input, select, textarea, [role="button"], summary, label[for]')].filter(visible);
+  const controls = [...scope.querySelectorAll('button, a[href], input, select, textarea, [role="button"], summary')].filter(visible);
   for (const c of controls) {
     if (c.type === 'hidden') continue;
     const r = c.getBoundingClientRect();
     const inline = c.tagName === 'A' && getComputedStyle(c).display === 'inline' && c.closest('p, li');
     if (inline) continue;
-    if (c.tagName === 'LABEL') continue;
-    if (Math.min(r.height, r.width) < TH.tapPx && vw <= 480) add('tap-target', r.height < 24 ? 'error' : 'warn', c, `Tap target is ${Math.round(r.width)}×${Math.round(r.height)}px`, Math.round(Math.min(r.width, r.height)), `>= ${TH.tapPx}px`);
+    const minSide = Math.min(r.height, r.width);
+    if (minSide < TH.tapPx && vw <= 480) add('tap-target', minSide < TH.tapErrorPx ? 'error' : 'warn', c, `Tap target is ${Math.round(r.width)}×${Math.round(r.height)}px`, Math.round(Math.min(r.width, r.height)), `>= ${TH.tapPx}px`);
   }
   if (vw <= 480) for (const f of fields) {
     const fs = parseFloat(getComputedStyle(f).fontSize);
@@ -176,13 +198,22 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   }
 
   // ---- C8 text size, C9 contrast, C10 type scale
+  // Effective background: collect the background layers from the element up to the first opaque one, then
+  // alpha-composite them bottom-up (the canvas is white). Unknown under an image or gradient.
   const bgOf = (el) => {
+    const layers = [];
     for (let e = el; e; e = e.parentElement) {
-      const c = getComputedStyle(e).backgroundColor; const m = c.match(/rgba?\(([^)]+)\)/);
-      if (m) { const p = m[1].split(',').map(Number); if (p.length < 4 || p[3] > 0.5) return p.slice(0, 3); }
-      if (getComputedStyle(e).backgroundImage !== 'none') return null; // unknown under an image or gradient
+      const cs = getComputedStyle(e);
+      if (cs.backgroundImage !== 'none') return null;
+      const m = cs.backgroundColor.match(/rgba?\(([^)]+)\)/); if (!m) continue;
+      const p = m[1].split(',').map(Number); const a = p.length > 3 ? p[3] : 1;
+      if (a <= 0) continue;
+      layers.push([p[0], p[1], p[2], a]);
+      if (a >= 1) break;
     }
-    return [255, 255, 255];
+    let c = [255, 255, 255];
+    for (const [r, g, b, a] of layers.reverse()) c = [r * a + c[0] * (1 - a), g * a + c[1] * (1 - a), b * a + c[2] * (1 - a)];
+    return c;
   };
   const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
@@ -204,15 +235,15 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     }
   }
   if (small) add('text-size', 'warn', smallEl, `${small} text runs are smaller than ${TH.textPx}px`, small, `0 below ${TH.textPx}px`);
-  if (sizes.size > 6) add('type-scale', 'info', scope, `${sizes.size} different font sizes in use (${[...sizes.keys()].sort((a, b) => a - b).join(', ')}px)`, sizes.size, '<= 6');
+  if (sizes.size > TH.typeScaleMax) add('type-scale', 'info', scope, `${sizes.size} different font sizes in use (${[...sizes.keys()].sort((a, b) => a - b).join(', ')}px)`, sizes.size, `<= ${TH.typeScaleMax}`);
 
   // ---- C11 horizontal overflow
   const over = [...scope.querySelectorAll('*')].filter((e) => visible(e) && e.getBoundingClientRect().right > vw + 1 && getComputedStyle(e).position !== 'fixed');
-  const outer = over.filter((e) => !over.some((o) => o !== e && o.contains(e) === false && e.contains(o)));
+  const outer = over.filter((e) => !over.some((o) => o !== e && o.contains(e)));
   if (document.documentElement.scrollWidth > vw + 1 || outer.length) add('overflow', 'error', outer[0] || document.body, `Content extends past the ${vw}px viewport`, document.documentElement.scrollWidth, `<= ${vw}px`);
 
   // ---- C12 heading, C13 dead space and distance to the primary action
-  const heads = [...scope.querySelectorAll('h1, h2, [role="heading"]')].filter(visible);
+  const heads = [...scope.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')].filter(visible);
   if (!heads.length) add('heading', 'warn', scope, 'No visible heading in the content; the question is not in the heading outline', 0, '>= 1');
   const primary = (primarySel && document.querySelector(primarySel)) || [...scope.querySelectorAll('button[type="submit"], button, [role="button"]')].filter(visible).sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height)[0];
   if (primary && fields.length) {
@@ -242,11 +273,15 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   if (args[0] === '--compare') { if (args.length < 3) usage('Missing files to compare'); return compare(args[1], args[2]); }
   const target = args.find((a, i) => !a.startsWith('--') && !['--out', '--scope', '--viewports', '--primary'].includes(args[i - 1]));
   if (!target) usage('Missing <file-or-url>');
-  const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };
+  const opt = (n, d) => {
+    const i = args.indexOf(`--${n}`); if (i < 0) return d;
+    const v = args[i + 1]; if (v === undefined || v.startsWith('--')) usage(`--${n} needs a value`);
+    return v;
+  };
   const out = path.resolve(opt('out', 'ui-polish-out'));
   const wanted = opt('viewports', 'phone,desktop').split(',').map((v) => v.trim()).filter(Boolean);
   for (const v of wanted) if (!VIEWPORTS[v]) usage(`Unknown viewport "${v}" (use phone, desktop)`);
-  const url = /^https?:\/\//.test(target) ? target : 'file://' + path.resolve(target);
+  const url = /^https?:\/\//.test(target) ? target : require('url').pathToFileURL(path.resolve(target)).href;
   const { chromium } = loadPlaywright();
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch();
@@ -254,11 +289,13 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   try {
     for (const v of wanted) {
       const ctx = await browser.newContext({ viewport: VIEWPORTS[v], javaScriptEnabled: args.includes('--js'), deviceScaleFactor: 1 });
-      if (args.includes('--offline')) {
+      if (args.includes('--offline') || args.includes('--assets-only')) {
+        const assets = args.includes('--assets-only');
         await ctx.route('**/*', (r) => {
           const q = r.request(); const u = q.url();
           if (u.startsWith('file:') || u.startsWith('data:')) return r.continue();
-          return ['font', 'stylesheet', 'image'].includes(q.resourceType()) ? r.continue() : r.abort();
+          if (q.isNavigationRequest() && !q.frame().parentFrame()) return r.continue(); // the target page itself, including redirects
+          return assets && ['font', 'stylesheet', 'image'].includes(q.resourceType()) ? r.continue() : r.abort();
         });
       }
       const page = await ctx.newPage();

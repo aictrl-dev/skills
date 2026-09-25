@@ -31,8 +31,10 @@ and 1.5–4.0 for the five other skills, with no invented copy (two of the other
 unbracketed clinical or privacy claims). It was the only run besides its own first version to
 align the fields into equal columns (0px offset, from 17px) and fill the column on a phone.
 
-Verdict: PASS for measurement and fixing; the invented-copy criterion now relies on the
-mechanical `invented-number` check added after run 3 and should be re-run on the next release.
+Verdict (all criteria must hold): run 1 PASS, but it saw this eval file, so it does not count as
+blind; run 2 FAIL (judged seeds and invented copy); run 3 FAIL (invented copy). The remediation for
+run 3's failure is the mechanical `invented-number` check added afterwards; a blind re-run on the
+next release is required before this skill is recorded as passing.
 
 ## create-issue database/API contracts — 2026-08-30 (fresh-agent fixture trial)
 
