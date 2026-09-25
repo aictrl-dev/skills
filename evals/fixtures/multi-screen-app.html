@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tasko — three screens</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; background: #f5f5f7; color: #1a1a1a; }
+  section { background: #fff; border: 1px solid #ddd; padding: 16px 20px; margin-bottom: 24px; }
+  h1 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #777; margin: 0 0 12px; }
+  h2 { margin: 0 0 12px; }
+  .row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid #eee; }
+  .pill { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: #eee; }
+  button { font: inherit; padding: 4px 10px; }
+  .count { background: #d33; color: #fff; border-radius: 999px; padding: 0 7px; font-size: 12px; }
+  nav a { margin-right: 14px; }
+</style>
+</head>
+<body>
+<nav><a href="#s1">Backlog</a><a href="#s2">Project</a><a href="#s3">Task</a> <span>Needs attention <span class="count">4</span></span></nav>
+
+<section id="s1">
+  <h1>Screen 1 · Backlog</h1>
+  <h2>Backlog</h2>
+  <div class="row"><b>Blocked items: 2</b> <button>View blocked</button></div>
+  <div class="row">Export invoices as PDF <span class="pill">Draft</span><span class="pill">P1</span><span class="pill">Billing</span><span class="pill">Plan</span> <button>Run</button></div>
+  <div class="row">SSO for API keys <span class="pill">In progress</span><span class="pill">P0</span><span class="pill">Auth</span><span class="pill">Build</span> <button>Run</button></div>
+  <div class="row">Seat alerts <span class="pill">Draft</span><span class="pill">P2</span><span class="pill">Billing</span><span class="pill">Plan</span> <button>Run</button></div>
+</section>
+
+<section id="s2">
+  <h1>Screen 2 · Project</h1>
+  <h2>Billing project</h2>
+  <div><button>Overview</button> <button>Plan</button> <button>Tasks</button> <button>Runs</button></div>
+  <div class="row">Export invoices as PDF <span class="pill">Not ready</span> <button>Launch job</button></div>
+  <div class="row">Seat alerts <span class="pill">Not ready</span> <button>Launch job</button></div>
+</section>
+
+<section id="s3">
+  <h1>Screen 3 · Task</h1>
+  <h2>Seat alerts</h2>
+  <div class="row"><span class="pill">Needs work</span> <button>Start</button></div>
+  <div class="row">Waiting on you (3)</div>
+  <p>Email admins when seat usage passes 90% of the plan.</p>
+</section>
+</body>
+</html>
