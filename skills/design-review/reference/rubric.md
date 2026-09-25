@@ -5,6 +5,8 @@
 - **Product internal** (dashboard, table/list, detail view, settings, a step in a flow): the job is *let a user get work done*. Universal dimensions + the **Product-internal lens**.
 - **Mixed / unsure:** use the universal dimensions and apply whichever lens fits.
 
+**Then check the scope:** if the input covers **more than one screen** (a clickable prototype, several screenshots, a set of pages, a flow), also apply the **Cross-screen lens** at the end. Most information-architecture problems only show up across screens.
+
 For every dimension you assess: a one-word **Verdict** (`solid` / `weak` / `broken`), then — only if not solid — the **located** problem and the **actionable** fix. Never invent elements.
 
 ---
@@ -68,3 +70,21 @@ Destructive actions confirmed; inputs constrained (selects vs free text); undo w
 
 ### P6. Data legibility (data-heavy screens)
 Numbers right-aligned, units clear, charts labeled, no chartjunk, the **key metric is the most prominent**. **Broken:** unlabeled axes, a dashboard where everything is the same size so nothing matters.
+
+---
+
+## Cross-screen lens (a prototype, a flow, or several screens)
+Single-screen review misses the most common product-level problems: the same concept under several names, the same job in several places. Before judging, build a **concept inventory**: for every object (issue, run, order…), state (draft, ready, failed…) and action (start, approve, plan…) the UI shows, list each **label** it appears under and each **screen or place** it appears on. Put the inventory in the output as a table: *concept → labels used → places*.
+
+### X1. One name per concept
+Each concept uses one label everywhere, and each label means one thing. **Broken:** synonyms (the same state shown as "Draft", "Needs refining" and "2 things missing" on different screens), or homonyms ("Plan" used for a stage, a tab and a mode). **Fix:** pick the user's word, name it once, list every place to rename.
+
+### X2. One place per job
+Each user job ("what needs me?", "why can't this start?", "start work") has one home, and other screens link to it rather than repeat it. **Broken:** the same list or count rebuilt in several places with different rules; a whole page that duplicates another page filtered differently; orphans (a concept with no clear home). **Fix:** name the home for each job and what to remove or turn into a link.
+
+### X3. One vocabulary for state and action
+Status labels, list groups, board columns and progress indicators use the same set of states; the same action uses the same verb on every surface. **Broken:** four parallel ways to say where an item is; six verbs for starting the same action. **Fix:** one state set and one verb per action, mapped from the current labels.
+
+### X4. Density budget
+Count, for each main screen: visible controls, words, and badges or pills. Report the numbers so "simpler" can be measured and compared after changes. **Weak:** a list row carrying several badges, or a screen whose controls outnumber the decisions it supports. **Fix:** the specific elements to merge, move behind disclosure, or remove, with the expected new counts.
+

@@ -405,3 +405,29 @@ self-consistency, validation-equivalence, leakage, and skill-shape checks.
 
 Verdict: PASS — the public bundle now covers the released trigger surface and
 remains internally consistent and free of monorepo-only references.
+
+## design-review cross-screen lens — 2026-09-25
+
+Method: a fresh agent followed `skills/design-review/SKILL.md` and `reference/rubric.md` from this branch on each fixture (skill files read directly, not installed through the plugin).
+
+**Multi-screen fixture (`evals/fixtures/multi-screen-app.html`)**
+
+| Criterion | Result |
+|-----------|--------|
+| Recognises multi-screen input and applies X1–X4 after the per-screen dimensions | PASS |
+| Concept inventory table (concept → labels → places) | PASS (12 concepts) |
+| Catches >=4 of 5 seeded cross-screen problems | PASS (5/5: Draft / Not ready / Needs work; attention counts 4 / 2 / 3; Run / Launch job / Start; "Plan" as status and tab; four badges per backlog row) |
+| Reports per-screen density numbers | PASS (controls, words and badges for all three screens) |
+| Each cross-screen fix names one label or home and the places to change | PASS |
+
+**Regression, single-page fixture (`evals/fixtures/saas-landing.html`)**
+
+| Criterion | Result |
+|-----------|--------|
+| Classifies surface and covers U1–U7 plus the marketing lens | PASS (states the cross-screen lens does not apply to one page) |
+| Catches >=4 of 5 seeded problems | PASS (5/5) |
+| Located and actionable critiques | PASS |
+| Ends with "Fix these 3 first" | PASS |
+| No hallucinated elements | PASS |
+
+Verdict: PASS. Pending (human): interactive run through the installed plugin in a fresh client session.
