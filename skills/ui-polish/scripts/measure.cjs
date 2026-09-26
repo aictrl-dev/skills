@@ -39,6 +39,9 @@ const TH = {
   actionGapVh: 0.25, // distance from the last field to the primary action larger than this share of the viewport
   typeScaleMax: 6, // more distinct font sizes than this in the scope is reported
   labelGapPx: 12, // a checkbox or radio label at most this far from the control extends its tap target
+  eyebrowMaxWords: 4, // small uppercase letter-spaced labels of at most this many words are the eyebrow pattern (info)
+  eyebrowTrackingEm: 0.04, // minimum letter-spacing, in em, for the eyebrow pattern
+  examples: 3, // example selectors listed per grouped finding
 };
 
 // Page text is untrusted: strip control characters (ANSI/OSC escapes) before printing it to a terminal.
@@ -277,14 +280,34 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   };
   const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
-  const sizes = new Map(); const seenContrast = new Set(); let small = 0; let smallEl = null;
+  // Small text is grouped by size and style token, so one design token gives one finding. The token is the
+  // nearest class that names a size or text role (text-small, caption, eyebrow, text-[12px]), else the tag.
+  const sizeish = (c) => /(^|[-_])(small|smaller|tiny|micro|mini|caption|eyebrow|kicker|overline|meta|hint|helper|help|footnote|fine|legal|label|badge|tag|chip|note)([-_]|$)/i.test(c) || /^(text|font)-(2xs|xs|sm)$/.test(c) || /^(text|font|fs|type)-\[?\d/.test(c) || /^text-\[/.test(c);
+  const styleToken = (el) => {
+    for (let e = el, i = 0; e && e !== scope.parentElement && i < 4; e = e.parentElement, i++) {
+      const c = [...(e.classList || [])].find(sizeish); if (c) return `.${c}`;
+    }
+    return el.tagName.toLowerCase();
+  };
+  const sizes = new Map(); const seenContrast = new Set(); const smallGroups = new Map();
   const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const t = walker.currentNode; const s = t.textContent.trim(); if (s.length < 2) continue;
     const el = t.parentElement; if (!el || !visible(el) || isVisuallyHidden(el)) continue;
     const cs = getComputedStyle(el); const fsz = parseFloat(cs.fontSize);
     sizes.set(Math.round(fsz), (sizes.get(Math.round(fsz)) || 0) + 1);
-    if (fsz < TH.textPx) { small++; smallEl = smallEl || el; }
+    if (fsz < TH.textPx) {
+      // eyebrow / kicker: a short uppercase letter-spaced label, small on purpose
+      const words = s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+      const tracking = (parseFloat(cs.letterSpacing) || 0) / fsz;
+      const upper = cs.textTransform === 'uppercase' || s === s.toUpperCase(); // no lower-case letters on screen
+      const eyebrow = words.length <= TH.eyebrowMaxWords && upper && tracking >= TH.eyebrowTrackingEm;
+      const token = styleToken(el);
+      const k = [Math.round(fsz), token, eyebrow].join('|');
+      const g = smallGroups.get(k) || { size: Math.round(fsz), token, eyebrow, els: [], count: 0 };
+      g.count++; if (!g.els.includes(el)) g.els.push(el);
+      smallGroups.set(k, g);
+    }
     const fg = (cs.color.match(/rgba?\(([^)]+)\)/) || [])[1]; const bg = bgOf(el);
     if (fg && bg) {
       const c = ratio(fg.split(',').slice(0, 3).map(Number), bg);
@@ -294,7 +317,13 @@ function measureInPage({ scopeSel, primarySel, TH }) {
       if (c < need && !seenContrast.has(k)) { seenContrast.add(k); add('contrast', 'error', el, `Text "${s.slice(0, 30)}" has contrast ${c.toFixed(2)}:1`, +c.toFixed(2), `>= ${need}:1`); }
     }
   }
-  if (small) add('text-size', 'warn', smallEl, `${small} text runs are smaller than ${TH.textPx}px`, small, `0 below ${TH.textPx}px`);
+  for (const g of [...smallGroups.values()].sort((a, b) => b.count - a.count)) {
+    const label = g.token;
+    const examples = [...new Set(g.els.map(sel))].slice(0, TH.examples);
+    const runs = `${g.size}px × ${g.count} text run${g.count === 1 ? '' : 's'} (${label})`;
+    const message = g.eyebrow ? `${runs}: short uppercase letter-spaced labels (eyebrow pattern), small by design` : `${runs} smaller than ${TH.textPx}px`;
+    add('text-size', g.eyebrow ? 'info' : 'warn', g.els[0], message, g.count, `0 below ${TH.textPx}px`, { anchor: `text-size:${g.size}px:${label}${g.eyebrow ? ':eyebrow' : ''}`, group: label, fontSize: g.size, count: g.count, examples });
+  }
   if (sizes.size > TH.typeScaleMax) add('type-scale', 'info', scope, `${sizes.size} different font sizes in use (${[...sizes.keys()].sort((a, b) => a - b).join(', ')}px)`, sizes.size, `<= ${TH.typeScaleMax}`);
 
   // ---- C11 horizontal overflow
@@ -309,8 +338,29 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   if (pageScrolls || outer.length) add('overflow', 'error', outer[0] || document.body, `Content extends past the ${vw}px viewport`, document.documentElement.scrollWidth, `<= ${vw}px`);
 
   // ---- C12 heading, C13 dead space and distance to the primary action
-  const heads = [...scope.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')].filter(visible);
-  if (!heads.length) add('heading', 'warn', scope, 'No visible heading in the content; the question is not in the heading outline', 0, '>= 1');
+  const headSel = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+  const heads = [...scope.querySelectorAll(headSel)].filter(visible);
+  if (!heads.length) {
+    // A scope narrower than main (a form, a card) is often introduced by a heading just outside it: one that
+    // labels it through aria-labelledby, or the nearest heading before it within one screen height.
+    let outside = null; let how = '';
+    for (let e = scope; !outside && e && e !== document.body; e = e.parentElement) {
+      for (const id of (e.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean)) {
+        const t = document.getElementById(id);
+        const h = t && (t.matches(headSel) ? t : t.querySelector(headSel));
+        if (h && visible(h)) { outside = h; how = 'labels it through aria-labelledby'; break; }
+      }
+    }
+    if (!outside && !scope.matches('main, body')) {
+      const before = [...document.querySelectorAll(headSel)].filter((h) => visible(h) && !scope.contains(h) && (h.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING)).pop();
+      if (before) {
+        const gap = scope.getBoundingClientRect().top - before.getBoundingClientRect().bottom;
+        if (gap <= vh) { outside = before; how = gap > 0 ? `sits ${Math.round(gap)}px above it` : 'sits beside it'; }
+      }
+    }
+    if (outside) add('heading', 'info', scope, `Heading is outside the scope: "${outside.textContent.replace(/\s+/g, ' ').trim().slice(0, 40)}" ${how}`, 0, '>= 1', { heading: sel(outside) });
+    else add('heading', 'warn', scope, 'No visible heading in the content; the question is not in the heading outline', 0, '>= 1');
+  }
   const primary = (primarySel && document.querySelector(primarySel)) || [...scope.querySelectorAll('button[type="submit"], button, [role="button"]')].filter(shown).sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height)[0];
   if (primary && fields.length) {
     const lastField = fields.reduce((m, f) => (f.getBoundingClientRect().bottom > m.getBoundingClientRect().bottom ? f : m));
@@ -381,6 +431,6 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
   const count = (s) => result.findings.filter((f) => f.severity === s).length;
   console.log(`${target}\n${count('error')} errors · ${count('warn')} warnings · ${count('info')} info  →  ${path.join(out, 'measure.json')}`);
-  for (const f of result.findings) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}`);
+  for (const f of result.findings) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}${f.examples && f.examples.length > 1 ? `  also ${f.examples.slice(1).map(safe).join(', ')}` : ''}`);
   process.exit(count('error') ? 1 : 0);
 })().catch((e) => { console.error('measure failed:', e.message); process.exit(3); });
