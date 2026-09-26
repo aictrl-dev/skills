@@ -6,15 +6,23 @@
  * size, contrast, overflow, dead space and the distance to the primary action.
  *
  * Usage:
- *   node measure.cjs <file-or-url> [--out <dir>] [--scope <css selector>] [--viewports phone,desktop]
- *                    [--primary <css selector>] [--js] [--offline | --assets-only]
+ *   node measure.cjs <file-or-url> [--out <dir>] [--scope <css selector>]
+ *                    [--viewports phone,desktop] [--primary <css selector>] [--js] [--offline | --assets-only]
+ *                    [--hide "<selector>[,<selector>…]"] [--profile form|content] [--config <path>]
+ *   node measure.cjs --compare <before.json> <after.json>
  *
  * --offline      no network at all: only the target and file:/data: resources load (hermetic).
  * --assets-only  allow the page itself plus remote fonts, stylesheets and images, block scripts and data
  *                requests. Use it for saved copies that need their fonts; it does contact the asset hosts.
- *   node measure.cjs --compare <before.json> <after.json>
+ * --hide         set display:none on these elements (cookie banners, chat launchers) before measuring and capturing.
+ * --profile      form (default) runs every check; content skips the form-step checks (type-scale,
+ *                action-distance, action-below-fold, dead-space) for long-form pages.
+ * --config       a ui-polish.config.json of accepted decisions; default ./ui-polish.config.json when present.
+ *                Shape: { "ignore": [{ "check": "text-size", "selector": ".eyebrow", "reason": "…" }] }.
+ *                Matching findings move to "accepted" with their reason and do not affect the exit code.
  *
- * Writes <out>/measure.json (all findings) and <out>/<viewport>.png, and prints a summary.
+ * Writes <out>/measure.json (all findings), <out>/<viewport>.png (the first screen) and
+ * <out>/<viewport>-scope.png (the whole scope element), and prints a summary.
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
  * run itself fails (missing browser, navigation error or timeout).
  *
@@ -43,13 +51,17 @@ const TH = {
   eyebrowTrackingEm: 0.04, // minimum letter-spacing, in em, for the eyebrow pattern
   examples: 3, // example selectors listed per grouped finding
 };
+// Checks each profile skips. "form" is the default and runs everything.
+const PROFILES = { form: [], content: ['type-scale', 'action-distance', 'action-below-fold', 'dead-space'] };
+const VALUE_FLAGS = ['--out', '--scope', '--viewports', '--primary', '--hide', '--profile', '--config'];
 
 // Page text is untrusted: strip control characters (ANSI/OSC escapes) before printing it to a terminal.
 const safe = (s) => String(s).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
 
+class UsageError extends Error {}
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('Usage: node measure.cjs <file-or-url> [--out dir] [--scope selector] [--viewports phone,desktop] [--primary selector] [--js] [--offline | --assets-only]\n       node measure.cjs --compare before.json after.json');
+  console.error('Usage: node measure.cjs <file-or-url> [--out dir] [--scope selector] [--viewports phone,desktop] [--primary selector] [--js] [--offline | --assets-only] [--hide selectors] [--profile form|content] [--config file]\n       node measure.cjs --compare before.json after.json');
   process.exit(2);
 }
 
@@ -61,6 +73,23 @@ function loadPlaywright() {
   process.exit(2);
 }
 
+// ---------------------------------------------------------------- project config (accepted decisions)
+function loadConfig(explicit) {
+  const file = path.resolve(explicit || 'ui-polish.config.json');
+  if (!fs.existsSync(file)) { if (explicit) usage(`Config not found: ${explicit}`); return { file: null, ignore: [] }; }
+  let cfg;
+  try { cfg = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { usage(`Config ${file} is not valid JSON: ${e.message}`); }
+  const ignore = cfg && cfg.ignore !== undefined ? cfg.ignore : [];
+  if (!Array.isArray(ignore)) usage(`Config ${file}: "ignore" must be an array`);
+  ignore.forEach((r, i) => {
+    if (!r || typeof r !== 'object') usage(`Config ${file}: ignore[${i}] must be an object`);
+    for (const k of ['check', 'selector']) if (r[k] !== undefined && typeof r[k] !== 'string') usage(`Config ${file}: ignore[${i}].${k} must be a string`);
+    if (!r.check && !r.selector) usage(`Config ${file}: ignore[${i}] needs a "check", a "selector" or both`);
+    if (typeof r.reason !== 'string' || !r.reason.trim()) usage(`Config ${file}: ignore[${i}] needs a "reason"; an accepted finding must say why`);
+  });
+  return { file, ignore: ignore.map((r) => ({ check: r.check || null, selector: r.selector || null, reason: r.reason.trim() })) };
+}
+
 // ---------------------------------------------------------------- compare mode
 function compare(beforeFile, afterFile) {
   const a = JSON.parse(fs.readFileSync(beforeFile, 'utf8'));
@@ -70,19 +99,23 @@ function compare(beforeFile, afterFile) {
   const key = (f) => `${f.viewport}|${f.check}|${f.anchor || f.selector}`;
   const before = new Map(a.findings.map((f) => [key(f), f]));
   const after = new Map(b.findings.map((f) => [key(f), f]));
-  const fixed = [...before.keys()].filter((k) => !after.has(k)).map((k) => before.get(k));
+  // Findings the project config accepted are neither fixed nor remaining; list them on their own.
+  const acceptedAfter = new Map((b.accepted || []).map((f) => [key(f), f]));
+  const fixed = [...before.keys()].filter((k) => !after.has(k) && !acceptedAfter.has(k)).map((k) => before.get(k));
   const remaining = [...after.keys()].filter((k) => before.has(k)).map((k) => after.get(k));
   const added = [...after.keys()].filter((k) => !before.has(k)).map((k) => after.get(k));
+  const accepted = [...acceptedAfter.values()];
   // New copy: anything visible after that was not visible before. A digit outside [brackets] is a number
   // the original screen never stated, which the skill forbids unless it is a placeholder for the owner.
   const oldCopy = new Set(a.copy || []);
   const newCopy = (b.copy || []).filter((t) => !oldCopy.has(t));
   const unbracketed = newCopy.filter((t) => /\d/.test(t.replace(/\[[^\]]*\]/g, '')));
   const line = (f) => `  [${f.severity}] ${f.viewport} ${f.check} — ${safe(f.message)}`;
-  console.log(`Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}`);
+  console.log(`Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}${accepted.length ? ` · accepted ${accepted.length}` : ''}`);
   if (fixed.length) console.log('Fixed:\n' + fixed.map(line).join('\n'));
   if (remaining.length) console.log('Remaining:\n' + remaining.map(line).join('\n'));
   if (added.length) console.log('New (regressions):\n' + added.map(line).join('\n'));
+  if (accepted.length) console.log('Accepted (project config):\n' + accepted.map((f) => `${line(f)} — ${safe(f.reason)}`).join('\n'));
   if (newCopy.length) console.log('New copy for the owner to review:\n' + newCopy.map((t) => `  "${safe(t)}"`).join('\n'));
   if (unbracketed.length) console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${safe(t)}"`).join('\n'));
   process.exit(unbracketed.length || added.some((f) => f.severity === 'error') || remaining.some((f) => f.severity === 'error') ? 1 : 0);
@@ -90,11 +123,27 @@ function compare(beforeFile, afterFile) {
 
 // ---------------------------------------------------------------- in-page measurement
 // Runs inside the page; must be self-contained.
-function measureInPage({ scopeSel, primarySel, TH }) {
+function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   const vw = innerWidth; const vh = innerHeight;
-  const scope = (scopeSel && document.querySelector(scopeSel)) || document.querySelector('main') || document.body;
-  const findings = [];
-  const add = (check, severity, el, message, measured, expected, extra = {}) => findings.push({ check, severity, selector: sel(el), anchor: anchor(el), message, measured, expected, ...extra });
+  const scoped = scopeSel && document.querySelector(scopeSel);
+  const scope = scoped || document.querySelector('main') || document.body;
+  const scopeUsed = scoped ? scopeSel : scope === document.body ? 'body' : 'main';
+  const findings = []; const accepted = []; const configErrors = [];
+  const skip = new Set(skipChecks || []);
+  const rules = ignore || [];
+  const matches = (el, s) => {
+    try { return !!(el && el.nodeType === 1 && el.closest(s)); } catch { if (!configErrors.includes(s)) configErrors.push(s); return false; }
+  };
+  // An accepted decision matches a finding on its check and on its element (or an ancestor of it).
+  const ruleFor = (check, el) => rules.find((r) => (!r.check || r.check === check) && (!r.selector || matches(el, r.selector))) || null;
+  const add = (check, severity, el, message, measured, expected, extra = {}) => {
+    if (skip.has(check)) return;
+    const { rule: forced, ...rest } = extra;
+    const rule = 'rule' in extra ? forced : ruleFor(check, el);
+    const f = { check, severity, selector: sel(el), anchor: anchor(el), message, measured, expected, ...rest };
+    if (rule) accepted.push({ ...f, reason: rule.reason, rule: { check: rule.check, selector: rule.selector } });
+    else findings.push(f);
+  };
   function anchor(el) {
     if (!el || el.nodeType !== 1) return '';
     const tag = el.tagName.toLowerCase();
@@ -302,9 +351,10 @@ function measureInPage({ scopeSel, primarySel, TH }) {
       const tracking = (parseFloat(cs.letterSpacing) || 0) / fsz;
       const upper = cs.textTransform === 'uppercase' || s === s.toUpperCase(); // no lower-case letters on screen
       const eyebrow = words.length <= TH.eyebrowMaxWords && upper && tracking >= TH.eyebrowTrackingEm;
+      const rule = ruleFor('text-size', el);
       const token = styleToken(el);
-      const k = [Math.round(fsz), token, eyebrow].join('|');
-      const g = smallGroups.get(k) || { size: Math.round(fsz), token, eyebrow, els: [], count: 0 };
+      const k = [Math.round(fsz), token, eyebrow, rules.indexOf(rule)].join('|');
+      const g = smallGroups.get(k) || { size: Math.round(fsz), token, eyebrow, rule, els: [], count: 0 };
       g.count++; if (!g.els.includes(el)) g.els.push(el);
       smallGroups.set(k, g);
     }
@@ -322,7 +372,7 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     const examples = [...new Set(g.els.map(sel))].slice(0, TH.examples);
     const runs = `${g.size}px × ${g.count} text run${g.count === 1 ? '' : 's'} (${label})`;
     const message = g.eyebrow ? `${runs}: short uppercase letter-spaced labels (eyebrow pattern), small by design` : `${runs} smaller than ${TH.textPx}px`;
-    add('text-size', g.eyebrow ? 'info' : 'warn', g.els[0], message, g.count, `0 below ${TH.textPx}px`, { anchor: `text-size:${g.size}px:${label}${g.eyebrow ? ':eyebrow' : ''}`, group: label, fontSize: g.size, count: g.count, examples });
+    add('text-size', g.eyebrow ? 'info' : 'warn', g.els[0], message, g.count, `0 below ${TH.textPx}px`, { rule: g.rule, anchor: `text-size:${g.size}px:${label}${g.eyebrow ? ':eyebrow' : ''}`, group: label, fontSize: g.size, count: g.count, examples });
   }
   if (sizes.size > TH.typeScaleMax) add('type-scale', 'info', scope, `${sizes.size} different font sizes in use (${[...sizes.keys()].sort((a, b) => a - b).join(', ')}px)`, sizes.size, `<= ${TH.typeScaleMax}`);
 
@@ -383,14 +433,91 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     if (isVisuallyHidden(el)) continue;
     for (const a of ['placeholder', 'aria-label']) { const v = (el.getAttribute(a) || '').trim(); if (v && !copy.includes(v)) copy.push(v); }
   }
-  return { viewport: { width: vw, height: vh }, fieldCount: fields.length, rows: rows.map((r) => r.items.map((it) => ({ x: it.x, w: it.w }))), copy, findings };
+  return { viewport: { width: vw, height: vh }, scope: scopeUsed, fieldCount: fields.length, rows: rows.map((r) => r.items.map((it) => ({ x: it.x, w: it.w }))), copy, findings, accepted, configErrors };
+}
+
+// Hides overlays (cookie banners, chat launchers) with an injected style. Runs inside the page.
+function hideInPage(selectors) {
+  try { document.querySelectorAll(selectors); } catch (e) { return { error: e.message }; }
+  const style = document.createElement('style');
+  style.setAttribute('data-ui-polish-hide', '');
+  style.textContent = `${selectors} { display: none !important; }`;
+  (document.head || document.documentElement).appendChild(style);
+  return { matched: document.querySelectorAll(selectors).length };
+}
+
+// ---------------------------------------------------------------- one target
+async function measureTarget(browser, target, out, o) {
+  const url = /^https?:\/\//.test(target) ? target : require('url').pathToFileURL(path.resolve(target)).href;
+  fs.mkdirSync(out, { recursive: true });
+  const result = { target, measuredAt: new Date().toISOString(), thresholds: TH, profile: o.profile, viewports: {}, findings: [] };
+  if (o.hide) result.hidden = { selectors: o.hide, matched: 0 };
+  if (o.config.file) result.config = o.config.file;
+  const accepted = []; const configErrors = new Set();
+  for (const v of o.viewports) {
+    const ctx = await browser.newContext({ viewport: VIEWPORTS[v], javaScriptEnabled: o.js, deviceScaleFactor: 1 });
+    try {
+      if (o.offline || o.assetsOnly) {
+        await ctx.route('**/*', (r) => {
+          const q = r.request(); const u = q.url();
+          if (u.startsWith('file:') || u.startsWith('data:')) return r.continue();
+          if (q.isNavigationRequest() && !q.frame().parentFrame()) return r.continue(); // the target page itself, including redirects
+          return o.assetsOnly && ['font', 'stylesheet', 'image'].includes(q.resourceType()) ? r.continue() : r.abort();
+        });
+      }
+      const page = await ctx.newPage();
+      await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+      await page.waitForTimeout(600);
+      if (o.hide) {
+        const h = await page.evaluate(hideInPage, o.hide);
+        if (h.error) throw new UsageError(`--hide "${o.hide}" is not a valid selector list: ${h.error}`);
+        result.hidden.matched = Math.max(result.hidden.matched, h.matched);
+      }
+      const r = await page.evaluate(measureInPage, { scopeSel: o.scope, primarySel: o.primary, TH, skipChecks: PROFILES[o.profile], ignore: o.config.ignore });
+      await page.screenshot({ path: path.join(out, `${v}.png`) });
+      // The viewport shot shows only the first screen; also capture the whole scope element.
+      const vr = { fieldCount: r.fieldCount, rows: r.rows, scope: r.scope };
+      try {
+        await page.locator(r.scope).first().screenshot({ path: path.join(out, `${v}-scope.png`), timeout: 15000 });
+        vr.scopeScreenshot = `${v}-scope.png`;
+      } catch (e) { vr.scopeScreenshotError = e.message.split('\n')[0]; }
+      result.viewports[v] = vr;
+      result.copy = [...new Set([...(result.copy || []), ...r.copy])];
+      for (const f of r.findings) result.findings.push({ viewport: v, ...f });
+      for (const f of r.accepted) accepted.push({ viewport: v, ...f });
+      r.configErrors.forEach((s) => configErrors.add(s));
+    } finally { await ctx.close(); }
+  }
+  if (o.config.ignore.length) result.accepted = accepted;
+  if (configErrors.size) result.configErrors = [...configErrors];
+  fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
+  return result;
+}
+
+const count = (res, s) => res.findings.filter((f) => f.severity === s).length;
+function printResult(res, out) {
+  const acc = res.accepted || [];
+  console.log(`${res.target}\n${count(res, 'error')} errors · ${count(res, 'warn')} warnings · ${count(res, 'info')} info${acc.length ? ` · ${acc.length} accepted` : ''}  →  ${path.join(out, 'measure.json')}`);
+  for (const f of res.findings) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}${f.examples && f.examples.length > 1 ? `  also ${f.examples.slice(1).map(safe).join(', ')}` : ''}`);
+  if (acc.length) {
+    console.log('Accepted (project config):');
+    for (const f of acc) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)} — ${safe(f.reason)}`);
+  }
+  if (res.configErrors) console.log(`Config selectors that are not valid CSS (never matched): ${res.configErrors.map(safe).join(', ')}`);
+  for (const [v, vr] of Object.entries(res.viewports)) if (vr.scopeScreenshotError) console.log(`  (no ${v}-scope.png: ${safe(vr.scopeScreenshotError)})`);
+}
+
+async function run(browser, target, out, o) {
+  const res = await measureTarget(browser, target, out, o);
+  printResult(res, out);
+  return count(res, 'error') ? 1 : 0;
 }
 
 // ---------------------------------------------------------------- main
 (async () => {
   const args = process.argv.slice(2);
   if (args[0] === '--compare') { if (args.length < 3) usage('Missing files to compare'); return compare(args[1], args[2]); }
-  const target = args.find((a, i) => !a.startsWith('--') && !['--out', '--scope', '--viewports', '--primary'].includes(args[i - 1]));
+  const target = args.find((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(args[i - 1]));
   if (!target) usage('Missing <file-or-url>');
   const opt = (n, d) => {
     const i = args.indexOf(`--${n}`); if (i < 0) return d;
@@ -398,39 +525,23 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     return v;
   };
   const out = path.resolve(opt('out', 'ui-polish-out'));
-  const wanted = opt('viewports', 'phone,desktop').split(',').map((v) => v.trim()).filter(Boolean);
-  for (const v of wanted) if (!VIEWPORTS[v]) usage(`Unknown viewport "${v}" (use phone, desktop)`);
-  const url = /^https?:\/\//.test(target) ? target : require('url').pathToFileURL(path.resolve(target)).href;
+  const viewports = opt('viewports', 'phone,desktop').split(',').map((v) => v.trim()).filter(Boolean);
+  for (const v of viewports) if (!VIEWPORTS[v]) usage(`Unknown viewport "${v}" (use phone, desktop)`);
+  const profile = opt('profile', 'form');
+  if (!PROFILES[profile]) usage(`Unknown profile "${profile}" (use ${Object.keys(PROFILES).join(', ')})`);
+  const hide = (opt('hide', '') || '').trim() || null;
+  const o = {
+    scope: opt('scope', null), primary: opt('primary', null), js: args.includes('--js'),
+    offline: args.includes('--offline'), assetsOnly: args.includes('--assets-only'),
+    hide, profile, viewports, config: loadConfig(opt('config', null)),
+  };
   const { chromium } = loadPlaywright();
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch();
-  const result = { target, measuredAt: new Date().toISOString(), thresholds: TH, viewports: {}, findings: [] };
-  try {
-    for (const v of wanted) {
-      const ctx = await browser.newContext({ viewport: VIEWPORTS[v], javaScriptEnabled: args.includes('--js'), deviceScaleFactor: 1 });
-      if (args.includes('--offline') || args.includes('--assets-only')) {
-        const assets = args.includes('--assets-only');
-        await ctx.route('**/*', (r) => {
-          const q = r.request(); const u = q.url();
-          if (u.startsWith('file:') || u.startsWith('data:')) return r.continue();
-          if (q.isNavigationRequest() && !q.frame().parentFrame()) return r.continue(); // the target page itself, including redirects
-          return assets && ['font', 'stylesheet', 'image'].includes(q.resourceType()) ? r.continue() : r.abort();
-        });
-      }
-      const page = await ctx.newPage();
-      await page.goto(url, { waitUntil: 'load', timeout: 30000 });
-      await page.waitForTimeout(600);
-      const r = await page.evaluate(measureInPage, { scopeSel: opt('scope', null), primarySel: opt('primary', null), TH });
-      await page.screenshot({ path: path.join(out, `${v}.png`) });
-      result.viewports[v] = { fieldCount: r.fieldCount, rows: r.rows };
-      result.copy = [...new Set([...(result.copy || []), ...r.copy])];
-      for (const f of r.findings) result.findings.push({ viewport: v, ...f });
-      await ctx.close();
-    }
-  } finally { await browser.close(); }
-  fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
-  const count = (s) => result.findings.filter((f) => f.severity === s).length;
-  console.log(`${target}\n${count('error')} errors · ${count('warn')} warnings · ${count('info')} info  →  ${path.join(out, 'measure.json')}`);
-  for (const f of result.findings) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}${f.examples && f.examples.length > 1 ? `  also ${f.examples.slice(1).map(safe).join(', ')}` : ''}`);
-  process.exit(count('error') ? 1 : 0);
-})().catch((e) => { console.error('measure failed:', e.message); process.exit(3); });
+  let code;
+  try { code = await run(browser, target, out, o); } finally { await browser.close(); }
+  process.exit(code);
+})().catch((e) => {
+  if (e instanceof UsageError) { console.error(e.message); process.exit(2); }
+  console.error('measure failed:', e.message); process.exit(3);
+});
