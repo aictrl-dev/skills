@@ -6,7 +6,7 @@
  * size, contrast, overflow, dead space and the distance to the primary action.
  *
  * Usage:
- *   node measure.cjs <file-or-url> [--out <dir>] [--scope <css selector>]
+ *   node measure.cjs <file-or-url> [<file-or-url> …] [--out <dir>] [--scope <css selector>]
  *                    [--viewports phone,desktop] [--primary <css selector>] [--js] [--offline | --assets-only]
  *                    [--hide "<selector>[,<selector>…]"] [--profile form|content] [--config <path>]
  *   node measure.cjs --compare <before.json> <after.json>
@@ -22,7 +22,8 @@
  *                Matching findings move to "accepted" with their reason and do not affect the exit code.
  *
  * Writes <out>/measure.json (all findings), <out>/<viewport>.png (the first screen) and
- * <out>/<viewport>-scope.png (the whole scope element), and prints a summary.
+ * <out>/<viewport>-scope.png (the whole scope element), and prints a summary. With several targets each
+ * goes to <out>/<slug>/, and <out>/summary.json merges the same finding across pages.
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
  * run itself fails (missing browser, navigation error or timeout).
  *
@@ -61,7 +62,7 @@ const safe = (s) => String(s).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
 class UsageError extends Error {}
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('Usage: node measure.cjs <file-or-url> [--out dir] [--scope selector] [--viewports phone,desktop] [--primary selector] [--js] [--offline | --assets-only] [--hide selectors] [--profile form|content] [--config file]\n       node measure.cjs --compare before.json after.json');
+  console.error('Usage: node measure.cjs <file-or-url> [<file-or-url> …] [--out dir] [--scope selector] [--viewports phone,desktop] [--primary selector] [--js] [--offline | --assets-only] [--hide selectors] [--profile form|content] [--config file]\n       node measure.cjs --compare before.json after.json');
   process.exit(2);
 }
 
@@ -507,18 +508,76 @@ function printResult(res, out) {
   for (const [v, vr] of Object.entries(res.viewports)) if (vr.scopeScreenshotError) console.log(`  (no ${v}-scope.png: ${safe(vr.scopeScreenshotError)})`);
 }
 
-async function run(browser, target, out, o) {
-  const res = await measureTarget(browser, target, out, o);
-  printResult(res, out);
-  return count(res, 'error') ? 1 : 0;
+// ---------------------------------------------------------------- several targets: slugs and roll-up
+function slugFor(target, taken) {
+  let s;
+  if (/^https?:\/\//.test(target)) { const u = new URL(target); s = (u.pathname + u.search).replace(/^\/+|\/+$/g, '') || 'index'; } else s = path.basename(target).replace(/\.[^.]+$/, '');
+  s = s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|-+$/g, '').slice(0, 80) || 'page';
+  let slug = s; for (let i = 2; taken.has(slug); i++) slug = `${s}-${i}`;
+  taken.add(slug);
+  return slug;
+}
+// The same finding on several pages: same check, same element shape (indexes dropped), same message with
+// numbers and quoted text blanked.
+const signature = (f) => (f.group ? `${f.fontSize}px ${f.group}` : (f.selector || '').replace(/:nth-of-type\(\d+\)/g, ''));
+const template = (m) => String(m).replace(/"[^"]*"/g, '"…"').replace(/\d+(\.\d+)?/g, 'N');
+const RANK = { error: 3, warn: 2, info: 1 };
+function rollUp(runs) {
+  const merged = new Map();
+  for (const run of runs) {
+    for (const f of run.result ? run.result.findings : []) {
+      const k = `${f.check}|${signature(f)}|${template(f.message)}`;
+      const m = merged.get(k) || { check: f.check, severity: f.severity, signature: signature(f), template: template(f.message), example: f.message, pages: [], viewports: [], count: 0 };
+      if (RANK[f.severity] > RANK[m.severity]) m.severity = f.severity;
+      if (!m.pages.includes(run.slug)) m.pages.push(run.slug);
+      if (!m.viewports.includes(f.viewport)) m.viewports.push(f.viewport);
+      m.count++;
+      merged.set(k, m);
+    }
+  }
+  return [...merged.values()].sort((a, b) => RANK[b.severity] - RANK[a.severity] || b.pages.length - a.pages.length || b.count - a.count);
+}
+
+async function run(browser, targets, out, o) {
+  if (targets.length === 1) {
+    const res = await measureTarget(browser, targets[0], out, o);
+    printResult(res, out);
+    return count(res, 'error') ? 1 : 0;
+  }
+  const taken = new Set(); const runs = [];
+  for (const t of targets) {
+    const slug = slugFor(t, taken); const dir = path.join(out, slug);
+    try { runs.push({ target: t, slug, result: await measureTarget(browser, t, dir, o) }); } catch (e) {
+      if (e instanceof UsageError) throw e;
+      runs.push({ target: t, slug, error: e.message.split('\n')[0] });
+    }
+  }
+  const merged = rollUp(runs);
+  const summary = {
+    measuredAt: new Date().toISOString(), profile: o.profile,
+    targets: runs.map((r) => ({
+      target: r.target, slug: r.slug, measure: r.result ? `${r.slug}/measure.json` : null, error: r.error,
+      counts: r.result ? { error: count(r.result, 'error'), warn: count(r.result, 'warn'), info: count(r.result, 'info'), accepted: (r.result.accepted || []).length } : null,
+    })),
+    merged,
+  };
+  fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2));
+  for (const r of summary.targets) {
+    if (r.error) { console.log(`${r.target}\n  run failed: ${safe(r.error)}`); continue; }
+    console.log(`${r.target}\n  ${r.counts.error} errors · ${r.counts.warn} warnings · ${r.counts.info} info${r.counts.accepted ? ` · ${r.counts.accepted} accepted` : ''}  →  ${path.join(out, r.measure)}`);
+  }
+  console.log(`\nAcross ${runs.length} targets: ${merged.length} distinct findings  →  ${path.join(out, 'summary.json')}`);
+  for (const m of merged) console.log(`  [${m.severity}] ${m.check}: ${safe(m.example)}${m.signature ? `  (${safe(m.signature)})` : ''} — ${m.pages.length} page${m.pages.length === 1 ? '' : 's'}: ${m.pages.map(safe).join(', ')}`);
+  if (runs.some((r) => r.error)) return 3;
+  return runs.some((r) => count(r.result, 'error')) ? 1 : 0;
 }
 
 // ---------------------------------------------------------------- main
 (async () => {
   const args = process.argv.slice(2);
   if (args[0] === '--compare') { if (args.length < 3) usage('Missing files to compare'); return compare(args[1], args[2]); }
-  const target = args.find((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(args[i - 1]));
-  if (!target) usage('Missing <file-or-url>');
+  const targets = args.filter((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(args[i - 1]));
+  if (!targets.length) usage('Missing <file-or-url>');
   const opt = (n, d) => {
     const i = args.indexOf(`--${n}`); if (i < 0) return d;
     const v = args[i + 1]; if (v === undefined || v.startsWith('--')) usage(`--${n} needs a value`);
@@ -539,7 +598,7 @@ async function run(browser, target, out, o) {
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch();
   let code;
-  try { code = await run(browser, target, out, o); } finally { await browser.close(); }
+  try { code = await run(browser, targets, out, o); } finally { await browser.close(); }
   process.exit(code);
 })().catch((e) => {
   if (e instanceof UsageError) { console.error(e.message); process.exit(2); }
