@@ -27,7 +27,9 @@
  * Elements that share a cause are one finding with a count, example selectors and every member: fields with
  * the same small font size, controls with the same style and tap size, and small text (one finding per
  * viewport, broken down into style groups; eyebrow labels in their own info finding).
- * A finding identical on phone and desktop is written once, with "viewports": ["phone", "desktop"].
+ * A finding identical on phone and desktop is written once, with "viewports": ["phone", "desktop"]; for merged
+ * findings "viewports" is authoritative and "viewport" is only the first of them.
+ * --compare expands grouped and merged findings to (viewport, element or style group) pairs before matching.
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
  * run itself fails (missing browser, navigation error or timeout).
  *

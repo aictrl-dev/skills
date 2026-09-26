@@ -12,38 +12,53 @@ controls still fired.
 
 | Criterion | Result |
 |---|---|
-| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 17/17 after round 2; the original script fails 12 of the first 14) |
+| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 28/28 after round 3; the original script fails 12 of the first 14) |
 | N9: one finding per cause, one small-text finding per viewport with groups, identical findings once across viewports, `--compare` normalises old and new files | PASS (round 2) |
-| Positive controls still fire (bare 20px checkbox error, short label row warn, standalone link, 13px body paragraph warn, missing heading warn) | PASS |
+| Positive controls still fire (bare 20px checkbox error, short label warn, standalone link, 13px body paragraph warn, missing heading warn; round 3 adds a label 10px below or `display: contents`, pager and sort-by link rows, CJK and price-line small text, a site-header-only heading, visible `aria-hidden` content, `inset(50% 0 0 0)` text, a number added only in hidden copy, and a partial compare with a new error) | PASS |
 | Measured seeds M1–M9 still reported on `height-weight-step.html` | PASS (round 2: 9 errors, 13 warnings, most now shown once for both viewports; `--compare` against the original run: fixed 0, new 0) |
 | Noise on a real page: no finding of the N1–N8 classes left to drop by hand | PASS (table below) |
 
 Before and after on a production marketing site, 4 pages (two sign-up forms, one with checkbox
 options, a long-form guide and the home page), `--js`, default scope `main`. The original script ran
-per page; the new one ran all four in one call with `--hide` on the cookie banner.
+per page; the branch versions ran all four in one call with `--hide` on the cookie banner. The
+original server was gone by round 3, so every column below was re-measured on one local build of the
+same site; the before column matches the first run exactly (12 errors, 26 warnings, 6 info).
 
-| Check | Before | After (round 1) | After (round 2) | Why |
+| Check | Before | After round 1 | After round 2 | After round 3 |
 |---|---|---|---|---|
-| `tap-target` | 12 error, 3 warn | 0 | 0 | 20px checkboxes in 44px label rows now count with their label; the policy link sits inside a sentence (inline, WCAG 2.5.8); the honeypot is off-screen and `aria-hidden` |
-| `input-font-size` | 13 warn | 13 warn | 3 warn | genuine (15px field text), still reported; round 2 groups fields with the same size into one finding per page |
-| `dead-space` | 2 warn | 2 warn | 2 warn | unchanged |
-| `text-size` | 8 warn (one unlocated count per page and viewport) | 18 warn, 8 info | 4 warn, 5 info | round 1 located one finding per style group; round 2 keeps the groups inside one finding per page, shown once for both viewports, with eyebrow labels as one info |
-| `type-scale` | 6 info | 6 info | 6 info (4 with `--profile content` on the guide) | unchanged under the default profile |
-| **Total** | **12 error, 26 warn, 6 info** | **0 error, 33 warn, 14 info** | **0 error, 9 warn, 11 info** | |
-| Distinct across the 4 pages (same merge applied) | 22 (20 warn or error) | 19 (15 warn or error) | 12 (8 warn or error) | the roll-up lists a shared component's finding once, with its pages |
+| `tap-target` | 12 error, 3 warn | 0 | 0 | 1 error |
+| `input-font-size` | 13 warn | 13 warn | 3 warn | 3 warn |
+| `dead-space` | 2 warn | 2 warn | 2 warn | 2 warn |
+| `text-size` | 8 warn | 16 warn, 10 info | 4 warn, 5 info | 5 warn, 5 info |
+| `type-scale` | 6 info | 6 info | 6 info | 6 info |
+| **Total** | **12 error, 26 warn, 6 info** | **0 error, 31 warn, 16 info** | **0 error, 9 warn, 11 info** | **1 error, 10 warn, 11 info** |
+| Distinct across the 4 pages (roll-up) | 22 (20 warn or error) | 19 (14) | 12 (7) | 14 (9) |
 
-Round 1 raised the raw warning count (26 to 33) by turning each page's small-text count into one finding
-per style group. Round 2 consolidated without dropping detail: small text is one finding per viewport
-listing its groups (each with up to three example selectors), fields and controls that share a cause are
-one finding with every member listed, and a finding identical on phone and desktop is written once. An
-agent now triages 9 warnings (8 distinct across the pages) instead of 38 errors and warnings. Genuine
-defects are still reported: the 15px field text on every form, the empty band above one form's submit
-button, and the 13px small-text token on all four pages. The consent-sentence policy link (18px tall) is no longer reported: it is
-inline in a sentence, which WCAG 2.5.8 exempts.
+- Round 1 removed the false positives: 20px checkboxes inside 44px labels, a policy link inside a
+  consent sentence, and an off-screen honeypot. It split each page's small-text count into located
+  style groups, which raised the raw warning count.
+- Round 2 consolidated without dropping detail. Small text became one finding per viewport listing
+  its groups, each with up to three example selectors. Fields and controls that share a cause became
+  one finding listing every member. A finding identical on phone and desktop is written once.
+- Round 3 applied an independent review's stricter rules. None of them hides a real defect.
+  - `aria-hidden` no longer hides visible content.
+  - A label enlarges a tap target only through its own box, never across a gap.
+  - Only links inside a real sentence are exempt, and link lists never are.
+  - Upper case must be real upper case for the eyebrow pattern.
+  - A heading outside the scope must be in the same section and outside site chrome.
+- Round 3's new error is real: five table-of-contents links on the guide, 18px tall inside list items,
+  which the old blanket `li` exemption had hidden.
+- Round 3's extra small-text warning is also real: visible `aria-hidden` mock-up badges at 11px are
+  measured again, and one class applies only on desktop, so the two viewports no longer match.
 
-Repository checks (round 2): `npm test` 45 tests (28 pass and 17 skip without Playwright, as in CI;
-45/45 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills
-and the plugin; `CHECKSUMS.sha256` regenerated in byte order.
+Genuine defects are still reported in every branch column: the 15px field text on every form, the
+empty band above the lead form's submit button (and one on the home page), and the 13px small-text
+token on all four pages. The consent-sentence policy link is not reported, because it sits inline in
+a sentence, which WCAG 2.5.8 exempts.
+
+Repository checks (round 3): `npm test` 56 tests (28 pass and 28 skip without Playwright, as in CI;
+56/56 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills and the
+plugin; `CHECKSUMS.sha256` regenerated in byte order.
 
 Verdict: PASS for the noise criteria. The blind fresh-agent re-run of the whole skill that the
 2026-09-25 entry requires is still outstanding; this entry does not replace it.

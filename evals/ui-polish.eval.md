@@ -33,7 +33,7 @@ Judged (visible only to the rubric):
 
 | # | Fixture | Run with | Must not warn or error on | Must report |
 |---|---|---|---|---|
-| N1 | `checkbox-label.html` | | `tap-target` (20px checkbox and radio in 44px label rows) | |
+| N1 | `checkbox-label.html` | | `tap-target` (a 20px checkbox in a 44px wrapping label, a 20px radio with a touching 44px `label[for]`) | |
 | N2 | `honeypot.html` | | `tap-target`, `text-size`, `contrast`, `input-font-size`, `accessible-name` (off-screen and `tabindex="-1"` honeypots, sr-only text); hidden text still counts as copy for `--compare` | |
 | N3 | `inline-link.html` | | `tap-target` (links inside a sentence in a `label` and a `span`) | |
 | N4 | `eyebrow.html` | | `text-size` | the uppercase labels as `info` |
@@ -43,7 +43,17 @@ Judged (visible only to the rubric):
 | N8 | `overlay.html` | `--hide ".cookie-banner"` | `tap-target`, `text-size` | |
 | N9 | `consolidate.html` | both viewports | more than one finding per cause | one `input-font-size` for both 15px fields, one `tap-target` for both 20px checkboxes, one `text-size` warning per viewport with its `groups` and one eyebrow `info`, each identical finding once with `viewports: ["phone", "desktop"]` |
 
-Positive controls (must still fire): `controls-bare-checkbox.html` (a bare 20px checkbox is an error; a 30px label row is a warning that says the label extends it; a standalone link is measured), `controls-small-body.html` (a 13px paragraph is a `text-size` warning, not info), `controls-missing-heading.html` with `--scope "#bare"` or `"#far"` (a `heading` warning).
+Positive controls (must still fire):
+- `controls-bare-checkbox.html`: a bare 20px checkbox is an error, a 30px wrapping label is a warning that names the label's box, and a standalone link is measured.
+- `controls-label-apart.html`: a 20px checkbox with its label 10px below it, and one in a `display: contents` label, stay errors.
+- `controls-link-lists.html`: pagination and "Sort by" link rows are measured (errors), not treated as inline text.
+- `controls-small-body.html`: a 13px paragraph is a `text-size` warning, not info.
+- `controls-small-labels.html`: 12px letter-spaced CJK text and a "$49.99 / 12 MO" price line stay warnings, not eyebrow info.
+- `controls-missing-heading.html` with `--scope "#bare"` or `"#far"`, and `controls-site-header.html` with `--scope "#signup"` (the only heading is the site header's): a `heading` warning.
+- `aria-hidden-visible.html`: visible `aria-hidden` text and a 20px button still fail contrast, text size and tap target.
+- `clip-partial.html`: text under `clip-path: inset(50% 0 0 0)` is still measured.
+- `copy-before.html` → `copy-after-hidden-number.html`: `--compare` fails with `invented-number` for numbers added only in sr-only or `aria-hidden` text.
+- `compare-fix-before.html` → `compare-fix-after.html`: `--compare` lists the two fixed checkboxes as "2 of 3 elements", the unchanged one as remaining, and the new small button (error) and small text as new, and exits 1.
 
 ## How to run
 
