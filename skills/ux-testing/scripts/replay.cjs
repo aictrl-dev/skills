@@ -31,7 +31,8 @@ if (SIM.error) console.warn('No simulator backend configured: replaying sessions
 fs.mkdirSync(path.join(OUT, 'img'), { recursive: true });
 const fileUrl = (p) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(CONFIG_DIR, p)}`);
 const HIDE_SEL = CFG.hideCss ? CFG.hideCss.split('{')[0] : '';
-const REGIONS = { chat: '[data-ux-chat]', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
+// A chat region is marked with data-ux-chat; a plain <aside> (the older default) still counts.
+const REGIONS = { chat: '[data-ux-chat], aside', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
 
 // Replays each click with the harness's own matcher (common.cjs) on the tester's original target, so the same
 // page state gives the same element. Falls back to the recorded clicked name, then (for logs written before the

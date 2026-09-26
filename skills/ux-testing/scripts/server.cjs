@@ -234,16 +234,18 @@ async function run(s, action, args) {
 }
 
 // Never persist typed text: it can contain credentials entered during sign-in.
-// Only actions whose arguments are never secret are logged verbatim; "type" keeps its --field label and --enter
-// flag; anything else (an unknown or misspelled action, e.g. "type " or "Type") is fully redacted.
+// Only actions whose arguments are never secret are logged verbatim; "type" keeps its --enter flag, and its
+// --field label only when the command succeeded (the label then matched a visible text box, so it is page text;
+// a failed "type --field hunter2" may be a secret typed where the label goes). Anything else (an unknown or
+// misspelled action, e.g. "type " or "Type") is fully redacted.
 const LOGGED_ARGS = new Set(['snapshot', 'click', 'select', 'press', 'wait', 'screenshot', 'open', 'close', 'errors', 'eval']);
-function redactArgs(action, args) {
+function redactArgs(action, args, ok) {
   if (!Array.isArray(args) || args.length === 0) return args;
   if (typeof action === 'string' && LOGGED_ARGS.has(action)) return args;
   if (typeof action !== 'string' || action.trim().toLowerCase() !== 'type') return ['<redacted>'];
   const out = [];
   const words = [...args];
-  if (words[0] === '--field') out.push('--field', words[1] ?? '');
+  if (words[0] === '--field') out.push('--field', ok === true && words[1] ? words[1] : '<redacted>');
   const enter = words[words.length - 1] === '--enter';
   out.push('<redacted>');
   if (enter) out.push('--enter');
@@ -265,7 +267,7 @@ function logEndsMidLine() {
 let logWarned = false;
 function logLine(entry) {
   try {
-    const safe = { ...entry, args: redactArgs(entry.action, entry.args) };
+    const safe = { ...entry, args: redactArgs(entry.action, entry.args, entry.ok) };
     // After a failed append the log may end in a partial line; start on a fresh line so it cannot merge with this record.
     fs.appendFileSync(LOG, (logNeedsNewline ? '\n' : '') + JSON.stringify({ t: Date.now(), ...safe }) + '\n');
     logWarned = false;
@@ -350,8 +352,12 @@ function reply(res, status, text) {
           // A check that returns nothing asserted nothing; never let it read as a pass.
           if (value === undefined) throw new Error('the check returned undefined; make the expression return a value');
           out = JSON.stringify(value);
+          // Log the check and a true/false/number/null result; a richer value can hold page secrets (cookies,
+          // storage, typed input), so only its type and size are logged. verify.cjs still prints the full value.
           extra.expr = expr.slice(0, 500);
-          extra.result = out.slice(0, 2000);
+          extra.result = value === null || ['boolean', 'number'].includes(typeof value)
+            ? out
+            : `<${Array.isArray(value) ? 'array' : typeof value} of ${String(out).length} chars, not logged>`;
         } else if (action === 'close') {
           // Operator: close a finished session and free its slot.
           needOperator('close');

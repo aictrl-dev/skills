@@ -31,7 +31,7 @@ function main() {
   const vi = action === 'open' ? args.indexOf('--viewport') : -1;
   if (vi !== -1) {
     const m = /^(\d+)x(\d+)$/.exec(args[vi + 1] || '');
-    if (!m) return fail('ERROR: --viewport needs WIDTHxHEIGHT, e.g. 400x860.');
+    if (!m) return fail('ERROR: --viewport needs WIDTHxHEIGHT, e.g. 390x844 (phone) or 1366x768 (laptop).');
     viewport = { width: Number(m[1]), height: Number(m[2]) };
     args.splice(vi, 2);
   }

@@ -8,7 +8,8 @@
 // Usage (needs Playwright with Chromium; js-yaml for a YAML task model):
 //   node simulate.cjs --config sim.config.json [--tasks T1,T3] [--n 16] [--no-load]    # score tasks
 //   node simulate.cjs --config sim.config.json --hyp H1.json [--n 16]                   # A/B hypothesis
-// Options: --out <dir> (default: a new temp dir), --cache <file>, --workers <n>, --seed <n> (same seed and a warm
+// Options: --out <dir> (default: a new temp dir), --cache <file> (default: <out>/.sim-cache.json with --out, else a
+// per-config file under ~/.cache/ux-sim, so re-runs stay cached), --workers <n>, --seed <n> (same seed and a warm
 // cache repeat a run exactly, for any --workers).
 //
 // Needs a simulator backend: TYPESAFE_API_KEY (TypeSafe Jev), or UX_SIM_ENDPOINT + UX_SIM_API_KEY +
@@ -40,7 +41,13 @@ const CFG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const fileUrl = (p, base = CONFIG_DIR) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(base, p)}`);
 const MODEL = loadModel(path.resolve(CONFIG_DIR, CFG.model));
 const TASKS = Object.fromEntries(MODEL.tasks.map((t) => [t.id, t]));
-const STATE_HOOK = CFG.stateHook || (MODEL.meta && MODEL.meta.state_hook) || '__state';
+// The page's state hook: named by the config or the model, else window.__state, falling back to window.__mock
+// (the name older task models used) so they keep working without a state_hook.
+const STATE_HOOK = CFG.stateHook || (MODEL.meta && MODEL.meta.state_hook) || null;
+// "needs-mock" is the older spelling of "needs-target"; both are skipped.
+const SKIPPED = new Set(['needs-target', 'needs-mock']);
+const oldStatus = MODEL.tasks.filter((t) => t.status === 'needs-mock').map((t) => t.id);
+if (oldStatus.length) console.warn(`note: ${oldStatus.join(', ')} ${oldStatus.length > 1 ? 'still say' : 'still says'} "status: needs-mock"; skipped as needs-target (the new name).`);
 const observedPath = CFG.observed && path.resolve(CONFIG_DIR, CFG.observed);
 const OBSERVED = observedPath && fs.existsSync(observedPath) ? JSON.parse(fs.readFileSync(observedPath, 'utf8')) : {};
 const OUT = path.resolve(opt('out') || fs.mkdtempSync(path.join(os.tmpdir(), 'ux-sim-')));
@@ -53,13 +60,21 @@ const STOP_MIN = 0.3; // a user only considers stopping when the model's stop pr
 const SETTLE_MS = 1100;
 const LAPTOP = { width: 1366, height: 768 };
 const DESKTOP = { width: 1440, height: 900 };
-const REGIONS = { main: 'main', chat: '[data-ux-chat]', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
+// A chat region is marked with data-ux-chat; a plain <aside> (the older default) still counts.
+const REGIONS = { main: 'main', chat: '[data-ux-chat], aside', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
+// Text boxes inside the chat region; each selector in a region list is scoped on its own.
+const chatBoxes = (page, extra = '') => page.locator(REGIONS.chat).locator(`textarea${extra}`);
 const HIDE = CFG.hideCss || '';
 const HIDE_SEL = HIDE ? HIDE.split('{')[0] : '';
 
 // Answers depend only on what the user sees, so they are cached per screen (and per backend); re-runs cost nothing.
-// The cache holds screen text and probabilities, never keys.
-const CACHE_F = path.resolve(opt('cache', path.join(OUT, '.sim-cache.json')));
+// The cache holds screen text and probabilities, never keys. Without --cache or --out it lives outside the repo,
+// one file per config, so a re-run of the same config stays free even though each run writes to a new temp dir.
+const cacheHome = process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+const CACHE_F = path.resolve(opt('cache') || (opt('out')
+  ? path.join(OUT, '.sim-cache.json')
+  : path.join(cacheHome, 'ux-sim', `${crypto.createHash('sha256').update(CONFIG_PATH).digest('hex').slice(0, 16)}.json`)));
+fs.mkdirSync(path.dirname(CACHE_F), { recursive: true });
 const cache = fs.existsSync(CACHE_F) ? JSON.parse(fs.readFileSync(CACHE_F, 'utf8')) : {};
 let calls = 0; let dirty = 0;
 const saveCache = () => { if (dirty) { fs.writeFileSync(CACHE_F, JSON.stringify(cache)); dirty = 0; } };
@@ -194,7 +209,7 @@ async function act(page, g, a, prompt) {
   if (a === '__wait') { await page.waitForTimeout(3500); return; }
   if (a === '__type_chat') {
     // A user who turns to chat asks for the goal in their own words; the task text stands in for that.
-    const box = page.locator(`${REGIONS.chat} textarea:visible`).last();
+    const box = chatBoxes(page, ':visible').last();
     await box.fill(prompt, { timeout: 5000 }); await box.press('Enter'); await page.waitForTimeout(SETTLE_MS + 600); return;
   }
   const c = g.controls[Number(a.slice(1))];
@@ -207,12 +222,13 @@ async function act(page, g, a, prompt) {
 }
 
 // Evaluates the task model's own success / must_not expressions in the page. `S` is the page's read-only
-// state hook (window[stateHook], default window.__state) when it has one; expressions may also query the DOM.
+// state hook (window[stateHook]; without one, window.__state, else window.__mock) when it has one; expressions
+// may also query the DOM.
 // Test harness only: the expressions come from the author's own task model file.
 // An expression that throws is a broken check, not a failed user: the run stops and names it, like verify.cjs.
 async function check(page, task) {
   const r = await page.evaluate(([s, n, meta, hook]) => {
-    const S = window[hook]; const META = meta; // eslint-disable-line no-unused-vars
+    const S = hook ? window[hook] : (window.__state !== undefined ? window.__state : window.__mock); const META = meta; // eslint-disable-line no-unused-vars
     const ev = (e) => { if (!e) return { v: null }; try { return { v: !!eval(e) }; } catch (x) { return { err: String(x && x.message || x) }; } }; // eslint-disable-line no-eval
     return { success: ev(s), harm: ev(n) };
   }, [task.success, task.must_not, MODEL.meta || {}, STATE_HOOK]);
@@ -240,7 +256,7 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     if (HIDE) await page.addStyleTag({ content: HIDE });
     await page.waitForTimeout((CFG.slowScenarios || {})[scenario] || 500);
     if (c.mutate) await page.evaluate(c.mutate);
-    const hasChat = (await page.locator(`${REGIONS.chat} textarea`).count()) > 0;
+    const hasChat = (await chatBoxes(page).count()) > 0;
     const isQuestion = !task.success;
     let chats = 0; const trail = [];
     for (let step = 0; step <= MAX_STEPS; step++) {
@@ -353,7 +369,7 @@ async function hypothesis(browser, H, hypDir) {
 }
 
 (async () => {
-  console.log(`simulator: ${BACKEND.label} · output ${OUT}`);
+  console.log(`simulator: ${BACKEND.label} · output ${OUT} · cache ${CACHE_F}`);
   let browser;
   try {
     browser = await chromium.launch();
@@ -371,7 +387,7 @@ async function hypothesis(browser, H, hypDir) {
     }
     const only = opt('tasks') ? opt('tasks').split(',') : null;
     const cases = [
-      ...MODEL.tasks.filter((t) => t.status !== 'needs-target').map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url) })),
+      ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url) })),
       ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url) })),
     ].filter((c) => !only || only.includes(c.id) || only.includes(c.task));
     if (!cases.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }

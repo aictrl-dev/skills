@@ -32,7 +32,7 @@ tasks:
     ideal_steps: 3              # shortest known path in tester commands (clicks plus a snapshot after each)
     success: S.reviews.find(r => r.team === 'Payments').status === 'in_progress'
     must_not: S.requests.find(r => r.id === 'REQ-311').status === 'approved'   # harmful side effect to rule out
-    status: ready               # ready | needs-target (the target cannot express it yet; simulate.cjs skips it)
+    status: ready               # ready | needs-target (the target cannot express it yet; simulate.cjs skips it, and the older needs-mock)
 
   - id: Q1                      # a question task: no success check, graded on the answer
     role: approver
