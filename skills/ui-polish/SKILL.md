@@ -22,18 +22,22 @@ Ask only for what is missing.
 Run the bundled script (needs Node and Playwright with Chromium; install with `npm i -D playwright && npx playwright install chromium` if the project lacks it):
 
 ```bash
-node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--scope "<selector>"] [--primary "<selector>"]
+node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--scope "<selector>"] [--primary "<selector>"] [--hide "<selector>,…"] [--profile form|content]
 ```
 
-- It renders at phone (390×844) and desktop (1366×900) (exit 1 while error findings remain, 2 on usage errors, 3 when the run itself fails), writes `measure.json` and a screenshot per viewport into `--out` (resolved against the current directory), and prints every finding with a selector.
+- It renders at phone (390×844) and desktop (1366×900) (exit 1 while error findings remain, 2 on usage errors, 3 when the run itself fails), writes `measure.json` into `--out` (resolved against the current directory) with two screenshots per viewport, `<viewport>.png` (the first screen) and `<viewport>-scope.png` (the whole scope, including anything below the fold), and prints every finding with a selector.
 - Scripts are off by default so the static layout is measured; add `--js` for pages that only render with JavaScript. `--offline` blocks every network request except the target page (hermetic); `--assets-only` also lets remote fonts, stylesheets and images load, for saved copies that need their fonts, and does contact those hosts.
+- `--hide` sets `display: none` on overlays such as a cookie banner or chat launcher before measuring and capturing, so they neither cover the screenshots nor add findings.
+- `--profile content` is for articles and other long-form pages: it skips the checks built for form steps (`type-scale`, `action-distance`, `action-below-fold`, `dead-space`). The default is `form`.
+- Several targets in one run (`measure.cjs <page1> <page2> … --out dir`) each go to `dir/<slug>/`, and `dir/summary.json` merges a finding that repeats across pages into one line listing the pages; fix a shared component once. Compare page by page (`--compare before/<slug>/measure.json after/<slug>/measure.json`).
 - Checks and thresholds, and the usual fix for each, are in `reference/checks.md`. Errors fail the run; warnings need a fix or a stated reason.
+- State a reason once, not every run: a `ui-polish.config.json` in the current directory (or `--config <file>`) lists accepted decisions, e.g. `{ "ignore": [{ "check": "text-size", "selector": ".eyebrow", "reason": "brand kicker labels" }] }`. Matching findings move to `accepted` with the reason, are printed in their own section, and do not affect the exit code. Only record a decision the owner made; never add one to make the numbers pass.
 
 If a reference was given, measure it the same way into `ui-polish/reference`.
 
 ### 2. Look at it
 
-Open the screenshots and walk all ten points of `reference/rubric.md`. Write a verdict table with one row per point (and one row per sub-check of point 10): **pass**, **fail** or **n/a**, the located problem, and the fix. Judge only what is on the screen. The measurements are evidence for the rubric, not a replacement for it: a screen with zero measured findings can still fail hierarchy, labels and units, grouping or trust, and those are usually the failures people notice first.
+Open the screenshots (the `-scope.png` ones show the whole scope) and walk all ten points of `reference/rubric.md`. Write a verdict table with one row per point (and one row per sub-check of point 10): **pass**, **fail** or **n/a**, the located problem, and the fix. Judge only what is on the screen. The measurements are evidence for the rubric, not a replacement for it: a screen with zero measured findings can still fail hierarchy, labels and units, grouping or trust, and those are usually the failures people notice first.
 
 ### 3. Plan the fixes
 
@@ -62,7 +66,7 @@ Repeat steps 4–5 until there are no errors, every remaining warning is fixed o
 ### 6. Report
 
 - Before and after screenshots at phone and desktop.
-- The compare output: fixed, remaining (with the reason), new.
+- The compare output: fixed, remaining (with the reason), new, and accepted (with the config's reason).
 - The rubric verdict table before and after, with why for anything left failing.
 - Every bracketed placeholder the owner needs to fill.
 - Anything that needs a product decision rather than polish (hand those to design-review or the owner).
@@ -73,6 +77,7 @@ Repeat steps 4–5 until there are no errors, every remaining warning is fixed o
 - **A trailing unit word is the usual cause of misaligned columns.** "Feet" and "Stones" have different widths, so everything after them shifts. Put labels above fields.
 - **Small edits on large files stay small.** When the source is a large generated file, edit the form's markup and styles as a block rather than patching attribute by attribute, or the layout will never change.
 - **Stopping when the numbers pass is the classic failure.** Geometry is only half of polish; the other half is the rubric (a real heading, one mode switch instead of a link per field, a reason for sensitive questions, orientation).
+- **One token, many findings.** A small-text or tap-target finding that repeats on every page usually comes from one design-system token or component. Fix it there, or record the owner's decision in `ui-polish.config.json`, rather than triaging it page by page.
 - **Passing checks is not the goal.** A focused screen with one clear heading, grouped fields and a nearby primary action is. Use the checks to prove you got there.
 
 ---

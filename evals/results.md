@@ -1,5 +1,49 @@
 # Eval Results
 
+## ui-polish measure.cjs noise — 2026-09-26 (fixtures and a production site)
+
+Method: fresh agents ran the skill on an 11-page production marketing site and dropped most measured
+findings by hand as false positives: honeypot fields, 20px checkboxes inside 44px label rows, a policy
+link inside a consent sentence, uppercase eyebrow labels folded into one unlocated text-size count, a
+form scoped away from the heading beside it, form-step checks on articles, and a cookie banner covering
+the screenshots. Each class became a generic fixture in `evals/fixtures/ui-polish/noise/` (no site
+content) with a positive control, and `measure.cjs` was changed until the fixtures were quiet and the
+controls still fired.
+
+| Criterion | Result |
+|---|---|
+| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 14/14; the original script fails 12 of the 14) |
+| Positive controls still fire (bare 20px checkbox error, short label row warn, standalone link, 13px body paragraph warn, missing heading warn) | PASS |
+| Measured seeds M1–M9 still reported on `height-weight-step.html` | PASS (17 errors, 24 warnings; was 17 and 22, because text-size now reports two style groups per viewport instead of one count) |
+| Noise on a real page: no finding of the N1–N8 classes left to drop by hand | PASS (table below) |
+
+Before and after on a production marketing site, 4 pages (two sign-up forms, one with checkbox
+options, a long-form guide and the home page), `--js`, default scope `main`. The original script ran
+per page; the new one ran all four in one call with `--hide` on the cookie banner.
+
+| Check | Before | After | Why |
+|---|---|---|---|
+| `tap-target` | 12 error, 3 warn | 0 | 20px checkboxes in 44px label rows now count with their label; the policy link sits inside a sentence (inline, WCAG 2.5.8); the honeypot is off-screen and `aria-hidden` |
+| `input-font-size` | 13 warn | 13 warn | genuine (15px field text), still reported |
+| `dead-space` | 2 warn | 2 warn | unchanged |
+| `text-size` | 8 warn (one unlocated count per page and viewport) | 18 warn, 8 info | one located finding per size and style token; short uppercase eyebrow labels are info |
+| `type-scale` | 6 info | 6 info (4 with `--profile content` on the guide) | unchanged under the default profile |
+| **Total** | **12 error, 26 warn, 6 info** | **0 error, 33 warn, 14 info** | |
+| Distinct across the 4 pages (same merge applied to both) | 22 (20 warn or error) | 19 (15 warn or error) | the roll-up lists a shared component's finding once, with its pages |
+
+The raw warning count rises because each page's single text-size count became located groups; after
+the roll-up an agent triages 15 distinct warnings instead of 20 findings, and none of them is a
+hand-dropped class. Genuine defects are still reported: the 15px field text and the empty band above
+one form's submit button. The consent-sentence policy link (18px tall) is no longer reported: it is
+inline in a sentence, which WCAG 2.5.8 exempts.
+
+Repository checks: `npm test` 42 tests (28 pass and 14 skip without Playwright, as in CI; 42/42 with
+Playwright and Chromium on `NODE_PATH`, Node 24 and Node 20); `npm run validate` validated 16 skills
+and the plugin; `CHECKSUMS.sha256` regenerated in byte order.
+
+Verdict: PASS for the noise criteria. The blind fresh-agent re-run of the whole skill that the
+2026-09-25 entry requires is still outstanding; this entry does not replace it.
+
 ## ui-polish — 2026-09-25 (fresh-agent fixture trials and a real-page comparison)
 
 Method: fresh Sonnet agents were given only `skills/ui-polish/` and a scratch copy of
