@@ -10,7 +10,7 @@ Paste this into each tester agent's prompt, replacing:
 Testers cannot read files, so the whole brief goes into the prompt. Never include the verify token, the
 success checks or any hint about where things are.
 
-For a tester who starts mid-flow, open the session yourself first (`UX_VERIFY_TOKEN=<token> node <CLIENT> <session> open <scenario>`),
+For a tester who starts mid-flow, open the session yourself first (`UX_VERIFY_TOKEN="$(cat <token-file>)" node <CLIENT> <session> open <scenario>`),
 drop "open" from the command list and add the "ALREADY OPEN" line. For the control tester, add the line
 marked (control).
 

@@ -234,25 +234,49 @@ async function run(s, action, args) {
 }
 
 // Never persist typed text: it can contain credentials entered during sign-in.
-// Only actions whose arguments are never secret are logged verbatim; "type" keeps its --field label and --enter
-// flag; anything else (an unknown or misspelled action, e.g. "type " or "Type") is fully redacted.
+// Only actions whose arguments are never secret are logged verbatim; "type" keeps its --enter flag, and its
+// --field label only when the command succeeded (the label then matched a visible text box, so it is page text;
+// a failed "type --field hunter2" may be a secret typed where the label goes). Anything else (an unknown or
+// misspelled action, e.g. "type " or "Type") is fully redacted.
 const LOGGED_ARGS = new Set(['snapshot', 'click', 'select', 'press', 'wait', 'screenshot', 'open', 'close', 'errors', 'eval']);
-function redactArgs(action, args) {
+function redactArgs(action, args, ok) {
   if (!Array.isArray(args) || args.length === 0) return args;
   if (typeof action === 'string' && LOGGED_ARGS.has(action)) return args;
   if (typeof action !== 'string' || action.trim().toLowerCase() !== 'type') return ['<redacted>'];
   const out = [];
   const words = [...args];
-  if (words[0] === '--field') out.push('--field', words[1] ?? '');
+  if (words[0] === '--field') out.push('--field', ok === true && words[1] ? words[1] : '<redacted>');
   const enter = words[words.length - 1] === '--enter';
   out.push('<redacted>');
   if (enter) out.push('--enter');
   return out;
 }
 
+// A logging failure (a full disk, the output directory removed mid-round) must not take down the harness and
+// every open session with it: warn on stderr and keep serving.
+let logNeedsNewline = false;
+// True only if a failed write left the log ending without a newline (a zero-byte failure leaves nothing to repair).
+function logEndsMidLine() {
+  try {
+    const size = fs.statSync(LOG).size; if (!size) return false;
+    const fd = fs.openSync(LOG, 'r'); const b = Buffer.alloc(1);
+    try { fs.readSync(fd, b, 0, 1, size - 1); } finally { fs.closeSync(fd); }
+    return b[0] !== 0x0a;
+  } catch { return false; }
+}
+let logWarned = false;
 function logLine(entry) {
-  const safe = { ...entry, args: redactArgs(entry.action, entry.args) };
-  fs.appendFileSync(LOG, JSON.stringify({ t: Date.now(), ...safe }) + '\n');
+  try {
+    const safe = { ...entry, args: redactArgs(entry.action, entry.args, entry.ok) };
+    // After a failed append the log may end in a partial line; start on a fresh line so it cannot merge with this record.
+    fs.appendFileSync(LOG, (logNeedsNewline ? '\n' : '') + JSON.stringify({ t: Date.now(), ...safe }) + '\n');
+    logWarned = false;
+    logNeedsNewline = false;
+  } catch (e) {
+    logNeedsNewline = logEndsMidLine();
+    if (!logWarned) console.error(`WARNING: could not write the action log ${LOG} (${e.code || e.message}); actions are not being recorded, but the harness keeps serving.`);
+    logWarned = true;
+  }
 }
 
 function reply(res, status, text) {
@@ -328,8 +352,12 @@ function reply(res, status, text) {
           // A check that returns nothing asserted nothing; never let it read as a pass.
           if (value === undefined) throw new Error('the check returned undefined; make the expression return a value');
           out = JSON.stringify(value);
+          // Log the check and a true/false/number/null result; a richer value can hold page secrets (cookies,
+          // storage, typed input), so only its type and size are logged. verify.cjs still prints the full value.
           extra.expr = expr.slice(0, 500);
-          extra.result = out.slice(0, 2000);
+          extra.result = value === null || ['boolean', 'number'].includes(typeof value)
+            ? out
+            : `<${Array.isArray(value) ? 'array' : typeof value} of ${String(out).length} chars, not logged>`;
         } else if (action === 'close') {
           // Operator: close a finished session and free its slot.
           needOperator('close');

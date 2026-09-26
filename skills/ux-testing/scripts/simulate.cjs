@@ -8,7 +8,8 @@
 // Usage (needs Playwright with Chromium; js-yaml for a YAML task model):
 //   node simulate.cjs --config sim.config.json [--tasks T1,T3] [--n 16] [--no-load]    # score tasks
 //   node simulate.cjs --config sim.config.json --hyp H1.json [--n 16]                   # A/B hypothesis
-// Options: --out <dir> (default: a new temp dir), --cache <file>, --workers <n>, --seed <n> (same seed and a warm
+// Options: --out <dir> (default: a new temp dir), --cache <file> (default: <out>/.sim-cache.json with --out, else a
+// per-config file under ~/.cache/ux-sim, so re-runs stay cached), --workers <n>, --seed <n> (same seed and a warm
 // cache repeat a run exactly, for any --workers).
 //
 // Needs a simulator backend: TYPESAFE_API_KEY (TypeSafe Jev), or UX_SIM_ENDPOINT + UX_SIM_API_KEY +
@@ -40,7 +41,13 @@ const CFG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const fileUrl = (p, base = CONFIG_DIR) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(base, p)}`);
 const MODEL = loadModel(path.resolve(CONFIG_DIR, CFG.model));
 const TASKS = Object.fromEntries(MODEL.tasks.map((t) => [t.id, t]));
-const STATE_HOOK = CFG.stateHook || (MODEL.meta && MODEL.meta.state_hook) || '__state';
+// The page's state hook: named by the config or the model, else window.__state, falling back to window.__mock
+// (the name older task models used) so they keep working without a state_hook.
+const STATE_HOOK = CFG.stateHook || (MODEL.meta && MODEL.meta.state_hook) || null;
+// "needs-mock" is the older spelling of "needs-target"; both are skipped.
+const SKIPPED = new Set(['needs-target', 'needs-mock']);
+const oldStatus = MODEL.tasks.filter((t) => t.status === 'needs-mock').map((t) => t.id);
+if (oldStatus.length) console.warn(`note: ${oldStatus.join(', ')} ${oldStatus.length > 1 ? 'still say' : 'still says'} "status: needs-mock"; skipped as needs-target (the new name).`);
 const observedPath = CFG.observed && path.resolve(CONFIG_DIR, CFG.observed);
 const OBSERVED = observedPath && fs.existsSync(observedPath) ? JSON.parse(fs.readFileSync(observedPath, 'utf8')) : {};
 const OUT = path.resolve(opt('out') || fs.mkdtempSync(path.join(os.tmpdir(), 'ux-sim-')));
@@ -48,17 +55,26 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const MAX_STEPS = 16; // a path longer than this counts as a failure ("too-long")
 const MAX_CHATS = 3; // a user who types into the chat more than this gives up
+const MAX_ERROR_SHARE = 0.1; // a run whose walks end in harness errors more often than this (and more than once) stops, unscored
 const STOP_MIN = 0.3; // a user only considers stopping when the model's stop probability reaches this
 const SETTLE_MS = 1100;
 const LAPTOP = { width: 1366, height: 768 };
 const DESKTOP = { width: 1440, height: 900 };
-const REGIONS = { main: 'main', chat: '[data-ux-chat]', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
+// A chat region is marked with data-ux-chat; a plain <aside> (the older default) still counts.
+const REGIONS = { main: 'main', chat: '[data-ux-chat], aside', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
+// Text boxes inside the chat region; each selector in a region list is scoped on its own.
+const chatBoxes = (page, extra = '') => page.locator(REGIONS.chat).locator(`textarea${extra}`);
 const HIDE = CFG.hideCss || '';
 const HIDE_SEL = HIDE ? HIDE.split('{')[0] : '';
 
 // Answers depend only on what the user sees, so they are cached per screen (and per backend); re-runs cost nothing.
-// The cache holds screen text and probabilities, never keys.
-const CACHE_F = path.resolve(opt('cache', path.join(OUT, '.sim-cache.json')));
+// The cache holds screen text and probabilities, never keys. Without --cache or --out it lives outside the repo,
+// one file per config, so a re-run of the same config stays free even though each run writes to a new temp dir.
+const cacheHome = process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+const CACHE_F = path.resolve(opt('cache') || (opt('out')
+  ? path.join(OUT, '.sim-cache.json')
+  : path.join(cacheHome, 'ux-sim', `${crypto.createHash('sha256').update(CONFIG_PATH).digest('hex').slice(0, 16)}.json`)));
+fs.mkdirSync(path.dirname(CACHE_F), { recursive: true });
 const cache = fs.existsSync(CACHE_F) ? JSON.parse(fs.readFileSync(CACHE_F, 'utf8')) : {};
 let calls = 0; let dirty = 0;
 const saveCache = () => { if (dirty) { fs.writeFileSync(CACHE_F, JSON.stringify(cache)); dirty = 0; } };
@@ -193,7 +209,7 @@ async function act(page, g, a, prompt) {
   if (a === '__wait') { await page.waitForTimeout(3500); return; }
   if (a === '__type_chat') {
     // A user who turns to chat asks for the goal in their own words; the task text stands in for that.
-    const box = page.locator(`${REGIONS.chat} textarea:visible`).last();
+    const box = chatBoxes(page, ':visible').last();
     await box.fill(prompt, { timeout: 5000 }); await box.press('Enter'); await page.waitForTimeout(SETTLE_MS + 600); return;
   }
   const c = g.controls[Number(a.slice(1))];
@@ -206,12 +222,13 @@ async function act(page, g, a, prompt) {
 }
 
 // Evaluates the task model's own success / must_not expressions in the page. `S` is the page's read-only
-// state hook (window[stateHook], default window.__state) when it has one; expressions may also query the DOM.
+// state hook (window[stateHook]; without one, window.__state, else window.__mock) when it has one; expressions
+// may also query the DOM.
 // Test harness only: the expressions come from the author's own task model file.
 // An expression that throws is a broken check, not a failed user: the run stops and names it, like verify.cjs.
 async function check(page, task) {
   const r = await page.evaluate(([s, n, meta, hook]) => {
-    const S = window[hook]; const META = meta; // eslint-disable-line no-unused-vars
+    const S = hook ? window[hook] : (window.__state !== undefined ? window.__state : window.__mock); const META = meta; // eslint-disable-line no-unused-vars
     const ev = (e) => { if (!e) return { v: null }; try { return { v: !!eval(e) }; } catch (x) { return { err: String(x && x.message || x) }; } }; // eslint-disable-line no-eval
     return { success: ev(s), harm: ev(n) };
   }, [task.success, task.must_not, MODEL.meta || {}, STATE_HOOK]);
@@ -222,6 +239,7 @@ async function check(page, task) {
 }
 
 class CheckError extends Error {}
+class RunError extends Error {}
 
 function viewportFor(task, cond) {
   if (cond === 'laptop') return LAPTOP;
@@ -238,7 +256,7 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     if (HIDE) await page.addStyleTag({ content: HIDE });
     await page.waitForTimeout((CFG.slowScenarios || {})[scenario] || 500);
     if (c.mutate) await page.evaluate(c.mutate);
-    const hasChat = (await page.locator(`${REGIONS.chat} textarea`).count()) > 0;
+    const hasChat = (await chatBoxes(page).count()) > 0;
     const isQuestion = !task.success;
     let chats = 0; const trail = [];
     for (let step = 0; step <= MAX_STEPS; step++) {
@@ -263,9 +281,12 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     }
   } catch (e) {
     // A backend failure or a broken check is not a usability result: stop the run rather than score it.
-    if (e instanceof CheckError || /^simulator /.test(e.message)) throw e;
-    return { end: 'error', steps: 0, trail: [String(e.message).slice(0, 80)] };
-  } finally { await page.close(); }
+    if (e instanceof CheckError) throw e;
+    if (/^simulator /.test(e.message)) throw new RunError(`task ${task.id}: a walk failed from a simulator backend error (${e.message}). Nothing from this run is scored; check the backend and run again.`);
+    // Any other failure (page crash, navigation, a control replaced mid-click) is the harness's, not the user's:
+    // it ends as `error`, which run() leaves out of success and harm and reports separately.
+    return { end: 'error', steps: 0, trail: [String(e.message).split('\n')[0].slice(0, 120)] };
+  } finally { await page.close().catch(() => {}); }
 }
 
 // A task needs a success check, or (a question task) the facts its answer must contain; otherwise every walk
@@ -290,14 +311,24 @@ async function run(browser, c, profile, cond = 'focused') {
   };
   await Promise.all(Array.from({ length: Math.min(WORKERS, N) }, worker));
   saveCache();
-  const count = (e) => results.filter((r) => r.end === e).length;
-  const ok = results.filter((r) => r.end === 'success');
+  // Walks that ended in a harness error say nothing about the user: they are left out of success, harm and the
+  // bootstrap, and counted in `errors`. Too many of them and the run is not trustworthy, so it stops. One error
+  // is tolerated at any N (so a small smoke run survives one transient failure), unless no walk was scored.
+  const errors = results.filter((r) => r.end === 'error');
+  if (errors.length === N || errors.length > Math.max(1, N * MAX_ERROR_SHARE)) {
+    throw new RunError(`task ${task.id} (${profile}, ${cond}): ${errors.length} of ${N} walks failed from harness errors (the limit is one, or ${MAX_ERROR_SHARE * 100}% of the walks), e.g. "${errors[0].trail[0]}". Nothing from this run is scored; fix the page or the config and run again.`);
+  }
+  const scored = results.filter((r) => r.end !== 'error');
+  const count = (e) => scored.filter((r) => r.end === e).length;
+  const ok = scored.filter((r) => r.end === 'success');
   const ends = {}; results.forEach((r) => { ends[r.end] = (ends[r.end] || 0) + 1; });
-  const fails = {}; results.filter((r) => r.end !== 'success').forEach((r) => { const k = `${r.end}: ${r.trail.slice(0, 4).join(' → ') || '(start)'}`; fails[k] = (fails[k] || 0) + 1; });
+  const fails = {}; scored.filter((r) => r.end !== 'success').forEach((r) => { const k = `${r.end}: ${r.trail.slice(0, 4).join(' → ') || '(start)'}`; fails[k] = (fails[k] || 0) + 1; });
   return {
-    raw: results.map((r) => ({ ok: r.end === 'success' ? 1 : 0, harm: r.end === 'harm' ? 1 : 0, steps: r.steps })),
-    success: +(count('success') / N).toFixed(2),
-    harm: +(count('harm') / N).toFixed(2),
+    raw: scored.map((r) => ({ ok: r.end === 'success' ? 1 : 0, harm: r.end === 'harm' ? 1 : 0, steps: r.steps })),
+    n: scored.length,
+    errors: errors.length,
+    success: +(count('success') / scored.length).toFixed(2),
+    harm: +(count('harm') / scored.length).toFixed(2),
     steps: ok.length ? +(ok.reduce((s, r) => s + r.steps, 0) / ok.length).toFixed(1) : null,
     ends,
     topFail: Object.entries(fails).sort((a, b) => b[1] - a[1]).slice(0, 1).map(([k, v]) => `${v}× ${k}`)[0] || '',
@@ -319,6 +350,9 @@ function boot(a, b, key, iters = 2000) {
 async function hypothesis(browser, H, hypDir) {
   assertGradeable(H.tasks);
   const rows = [];
+  // Written after every row, so a later failure keeps the rows already computed.
+  const file = path.join(OUT, `hyp-${H.id}.json`);
+  const save = (extra) => fs.writeFileSync(file, JSON.stringify({ H, n: N, rows, ...extra }, null, 2));
   const variant = (v, tid) => ({ id: tid, task: tid, url: v && v.url ? fileUrl(v.url, hypDir) : fileUrl(CFG.url), mutate: v && v.mutate });
   const stepsOf = (R) => { const ok = R.raw.filter((r) => r.ok); return ok.length ? +(ok.reduce((t, r) => t + r.steps, 0) / ok.length).toFixed(1) : null; };
   const verdict = (x) => (x.lo > 0 ? 'B higher' : x.hi < 0 ? 'B lower' : 'no clear difference');
@@ -327,15 +361,15 @@ async function hypothesis(browser, H, hypDir) {
       const A = await run(browser, variant(H.a, tid), 'scanner', cond);
       const B = await run(browser, variant(H.b, tid), 'scanner', cond);
       const s = boot(A.raw, B.raw, 'ok'); const h = boot(A.raw, B.raw, 'harm');
-      const row = { task: tid, cond, A: A.success, B: B.success, stepsA: stepsOf(A), stepsB: stepsOf(B), success: { ...s, verdict: verdict(s) }, harmA: A.harm, harmB: B.harm, harm: { ...h, verdict: verdict(h) }, failA: A.topFail, failB: B.topFail };
-      rows.push(row); console.log(JSON.stringify(row));
+      const row = { task: tid, cond, A: A.success, B: B.success, nA: A.n, nB: B.n, errorsA: A.errors, errorsB: B.errors, stepsA: stepsOf(A), stepsB: stepsOf(B), success: { ...s, verdict: verdict(s) }, harmA: A.harm, harmB: B.harm, harm: { ...h, verdict: verdict(h) }, failA: A.topFail, failB: B.topFail };
+      rows.push(row); console.log(JSON.stringify(row)); save();
     }
   }
-  return rows;
+  return { rows, file };
 }
 
 (async () => {
-  console.log(`simulator: ${BACKEND.label} · output ${OUT}`);
+  console.log(`simulator: ${BACKEND.label} · output ${OUT} · cache ${CACHE_F}`);
   let browser;
   try {
     browser = await chromium.launch();
@@ -347,15 +381,13 @@ async function hypothesis(browser, H, hypDir) {
     if (opt('hyp')) {
       const hypPath = path.resolve(opt('hyp'));
       const H = JSON.parse(fs.readFileSync(hypPath, 'utf8'));
-      const rows = await hypothesis(browser, H, path.dirname(hypPath));
-      const file = path.join(OUT, `hyp-${H.id}.json`);
-      fs.writeFileSync(file, JSON.stringify({ H, n: N, rows }, null, 2));
+      const { file } = await hypothesis(browser, H, path.dirname(hypPath));
       console.log(`wrote ${file} · model calls ${calls}`);
       return;
     }
     const only = opt('tasks') ? opt('tasks').split(',') : null;
     const cases = [
-      ...MODEL.tasks.filter((t) => t.status !== 'needs-target').map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url) })),
+      ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url) })),
       ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url) })),
     ].filter((c) => !only || only.includes(c.id) || only.includes(c.task));
     if (!cases.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }

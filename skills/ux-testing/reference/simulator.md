@@ -27,8 +27,10 @@ endpoint must be `https` (plain `http` is accepted only for `localhost`). Load a
 without echoing it:
 
 ```bash
-set -a; eval "$(grep '^TYPESAFE_API_KEY=' .env)"; set +a
+export TYPESAFE_API_KEY="$(sed -n 's/^TYPESAFE_API_KEY=//p' .env | head -n 1 | tr -d '\r' | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
 ```
+
+This reads the value as data: nothing in `.env` is executed, surrounding quotes are removed, and only this one variable is exported.
 
 Do not paste keys into chat, commit them, or put them in a tester brief. The answer cache
 (`.sim-cache.json`) stores screen text and probabilities only.
@@ -80,7 +82,9 @@ The response must be `200` with:
 - `noul` → `noul`: the probability, in [0, 1], that the statement is true.
 - Extra fields are ignored. The scripts retry network errors, rate limits (`429`) and server errors (`5xx`)
   up to twice with back-off, fail fast on other statuses, and stop the run on a response that breaks the contract, printing
-  only the HTTP status or the contract violation, never the key or the response body.
+  only the HTTP status or the contract violation, never the key or the response body. A backend failure that
+  survives the retries is never scored as a user failure: `simulate.cjs` stops the run with exit code 3 and names
+  the task; `replay.cjs` records the failure on that session or prediction, continues, and exits with code 1.
 
 ## How it works
 
@@ -95,13 +99,19 @@ Each simulated user walks one path:
    - `next` (choice): which control this user would use next, plus scroll, wait, chat and give-up options;
    - `believes_done` (noul): would they think the task is already done;
    - `can_answer` and `answer_correct` (noul): for question tasks.
-   Answers are cached per screen and backend (`.sim-cache.json` in the output directory), so re-runs with
-   the same `--out` are free.
+   Answers are cached per screen and backend, so re-runs are free: in `<out>/.sim-cache.json` with `--out`,
+   otherwise in one file per config under `~/.cache/ux-sim/` (or `$XDG_CACHE_HOME/ux-sim/`); `--cache <file>` overrides both.
 3. **Act.** Sample one action from the probabilities and perform it on the exact element perceived (it is
    tagged with a `data-ux-sim` attribute; if a re-render replaced it, the walk ends as `error`). A user stops when the stop probability
    is at least 0.3 and a coin flip at that probability says so.
 4. **Check.** After every step, evaluate the task's `success` and `must_not` (from the task model) in the
    page. Ends: success, harm, premature-stop, wrong-answer, give-up, too-long (16 steps), error.
+
+`error` is a harness failure (a page crash, a failed navigation, a control replaced mid-click), not a user
+outcome. Error walks are left out of `success`, `harm` and the hypothesis bootstrap; each run reports `n`
+(walks scored) and `errors` (walks left out), and hypothesis rows carry `nA`/`nB` and `errorsA`/`errorsB`. If
+more than one walk and more than 10% of a run's walks end in `error` (or every walk does), the finished run is discarded with exit code 3 and nothing from it is scored; in hypothesis mode the rows
+already written to `hyp-<id>.json` are kept.
 
 Load conditions (scanner only), run unless `--no-load`:
 
@@ -132,11 +142,11 @@ one where the screen looks done before it is: check for a stub that pretends to 
 ```
 
 - Relative paths resolve against the config file's directory. Only `model` and `url` are required.
-- `stateHook` names the page's read-only state object (`window.__state` by default, or `meta.state_hook` in
-  the task model); `S` in `success` / `must_not` refers to it.
+- `stateHook` names the page's read-only state object (or `meta.state_hook` in the task model; without either,
+  `window.__state`, falling back to `window.__mock` for older models); `S` in `success` / `must_not` refers to it.
 - `regions.main` is the main content area (and the scrolling area, if it scrolls on its own); controls in
-  `menu`, `topbar` and `chat` are always visible to scanners. `chat` is only used when it contains a
-  `<textarea>`.
+  `menu`, `topbar` and `chat` are always visible to scanners. `chat` (default `[data-ux-chat], aside`) is only
+  used when it contains a `<textarea>`.
 - `rowSelector` / `rowTitleSelector` let a button like "Start" be described as "Start on <row title>".
 - `variants` adds extra cases (another `url`, or a DOM `mutate` of the main URL). `observed` holds
   agent-tester results per case id, copied into the output so simulated and observed sit side by side.
@@ -148,7 +158,7 @@ node $SKILL/scripts/simulate.cjs --config sim.config.json --tasks T1,T3 --n 16 -
 node $SKILL/scripts/simulate.cjs --config sim.config.json --hyp H1.json --n 24 --out <dir>
 ```
 
-`--out` defaults to a new temp directory; pass the same one to reuse the cache. `--n` and `--workers` must
+`--out` defaults to a new temp directory; the startup line prints it and the cache file. `--n` and `--workers` must
 be integers of at least 1 and `--seed` a non-negative integer (default 42). Every simulated user has its own
 random stream derived from the seed, so the same `--seed` with a warm cache repeats a run exactly, for any
 `--workers`. A `success` or `must_not` expression that throws stops the run with the task id and the

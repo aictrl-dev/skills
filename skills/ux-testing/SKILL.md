@@ -34,11 +34,12 @@ Ask only for what is missing.
 ### 1. Start the harness
 
 ```bash
-UX_TARGET=path/to/page.html UX_OUT=<scratch dir outside the repository> node $SKILL/scripts/server.cjs   # run in the background
+(umask 077; openssl rand -hex 24 > <token-file>)   # once: the verify token, in a private file outside the repository
+UX_TARGET=path/to/page.html UX_OUT=<scratch dir outside the repository> UX_VERIFY_TOKEN="$(cat <token-file>)" node $SKILL/scripts/server.cjs   # run in the background
 node $SKILL/scripts/ux.cjs t0 open && node $SKILL/scripts/ux.cjs t0 snapshot | head -40              # smoke test
 ```
 
-- The server prints the output directory. `verify.cjs` needs a **verify token**: best, choose one yourself and start the server with it in its environment (`UX_VERIFY_TOKEN=<48 random hex chars>`), so it is never printed; otherwise the server generates one and prints it once, and any captured server output then holds a copy. Never put it in a tester brief.
+- The server prints the output directory. `verify.cjs` and the operator-only actions need a **verify token**. Best: generate it into a private file once, as above, and pass it by reference (`UX_VERIFY_TOKEN="$(cat <token-file>)"`) to the server, `verify.cjs` and operator `ux.cjs` calls, so the value never appears in a command, a transcript or shell history, and the server never prints it. Otherwise the server generates one and prints it once, and any captured server output then holds a copy. Never put the token or its file in a tester brief.
 - `UX_OUT` receives `actions.jsonl` and screenshots. Without it the server makes a new temp directory and prints the path. Never point it inside the repository.
 - `UX_PORT` (default 3917) sets the harness port; export the same value for every `ux.cjs` and `verify.cjs` call, including in tester briefs. `UX_VIEWPORT` (default `1440x900`) sets the default window.
 - `UX_HIDE_CSS` hides prototype chrome real users would not see (state switchers, design notes). `UX_SCENARIO_SEL` names a `<select>` that jumps a prototype to a named state, so you can pre-open a session mid-flow with `ux.cjs <session> open <scenario>`.
@@ -47,11 +48,11 @@ node $SKILL/scripts/ux.cjs t0 open && node $SKILL/scripts/ux.cjs t0 snapshot | h
 ### 2. Baseline
 
 - For every task launch **2 novice testers** (small model) and **1 control** (stronger model), in parallel and in the background, with the brief from `reference/tester-brief.md` and a unique session id each (`T1-t1`, `T1-t2`, `T1-c1`, …). Add 1 vision tester per task when the layout or the fold matters. This is the sampling rule in `reference/task-model.md` too.
-- For tasks that start mid-flow, open the session yourself first: `UX_VERIFY_TOKEN=<token> node $SKILL/scripts/ux.cjs <session> open <scenario>`. Add `--viewport 390x844` for a phone or `--viewport 1366x768` for a laptop. Opening with a scenario or viewport, re-opening a live session, `errors` and `close` are operator-only: the harness refuses them without the verify token, so one tester cannot reset, read or close another's session.
+- For tasks that start mid-flow, open the session yourself first: `UX_VERIFY_TOKEN="$(cat <token-file>)" node $SKILL/scripts/ux.cjs <session> open <scenario>`. Add `--viewport 390x844` for a phone or `--viewport 1366x768` for a laptop. Opening with a scenario or viewport, re-opening a live session, `errors` and `close` are operator-only: the harness refuses them without the verify token, so one tester cannot reset, read or close another's session.
 - When all testers finish, score each session:
-  - **Success** from the check: `UX_VERIFY_TOKEN=<token> node $SKILL/scripts/verify.cjs <check.js> <sessions…>`, or from the answer for question tasks. Testers do claim success falsely, especially after a control that only looks like it worked.
+  - **Success** from the check: `UX_VERIFY_TOKEN="$(cat <token-file>)" node $SKILL/scripts/verify.cjs <check.js> <sessions…>`, or from the answer for question tasks. Testers do claim success falsely, especially after a control that only looks like it worked.
   - **Commands** from the log (`python3 $SKILL/scripts/summarize.py $UX_OUT/actions.jsonl`), not the tester's own count.
-  - **Page errors** per session: `UX_VERIFY_TOKEN=<token> node $SKILL/scripts/ux.cjs <session> errors`.
+  - **Page errors** per session: `UX_VERIFY_TOKEN="$(cat <token-file>)" node $SKILL/scripts/ux.cjs <session> errors`.
   - **Friction**: hesitations, dead ends, confusing terms. A step that trips the novice but not the control is a clarity problem; one that trips both is a design problem.
   - **Prototype gaps** (a scripted chat that doesn't understand free text, stub pages) are listed separately and not scored as design failures, unless the stub pretends to succeed; that is a finding.
 - With a task model, record outcomes in a results file and run `python3 $SKILL/scripts/score.py <model.yaml> results.json $UX_OUT/actions.jsonl --out scorecard.json` (success by task and role, weighted cost J).
@@ -75,8 +76,10 @@ When a change is a bet about layout, prominence, wording or the fold ("moving St
 The simulator needs a fast **System One** model that returns probabilities over choices: TypeSafe's Jev (`TYPESAFE_API_KEY`), or a compatible endpoint (`UX_SIM_ENDPOINT`, `UX_SIM_API_KEY`, `UX_SIM_MODEL`) that follows the contract in `reference/simulator.md`. Load a key from a `.env` file without printing it:
 
 ```bash
-set -a; eval "$(grep '^TYPESAFE_API_KEY=' .env)"; set +a
+export TYPESAFE_API_KEY="$(sed -n 's/^TYPESAFE_API_KEY=//p' .env | head -n 1 | tr -d '\r' | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
 ```
+
+This reads the value as data: nothing in `.env` is executed, surrounding quotes are removed, and only this one variable is exported.
 
 If `simulate.cjs` exits with "Simulator not configured", tell the user: the simulator is optional; they can get a TypeSafe API key at https://typesafe.ai or configure a compatible System One endpoint; local models are not supported yet. Then continue with agent testers only. Never ask the user to paste a key into the chat, and never echo, log or write one.
 
@@ -105,7 +108,7 @@ When the results go beyond this session, build the visual report in `reference/v
 - **Timers.** Pages that simulate progress need `wait` calls; tell testers to wait and re-snapshot.
 - **Agents are not people.** They are patient, read text instead of layout, and never see colour. Treat results as a clarity and flow check, and use real users for the final answer.
 - **The fold.** Text testers read the whole accessibility tree, so they find what people would miss below the fold. When only vision testers fail, re-test at 1366×768.
-- **Harness memory.** Close finished sessions (`UX_VERIFY_TOKEN=<token> node $SKILL/scripts/ux.cjs <session> close`; at most 32 are open at once) and restart the harness between batches of about 6 testers; Chromium otherwise crashes ("Target crashed") under memory pressure. Void and re-run those sessions; say how many were voided.
+- **Harness memory.** Close finished sessions (`UX_VERIFY_TOKEN="$(cat <token-file>)" node $SKILL/scripts/ux.cjs <session> close`; at most 32 are open at once) and restart the harness between batches of about 6 testers; Chromium otherwise crashes ("Target crashed") under memory pressure. Void and re-run those sessions; say how many were voided.
 - **Cost.** A baseline of 6 tasks is 18 tester runs (3 per task), plus 1 per task that gets a vision tester, most on the small model. Review and fixer rounds use the main model. A task-model round of 20 tasks is about 70 runs; screen with the simulator first when you have one.
 
 ---
