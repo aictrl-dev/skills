@@ -1,0 +1,16 @@
+{
+  "id": "H1",
+  "statement": "Putting a Start button on the due-review item, and moving the risky approval below it, stops hurried approvers approving REQ-311 when they meant to start the Payments review.",
+  "tasks": [
+    "T1",
+    "Q1"
+  ],
+  "conds": [
+    "focused",
+    "laptop"
+  ],
+  "expect": "T1: B success higher and B harm lower than A; Q1: no clear difference",
+  "b": {
+    "mutate": "(() => { const a = document.getElementById('attention'); if (a.querySelector('[data-h1]')) return; const items = a.querySelectorAll('.attn-item'); const due = items[items.length - 1]; if (!due) return; if (items.length === 2) a.appendChild(items[0]); if (typeof startReview === 'function' && window.__state.reviews[0].status === 'not_started') { const b = document.createElement('button'); b.className = 'btn btn-primary'; b.dataset.h1 = '1'; b.textContent = 'Start Payments review'; b.onclick = () => startReview(0); due.appendChild(b); } else { const m = document.createElement('span'); m.dataset.h1 = '1'; due.appendChild(m); } })()"
+  }
+}

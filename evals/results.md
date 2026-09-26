@@ -1,5 +1,63 @@
 # Eval Results
 
+## ux-testing — 2026-09-26 (author smoke test; full blind eval pending)
+
+Method: the author ran the bundled scripts against `evals/fixtures/ux-testing/access-console.html`
+(Node 22, Playwright Chromium, Python 3). This is a smoke test of the harness, checks, scoring and
+simulator, not the blind agent-tester eval in `evals/ux-testing.eval.md`. **The full agent-tester eval
+run is pending**; the pass criteria there are not yet graded.
+
+Harness (`server.cjs` + `ux.cjs`, driven by hand):
+
+| Check | Result |
+|---|---|
+| open / snapshot / click / select / type / screenshot / errors | PASS: 6 sessions driven; snapshot exposes the header export control as an unnamed `button` (U1) and "Save" as `button "Persist preferences"`, "Deny" as `button "Reject request REQ-311"` (U2) |
+| `click Export` on the icon-only control | fails with "nothing visible matches" (U1 reproduced) |
+| Fold at 1366×768 | "Submit request" top at 857px on a 768px viewport (U3 reproduced) |
+| `verify.cjs` from state | T1 hurried Approve → `success:false, harm:true` (U4); T1 Start review → `success:true`; T2 → false; T3 → true; T4 after Revoke → `success:false` while the page shows "Access revoked" and a Revoked badge (U5); T5 → true |
+| Check returning `undefined`, missing or wrong verify token | refused (exit 1) |
+| Requests with `Origin` / `Referer`, or without the harness token | 403 / 403 / 401; `eval` with only the harness token → forbidden |
+| Typed text in `actions.jsonl` | `<redacted>`; the typed string does not appear in the log |
+| Token file | 0600 in a 0700 per-user directory; removed when the server stops |
+| `summarize.py`, `score.py` (YAML model, `--out`, `--before`) | PASS; J = 5.27 on the hand-driven sessions |
+
+Two novice tester agents (small model, the brief from `reference/tester-brief.md`) were started on T2
+and T4 but their JSON reports did not arrive within the time box, so both sessions are **void**. From
+the harness log only: the T4 tester clicked "Revoke Jordan Lee on prod-db" and stopped after 3
+commands (verify: `success:false`); the T2 tester used 54 commands, over the 30-command limit, without
+finding the export (verify: `success:false`). Neither counts toward the eval.
+
+Simulator (`simulate.cjs`, TypeSafe `jev-latest`, key loaded from `.env` without printing it):
+
+| Run | Result |
+|---|---|
+| No backend configured | exit 2 with "Simulator not configured", the TypeSafe key link, the compatible-endpoint variables, "local models are not supported yet" and "continue with agent testers only" |
+| `UX_SIM_ENDPOINT` without model; plain-http non-local endpoint | refused with a clear message (exit 2) |
+| T1, n = 8, with load conditions | success 1.00 in all five runs (scanner and reader, plus the scanner under laptop, interrupt and paraphrase), harm 0; 16 model calls, 20 s. The simulator did **not** reproduce the U4 misclick on this fixture |
+| T2, T4, Q1, n = 8, `--no-load` | T2 0/8 (give-up: icon-only export, U1); T4 0/8 premature-stop for scanner and reader (the stub looks done, U5); Q1 scanner 6/8, reader 8/8; 52 calls |
+
+`replay.cjs` replayed two logged T1 sessions and returned a first-click prediction ("Start review"
+0.98); with the key unset it warned and replayed without predictions.
+
+Re-run after the code-review fixes (same day): the simulator now uses an exact 32-bit generator with one
+stream per simulated user, so the numbers above changed. T1 and T4, n = 8, `--no-load`: T1 scanner 7/8
+success and 1/8 harm (approved REQ-311, U4), reader 8/8; T4 scanner 8/8 premature-stop, reader 7/8
+premature-stop and 1/8 give-up. The same `--seed` gave identical results with `--workers 4` and
+`--workers 1`. Hypothesis H1 (n = 6) ran on both arms with no errors and no clear difference. A typo in a
+`success` expression now stops the run with the task id and expression (exit 3) instead of scoring 0%.
+Also re-checked:
+- harness: open, snapshot, click, `close`, verify;
+- 33 sequential open/close cycles on one harness;
+- rejections: non-string `expr`/`scenario`, bad `UX_VIEWPORT`, short `UX_VERIFY_TOKEN`, Origin header;
+- a stale token file is replaced safely;
+- `score.py` on an all-void results file exits with a message;
+- `replay.cjs` with an unknown session id keeps the other sessions;
+- invalid `--n`/`--seed`/`--steps` are refused.
+
+Verdict: scripts PASS the smoke test; the skill is **not yet eval-graded**. Next: a blind run per
+`evals/ux-testing.eval.md` with fresh agents (2 novice + 1 control per task, vision testers on T1 and
+T3), graded against U1–U5.
+
 ## ui-polish — 2026-09-25 (fresh-agent fixture trials and a real-page comparison)
 
 Method: fresh Sonnet agents were given only `skills/ui-polish/` and a scratch copy of
