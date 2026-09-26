@@ -107,7 +107,7 @@ Each simulated user walks one path:
 `error` is a harness failure (a page crash, a failed navigation, a control replaced mid-click), not a user
 outcome. Error walks are left out of `success`, `harm` and the hypothesis bootstrap; each run reports `n`
 (walks scored) and `errors` (walks left out), and hypothesis rows carry `nA`/`nB` and `errorsA`/`errorsB`. If
-more than 10% of a run's walks end in `error`, the run stops with exit code 3 instead of scoring the rest.
+more than 10% of a run's walks end in `error`, the finished run is discarded with exit code 3, and nothing from it is scored.
 
 Load conditions (scanner only), run unless `--no-load`:
 
