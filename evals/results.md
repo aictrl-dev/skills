@@ -12,7 +12,7 @@ controls still fired.
 
 | Criterion | Result |
 |---|---|
-| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 30/30 after round 4; the original script fails 12 of the first 14) |
+| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 32/32 after round 5; the original script fails 12 of the first 14) |
 | N9: one finding per cause, one small-text finding per viewport with groups, identical findings once across viewports, `--compare` normalises old and new files | PASS (round 2) |
 | Positive controls still fire (bare 20px checkbox error, short label warn, standalone link, 13px body paragraph warn, missing heading warn; round 3 adds a label 10px below or `display: contents`, pager and sort-by link rows, CJK and price-line small text, a site-header-only heading, visible `aria-hidden` content, `inset(50% 0 0 0)` text, a number added only in hidden copy, and a partial compare with a new error) | PASS |
 | Measured seeds M1–M9 still reported on `height-weight-step.html` | PASS (round 2: 9 errors, 13 warnings, most now shown once for both viewports; `--compare` against the original run: fixed 0, new 0) |
@@ -56,13 +56,31 @@ matches the first run exactly (12 errors, 26 warnings, 6 info).
 - Round 3's extra small-text warning is also real: visible `aria-hidden` mock-up badges at 11px are
   measured again, and one class applies only on desktop, so the two viewports no longer match.
 
+Round 5 (after the owner applied the skill to the live site): `dead-space` decided what counts as
+content with a fixed tag list, so text in `li`, `span`, `summary`, `td`, `figcaption` or a `div`, and
+painted boxes such as cards and chips, were invisible to it. A region full of list text and badges was
+reported as an empty band. Content is now anything visible that shows text of its own, a replaced or
+graphic element, or a painted box smaller than 90% of the scope. On a newer build of the same site (4
+pages: the home page, two sign-up forms and a use-case page; `--js`, cookie banner hidden):
+
+| | Before (round 4 script) | After (round 5) |
+|---|---|---|
+| `dead-space` | 2 warn: a 340px band on the home page, a 255px band on a sign-up form, both full of list text and badges | 0 |
+| Every other finding | 0 error, 2 warn, 8 info | identical (same check, severity, element and message on every page) |
+
+On the fixtures, `dead-space-list.html` and `dead-space-chips.html` are quiet, and
+`controls-dead-space.html` (a `min-height: 100vh` form with `space-between`) still reports its band.
+`height-weight-step.html` still reports every seeded defect, including `dead-space`.
+`action-distance` is unchanged on every fixture. `content-page.html` no longer reports `dead-space`
+under the form profile, because its band was a shaded 240px figure, which is content.
+
 Genuine defects are still reported in every branch column: the 15px field text on every form, the
 empty band above the lead form's submit button (and one on the home page), and the 13px small-text
 token on all four pages. The consent-sentence policy link is not reported, because it sits inline in
 a sentence, which WCAG 2.5.8 exempts.
 
-Repository checks (round 4): `npm test` 58 tests (28 pass and 30 skip without Playwright, as in CI;
-58/58 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills and the
+Repository checks (round 5): `npm test` 60 tests (28 pass and 32 skip without Playwright, as in CI;
+60/60 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills and the
 plugin; `CHECKSUMS.sha256` regenerated in byte order.
 
 Verdict: PASS for the noise criteria. The blind fresh-agent re-run of the whole skill that the

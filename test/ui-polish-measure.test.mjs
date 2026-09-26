@@ -99,7 +99,8 @@ test('ui-polish: --profile content skips the form-step checks', { skip }, () => 
   const formSteps = ['type-scale', 'action-distance', 'action-below-fold', 'dead-space'];
   const form = measure('content-page.html', ['--viewports', 'phone']);
   assert.equal(form.status, 1, 'the default form profile still gates on action-below-fold');
-  assert.ok(formSteps.every((c) => form.report.findings.some((f) => f.check === c)), detail(form.report.findings));
+  // the article has no empty band (its shaded figure is content), so dead-space is not expected here
+  assert.ok(formSteps.slice(0, 3).every((c) => form.report.findings.some((f) => f.check === c)), detail(form.report.findings));
   const content = measure('content-page.html', ['--viewports', 'phone', '--profile', 'content']);
   assert.equal(content.status, 0, content.stderr);
   assert.equal(content.report.profile, 'content');
@@ -167,6 +168,19 @@ test('ui-polish: a number added only in sr-only or aria-hidden copy fails --comp
   const cmp = spawnSync(process.execPath, [script, '--compare', join(before.out, 'measure.json'), join(after.out, 'measure.json')], { encoding: 'utf8' });
   assert.equal(cmp.status, 1, cmp.stdout);
   assert.match(cmp.stdout, /invented-number[\s\S]*12,000[\s\S]*4\.9/);
+});
+
+test('ui-polish: list items, a details summary and chips in a card are content, not dead space', { skip }, () => {
+  for (const page of ['dead-space-list.html', 'dead-space-chips.html']) {
+    const r = measure(page, ['--viewports', 'phone']);
+    assert.deepEqual(r.report.findings.filter((f) => f.check === 'dead-space'), [], `${page}:\n${detail(r.report.findings)}`);
+  }
+});
+
+test('ui-polish: a forced full-height form still reports its empty band', { skip }, () => {
+  const r = measure('controls-dead-space.html', ['--viewports', 'phone']);
+  const [f] = r.report.findings.filter((x) => x.check === 'dead-space');
+  assert.ok(f && f.severity === 'warn' && f.measured > 400, detail(r.report.findings));
 });
 
 test('ui-polish: a bare 20px checkbox, a short label row and a standalone link still fail', { skip }, () => {

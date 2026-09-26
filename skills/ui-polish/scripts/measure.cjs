@@ -642,6 +642,31 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   }
 
   // ---- C13 dead space and distance to the primary action
+  // What counts as content for dead space is anything a person sees, not a tag list: an element that shows
+  // text of its own (li, span, summary, td, figcaption, a div's text…), a replaced or graphic element, or a
+  // painted box such as a card or chip. A box is an element with a background image, a background colour
+  // that differs from its parent's, a visible border or a shadow, that is smaller than 90% of the scope, so
+  // wrapper sections do not fill the page. Hidden, zero-size and position: fixed elements never count.
+  const replacedTags = new Set(['IMG', 'SVG', 'VIDEO', 'CANVAS', 'IFRAME', 'PICTURE', 'OBJECT', 'EMBED', 'INPUT', 'SELECT', 'TEXTAREA', 'BUTTON']);
+  const fixedUp = new Map();
+  const ownText = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+  const shade = (e) => { const c = e && bgOf(e); return c ? c.map(Math.round).join(',') : 'image'; };
+  function paintsBox(e, cs) {
+    const r = e.getBoundingClientRect(); const sr = scope.getBoundingClientRect();
+    if (r.width * r.height >= 0.9 * sr.width * sr.height) return false;
+    const border = ['Top', 'Right', 'Bottom', 'Left'].some((side) => parseFloat(cs[`border${side}Width`]) > 0
+      && !['none', 'hidden'].includes(cs[`border${side}Style`]) && !/rgba\([^)]*,\s*0\)|transparent/.test(cs[`border${side}Color`]));
+    if (border || cs.boxShadow !== 'none' || cs.backgroundImage !== 'none') return true;
+    const own = (cs.backgroundColor.match(/rgba?\(([^)]+)\)/) || [])[1];
+    const alpha = own ? (own.split(',')[3] === undefined ? 1 : Number(own.split(',')[3])) : 0;
+    return alpha > 0 && shade(e) !== shade(e.parentElement);
+  }
+  function contentBlocks() {
+    return [...scope.querySelectorAll('*')].filter((e) => {
+      if (!shown(e) || upward(fixedUp, (x) => getComputedStyle(x).position === 'fixed', e)) return false;
+      return replacedTags.has(e.tagName.toUpperCase()) || ownText(e) || paintsBox(e, getComputedStyle(e));
+    });
+  }
   function checkPrimaryAction() {
     const area = (e) => { const r = e.getBoundingClientRect(); return r.width * r.height; };
     const primary = (primarySel && document.querySelector(primarySel))
@@ -657,7 +682,7 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
       add('action-below-fold', 'error', primary, 'The primary action is below the first screen while the fields fit on it', Math.round(pr.bottom), `<= ${vh}px`);
     }
     // largest empty band between content blocks above the action
-    const blocks = [...scope.querySelectorAll('h1,h2,h3,p,label,legend,input,select,textarea,button,a,img,svg')].filter(shown)
+    const blocks = contentBlocks().filter((e) => !e.contains(primary))
       .map((e) => e.getBoundingClientRect()).filter((r) => r.bottom <= pr.top + 1).sort((a, b) => a.top - b.top);
     let maxGap = 0; let bottom = blocks.length ? blocks[0].bottom : 0;
     for (const r of blocks) { if (r.top - bottom > maxGap) maxGap = r.top - bottom; bottom = Math.max(bottom, r.bottom); }

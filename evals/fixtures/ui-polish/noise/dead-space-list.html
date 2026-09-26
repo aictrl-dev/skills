@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Form with a list above the action</title>
+<!-- False positive: a list of <li><span> items and a <details> summary fill the space between the last
+     field and the submit button. That is content, not an empty band. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+ul { list-style: none; padding: 0; margin: 16px 0; }
+li { display: flex; gap: 8px; padding: 4px 0; }
+button { min-height: 48px; width: 100%; font-size: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Book a call</h1>
+  <form>
+    <label for="email">Work email</label>
+    <input id="email" type="email" name="email">
+    <ul>
+      <li><span class="tick">✓</span><span>One hour on a call</span></li>
+      <li><span class="tick">✓</span><span>We look at your current courses</span></li>
+      <li><span class="tick">✓</span><span>We agree what to build first</span></li>
+      <li><span class="tick">✓</span><span>You see a draft outline</span></li>
+      <li><span class="tick">✓</span><span>We check how it exports</span></li>
+      <li><span class="tick">✓</span><span>We list what you need to send</span></li>
+      <li><span class="tick">✓</span><span>We set a date for the next step</span></li>
+      <li><span class="tick">✓</span><span>You get notes the same day</span></li>
+      <li><span class="tick">✓</span><span>Nothing is shared without asking</span></li>
+      <li><span class="tick">✓</span><span>You can stop at any time</span></li>
+    </ul>
+    <details><summary>How we use your details</summary><div>Only to arrange the call.</div></details>
+    <button type="submit">Request a call</button>
+  </form>
+</main>
+</body>
+</html>

@@ -44,12 +44,14 @@ Judged (visible only to the rubric):
 | N9 | `consolidate.html` | both viewports | more than one finding per cause | one `input-font-size` for both 15px fields, one `tap-target` for both 20px checkboxes, one `text-size` warning per viewport with its `groups` and one eyebrow `info`, each identical finding once with `viewports: ["phone", "desktop"]` |
 | N10 | `checkbox-label-gap.html` | | `tap-target` (a 20px checkbox and a 44px `label[for]` in a flex row with an 8px gap) | |
 | N11 | `heading-above-scope.html` | `--scope "#f"` | `heading` (`main > h1 + form`) | `info` "Heading is outside the scope" |
+| N12 | `dead-space-list.html`, `dead-space-chips.html` | | `dead-space` (a `<ul><li><span>` list and a `<details>` summary; chip `<span>`s in a bordered card) | |
 
 Positive controls (must still fire):
 - `controls-bare-checkbox.html`: a bare 20px checkbox is an error, a 30px wrapping label is a warning that names the label's box, and a standalone link is measured.
 - `controls-label-apart.html`: a 20px checkbox with its label 10px below it, and one in a `display: contents` label, stay errors.
 - `controls-link-lists.html`: pagination and "Sort by" link rows are measured (errors), not treated as inline text.
 - `controls-small-body.html`: a 13px paragraph is a `text-size` warning, not info.
+- `controls-dead-space.html`: a `min-height: 100vh` form with `justify-content: space-between` still reports `dead-space`.
 - `controls-small-labels.html`: 12px letter-spaced CJK text and a "$49.99 / 12 MO" price line stay warnings, not eyebrow info.
 - `controls-missing-heading.html` with `--scope "#bare"` or `"#far"`, and `controls-site-header.html` with `--scope "#signup"` (the only heading is the site header's): a `heading` warning.
 - `aria-hidden-visible.html`: visible `aria-hidden` text and a 20px button still fail contrast, text size and tap target.
@@ -73,7 +75,7 @@ Run it blind: the agent under test gets the skill and the fixture only, never th
 - [ ] At least three of the four judged seeds J1–J4 are fixed visibly, each located in the report.
 - [ ] The content is intact: feet, inches, stones and pounds fields, a way to switch to centimetres and kilograms, and Next.
 - [ ] No invented copy: the `--compare` step reports no `invented-number`, and every new claim about purpose, privacy or treatment is a bracketed placeholder listed for the owner.
-- [ ] Noise: every fixture N1–N11 is quiet for its checks and reports what the table requires, and every positive control still fires (`npm test` with Playwright available).
+- [ ] Noise: every fixture N1–N12 is quiet for its checks and reports what the table requires, and every positive control still fires (`npm test` with Playwright available).
 - [ ] Noise on a real page: the before run has no finding the agent must drop as a false positive of the N1–N8 classes (hidden fields, label-row checkboxes, links in a sentence, eyebrow labels, a heading beside a scoped form, form-step checks on a content page, overlays given to `--hide`).
 
 Record results in evals/results.md (date, pass/fail per criterion, and the before/after finding counts).
