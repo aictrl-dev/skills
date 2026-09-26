@@ -1,5 +1,91 @@
 # Eval Results
 
+## ui-polish measure.cjs noise — 2026-09-26 (fixtures and a production site)
+
+Method: fresh agents ran the skill on an 11-page production marketing site and dropped most measured
+findings by hand as false positives: honeypot fields, 20px checkboxes inside 44px label rows, a policy
+link inside a consent sentence, uppercase eyebrow labels folded into one unlocated text-size count, a
+form scoped away from the heading beside it, form-step checks on articles, and a cookie banner covering
+the screenshots. Each class became a generic fixture in `evals/fixtures/ui-polish/noise/` (no site
+content) with a positive control, and `measure.cjs` was changed until the fixtures were quiet and the
+controls still fired.
+
+| Criterion | Result |
+|---|---|
+| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 36/36 after round 5; the original script fails 12 of the first 14) |
+| N9: one finding per cause, one small-text finding per viewport with groups, identical findings once across viewports, `--compare` normalises old and new files | PASS (round 2) |
+| Positive controls still fire (bare 20px checkbox error, short label warn, standalone link, 13px body paragraph warn, missing heading warn; round 3 adds a label 10px below or `display: contents`, pager and sort-by link rows, CJK and price-line small text, a site-header-only heading, visible `aria-hidden` content, `inset(50% 0 0 0)` text, a number added only in hidden copy, and a partial compare with a new error) | PASS |
+| Measured seeds M1–M9 still reported on `height-weight-step.html` | PASS (round 2: 9 errors, 13 warnings, most now shown once for both viewports; `--compare` against the original run: fixed 0, new 0) |
+| Noise on a real page: no finding of the N1–N8 classes left to drop by hand | PASS (table below) |
+
+Before and after on a production marketing site, 4 pages (two sign-up forms, one with checkbox
+options, a long-form guide and the home page), `--js`, default scope `main`. The original script ran
+per page; the branch versions ran all four in one call with `--hide` on the cookie banner. The
+original server was gone by round 3, so every column below was re-measured on one local build of the
+same site (and re-measured again in round 4, on a newer build, with identical counts); the before column
+matches the first run exactly (12 errors, 26 warnings, 6 info).
+
+| Check | Before | After round 1 | After round 2 | After round 3 | After round 4 |
+|---|---|---|---|---|---|
+| `tap-target` | 12 error, 3 warn | 0 | 0 | 1 error | 1 error |
+| `input-font-size` | 13 warn | 13 warn | 3 warn | 3 warn | 3 warn |
+| `dead-space` | 2 warn | 2 warn | 2 warn | 2 warn | 2 warn |
+| `text-size` | 8 warn | 16 warn, 10 info | 4 warn, 5 info | 5 warn, 5 info | 5 warn, 5 info |
+| `type-scale` | 6 info | 6 info | 6 info | 6 info | 6 info |
+| **Total** | **12 error, 26 warn, 6 info** | **0 error, 31 warn, 16 info** | **0 error, 9 warn, 11 info** | **1 error, 10 warn, 11 info** | **1 error, 10 warn, 11 info** |
+| Distinct across the 4 pages (roll-up) | 22 (20 warn or error) | 19 (14) | 12 (7) | 14 (9) | 14 (9) |
+
+- Round 1 removed the false positives: 20px checkboxes inside 44px labels, a policy link inside a
+  consent sentence, and an off-screen honeypot. It split each page's small-text count into located
+  style groups, which raised the raw warning count.
+- Round 2 consolidated without dropping detail. Small text became one finding per viewport listing
+  its groups, each with up to three example selectors. Fields and controls that share a cause became
+  one finding listing every member. A finding identical on phone and desktop is written once.
+- Round 3 applied an independent review's stricter rules. None of them hides a real defect.
+  - `aria-hidden` no longer hides visible content.
+  - A label enlarges a tap target only through its own box, never across a gap.
+  - Only links inside a real sentence are exempt, and link lists never are.
+  - Upper case must be real upper case for the eyebrow pattern.
+  - A heading outside the scope must be in the same section and outside site chrome.
+- Round 4 relaxed two round-3 rules that brought back common false positives, without touching these
+  pages' counts. A separate `label[for]` within 12px of its checkbox or radio is the target again, as in
+  the usual flex row with a small gap; the target is still the label's own box, never the union. A
+  heading directly above a scoped form in `main` counts as introducing it again.
+- Round 3's new error is real: five table-of-contents links on the guide, 18px tall inside list items,
+  which the old blanket `li` exemption had hidden.
+- Round 3's extra small-text warning is also real: visible `aria-hidden` mock-up badges at 11px are
+  measured again, and one class applies only on desktop, so the two viewports no longer match.
+
+Round 5 (after the owner applied the skill to the live site): `dead-space` decided what counts as
+content with a fixed tag list, so text in `li`, `span`, `summary`, `td`, `figcaption` or a `div`, and
+painted boxes such as cards and chips, were invisible to it. A region full of list text and badges was
+reported as an empty band. Content is now anything visible that shows text of its own, a replaced or
+graphic element, or a painted box smaller than 90% of the scope. On a newer build of the same site (4
+pages: the home page, two sign-up forms and a use-case page; `--js`, cookie banner hidden):
+
+| | Before (round 4 script) | After (round 5) |
+|---|---|---|
+| `dead-space` | 2 warn: a 340px band on the home page, a 255px band on a sign-up form, both full of list text and badges | 0 |
+| Every other finding | 0 error, 2 warn, 8 info | identical (same check, severity, element and message on every page) |
+
+On the fixtures, `dead-space-list.html` and `dead-space-chips.html` are quiet, and
+`controls-dead-space.html` (a `min-height: 100vh` form with `space-between`) still reports its band.
+`height-weight-step.html` still reports every seeded defect, including `dead-space`.
+`action-distance` is unchanged on every fixture. `content-page.html` no longer reports `dead-space`
+under the form profile, because its band was a shaded 240px figure, which is content.
+
+Genuine defects are still reported in every branch column: the 15px field text on every form, the
+empty band above the lead form's submit button (and one on the home page), and the 13px small-text
+token on all four pages. The consent-sentence policy link is not reported, because it sits inline in
+a sentence, which WCAG 2.5.8 exempts.
+
+Repository checks (round 5): `npm test` 64 tests (28 pass and 36 skip without Playwright, as in CI;
+64/64 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills and the
+plugin; `CHECKSUMS.sha256` regenerated in byte order.
+
+Verdict: PASS for the noise criteria. The blind fresh-agent re-run of the whole skill that the
+2026-09-25 entry requires is still outstanding; this entry does not replace it.
+
 ## ui-polish — 2026-09-25 (fresh-agent fixture trials and a real-page comparison)
 
 Method: fresh Sonnet agents were given only `skills/ui-polish/` and a scratch copy of

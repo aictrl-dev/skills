@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare pair: radios sharing a name, before</title>
+<!-- --compare pair: two bare radios share name="freq" and have no id or label, so they share an anchor.
+     Before, both are 20px (one grouped finding); after, both are 44px. Compare must report both fixed. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+.opt { width: 20px; height: 20px; margin: 0 16px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>How often</h1>
+  <input class="opt" type="radio" name="freq" value="weekly">
+  <input class="opt" type="radio" name="freq" value="monthly">
+  <p>Choose how often you hear from us.</p>
+</main>
+</body>
+</html>

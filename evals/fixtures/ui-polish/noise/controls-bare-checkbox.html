@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Positive control: small targets</title>
+<!-- Must still fire: a bare 20px checkbox with no label, a checkbox whose label is too short, and a
+     standalone link that is not in a sentence. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input[type="text"], input[type="email"] { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+button { min-height: 48px; padding: 0 24px; font-size: 16px; }
+.box { width: 20px; height: 20px; margin: 0; }
+.short { display: inline-flex; align-items: center; gap: 6px; height: 30px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Notifications</h1>
+  <form>
+    <input class="box" type="checkbox" name="digest" aria-label="Weekly digest">
+    <div><label class="short"><input class="box" type="checkbox" name="alerts"> Alerts</label></div>
+    <div><a href="#more">More options</a></div>
+    <button type="submit">Save</button>
+  </form>
+</main>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partly clipped text</title>
+<!-- Positive control: clip-path: inset(50% 0 0 0) still shows the bottom half, so the text is measured. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+.half { clip-path: inset(50% 0 0 0); font-size: 12px; color: #bbb; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Reveal</h1>
+  <p class="half">The bottom half of this faint small line stays on screen for everyone</p>
+</main>
+</body>
+</html>

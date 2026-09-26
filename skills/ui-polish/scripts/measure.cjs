@@ -6,15 +6,30 @@
  * size, contrast, overflow, dead space and the distance to the primary action.
  *
  * Usage:
- *   node measure.cjs <file-or-url> [--out <dir>] [--scope <css selector>] [--viewports phone,desktop]
- *                    [--primary <css selector>] [--js] [--offline | --assets-only]
+ *   node measure.cjs <file-or-url> [<file-or-url> …] [--out <dir>] [--scope <css selector>]
+ *                    [--viewports phone,desktop] [--primary <css selector>] [--js] [--offline | --assets-only]
+ *                    [--hide "<selector>[,<selector>…]"] [--profile form|content] [--config <path>]
+ *   node measure.cjs --compare <before.json> <after.json>
  *
  * --offline      no network at all: only the target and file:/data: resources load (hermetic).
  * --assets-only  allow the page itself plus remote fonts, stylesheets and images, block scripts and data
  *                requests. Use it for saved copies that need their fonts; it does contact the asset hosts.
- *   node measure.cjs --compare <before.json> <after.json>
+ * --hide         set display:none on these elements (cookie banners, chat launchers) before measuring and capturing.
+ * --profile      form (default) runs every check; content skips the form-step checks (type-scale,
+ *                action-distance, action-below-fold, dead-space) for long-form pages.
+ * --config       a ui-polish.config.json of accepted decisions; default ./ui-polish.config.json when present.
+ *                Shape: { "ignore": [{ "check": "text-size", "selector": ".eyebrow", "reason": "…" }] }.
+ *                Matching findings move to "accepted" with their reason and do not affect the exit code.
  *
- * Writes <out>/measure.json (all findings) and <out>/<viewport>.png, and prints a summary.
+ * Writes <out>/measure.json (all findings), <out>/<viewport>.png (the first screen) and
+ * <out>/<viewport>-scope.png (the whole scope element), and prints a summary. With several targets each
+ * goes to <out>/<slug>/, and <out>/summary.json merges the same finding across pages.
+ * Elements that share a cause are one finding with a count, example selectors and every member: fields with
+ * the same small font size, controls with the same style and tap size, and small text (one finding per
+ * viewport, broken down into style groups; eyebrow labels in their own info finding).
+ * A finding identical on phone and desktop is written once, with "viewports": ["phone", "desktop"]; for merged
+ * findings "viewports" is authoritative and "viewport" is only the first of them.
+ * --compare expands grouped and merged findings to (viewport, element or style group) pairs before matching.
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
  * run itself fails (missing browser, navigation error or timeout).
  *
@@ -38,14 +53,32 @@ const TH = {
   deadSpaceVh: 0.3, // a vertical gap inside the content above the primary action larger than this share of the viewport
   actionGapVh: 0.25, // distance from the last field to the primary action larger than this share of the viewport
   typeScaleMax: 6, // more distinct font sizes than this in the scope is reported
+  labelGapPx: 12, // a separate label[for] at most this far from its checkbox or radio can be the tap target
+  eyebrowMaxWords: 4, // small uppercase letter-spaced labels of at most this many words are the eyebrow pattern (info)
+  eyebrowTrackingEm: 0.04, // minimum letter-spacing, in em, for the eyebrow pattern
+  examples: 3, // example selectors listed per grouped finding
 };
+// Checks each profile skips. "form" is the default and runs everything.
+const PROFILES = { form: [], content: ['type-scale', 'action-distance', 'action-below-fold', 'dead-space'] };
+const VALUE_FLAGS = ['--out', '--scope', '--viewports', '--primary', '--hide', '--profile', '--config'];
+const BOOL_FLAGS = ['--js', '--offline', '--assets-only'];
 
 // Page text is untrusted: strip control characters (ANSI/OSC escapes) before printing it to a terminal.
 const safe = (s) => String(s).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
 
+class UsageError extends Error {}
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('Usage: node measure.cjs <file-or-url> [--out dir] [--scope selector] [--viewports phone,desktop] [--primary selector] [--js] [--offline | --assets-only]\n       node measure.cjs --compare before.json after.json');
+  console.error([
+    'Usage: node measure.cjs <file-or-url> [<file-or-url> …] [--out dir] [--scope selector] [--viewports phone,desktop]',
+    '         [--primary selector] [--js] [--offline | --assets-only] [--hide selectors] [--profile form|content] [--config file]',
+    '       node measure.cjs --compare before.json after.json',
+  ].join('\n'));
+  process.exit(2);
+}
+// A usage error that needs no banner: the message says what to change.
+function fail(msg) {
+  console.error(msg);
   process.exit(2);
 }
 
@@ -57,40 +90,166 @@ function loadPlaywright() {
   process.exit(2);
 }
 
+// ---------------------------------------------------------------- project config (accepted decisions)
+function loadConfig(explicit) {
+  const file = path.resolve(explicit || 'ui-polish.config.json');
+  if (!fs.existsSync(file)) { if (explicit) fail(`Config not found: ${explicit}`); return { file: null, ignore: [] }; }
+  let cfg;
+  try { cfg = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { fail(`Config ${file} is not valid JSON: ${e.message}`); }
+  // a mis-shaped root (a bare array of rules, null, a misspelt key) must not silently mean "no rules"
+  if (Array.isArray(cfg) || cfg === null || typeof cfg !== 'object' || !('ignore' in cfg)) {
+    const got = Array.isArray(cfg) ? 'an array' : cfg === null ? 'null' : typeof cfg !== 'object' ? `a ${typeof cfg}`
+      : `an object without "ignore" (keys: ${Object.keys(cfg).join(', ') || 'none'})`;
+    fail(`Config ${file}: expected { "ignore": [...] }, got ${got}`);
+  }
+  const { ignore } = cfg;
+  if (!Array.isArray(ignore)) fail(`Config ${file}: "ignore" must be an array`);
+  ignore.forEach((r, i) => {
+    if (!r || typeof r !== 'object') fail(`Config ${file}: ignore[${i}] must be an object`);
+    for (const k of ['check', 'selector']) {
+      if (r[k] !== undefined && typeof r[k] !== 'string') fail(`Config ${file}: ignore[${i}].${k} must be a string`);
+    }
+    if (!r.check && !r.selector) fail(`Config ${file}: ignore[${i}] needs a "check", a "selector" or both`);
+    if (typeof r.reason !== 'string' || !r.reason.trim()) {
+      fail(`Config ${file}: ignore[${i}] needs a "reason"; an accepted finding must say why`);
+    }
+  });
+  return { file, ignore: ignore.map((r) => ({ check: r.check || null, selector: r.selector || null, reason: r.reason.trim() })) };
+}
+
 // ---------------------------------------------------------------- compare mode
+// A finding stands for one or more (viewport, part) pairs, where a part is a member element of a grouped
+// finding or a style group of the small-text finding. Both files are expanded to those pairs before
+// matching, so merging viewports or grouping elements is never reported as a fix, and older files (one
+// finding per viewport and element, one small-text count) still line up.
+const kindOf = (f) => (f.severity === 'info' ? 'eyebrow' : 'small');
+const groupLabel = (g) => `${g.size}px × ${g.count} (${g.signature})`;
+function expand(findings, textByGroup) {
+  const out = [];
+  // Anchors can repeat (radios sharing a name, with no id or label). The first element keeps the plain anchor
+  // key; a repeat falls back to anchor plus selector (which carries :nth-of-type), so keys stay unique.
+  const seen = new Set();
+  const unique = (base, selector) => {
+    if (!seen.has(base)) { seen.add(base); return base; }
+    return `${base}|${selector}`;
+  };
+  for (const f of findings || []) {
+    for (const v of f.viewports || [f.viewport]) {
+      if (f.check === 'text-size') {
+        if (!textByGroup) { out.push({ k: `${v}|text-size|${kindOf(f)}`, f, v }); continue; }
+        for (const g of f.groups) out.push({ k: `${v}|text-size|${kindOf(f)}|${g.size}|${g.signature}`, f, v, part: groupLabel(g) });
+        continue;
+      }
+      if (f.members) for (const m of f.members) out.push({ k: unique(`${v}|${f.check}|${m.anchor || m.selector}`, m.selector), f, v, part: m.selector });
+      else out.push({ k: unique(`${v}|${f.check}|${f.anchor || f.selector}`, f.selector), f, v });
+    }
+  }
+  return out;
+}
+// One line per finding, however many viewports and parts it covers, so a merged finding counts once. When
+// only some of a finding's parts are in the list, the line names them ("2 of 3: …").
+function collate(entries) {
+  const byFinding = new Map();
+  for (const e of entries) {
+    const item = byFinding.get(e.f) || { f: e.f, viewports: [], parts: [] };
+    if (!item.viewports.includes(e.v)) item.viewports.push(e.v);
+    if (e.part && !item.parts.includes(e.part)) item.parts.push(e.part);
+    byFinding.set(e.f, item);
+  }
+  return [...byFinding.values()];
+}
+function describe(item) {
+  const { f } = item;
+  const all = f.check === 'text-size' ? (f.groups || []).length : (f.members || []).length;
+  const head = `  [${f.severity}] ${item.viewports.join('+')} ${f.check} — `;
+  if (!item.parts.length || item.parts.length >= all) return `${head}${safe(f.message)}${f.selector && !f.members ? `  (${safe(f.selector)})` : ''}`;
+  const shown = item.parts.slice(0, 5).map(safe).join(', ') + (item.parts.length > 5 ? ', …' : '');
+  return `${head}${item.parts.length} of ${all} ${f.check === 'text-size' ? 'groups' : 'elements'}: ${shown}`;
+}
 function compare(beforeFile, afterFile) {
-  const a = JSON.parse(fs.readFileSync(beforeFile, 'utf8'));
-  const b = JSON.parse(fs.readFileSync(afterFile, 'utf8'));
+  const read = (file) => {
+    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return fail(`Cannot read ${file}: ${e.message}`); }
+  };
+  const a = read(beforeFile); const b = read(afterFile);
+  // Small text is matched per style group when both files have groups, else per viewport and kind.
+  const textFindings = (j) => [...(j.findings || []), ...(j.accepted || [])].filter((f) => f.check === 'text-size');
+  const textByGroup = [a, b].every((j) => textFindings(j).every((f) => Array.isArray(f.groups)));
   // Key on a stable anchor (id, name, aria-label, placeholder) when the element has one, so inserting a
   // sibling during a fix does not shift nth-of-type indexes and turn an unchanged finding into a "new" one.
-  const key = (f) => `${f.viewport}|${f.check}|${f.anchor || f.selector}`;
-  const before = new Map(a.findings.map((f) => [key(f), f]));
-  const after = new Map(b.findings.map((f) => [key(f), f]));
-  const fixed = [...before.keys()].filter((k) => !after.has(k)).map((k) => before.get(k));
-  const remaining = [...after.keys()].filter((k) => before.has(k)).map((k) => after.get(k));
-  const added = [...after.keys()].filter((k) => !before.has(k)).map((k) => after.get(k));
+  const byKey = (list) => new Map(expand(list, textByGroup).map((e) => [e.k, e]));
+  const before = byKey(a.findings); const after = byKey(b.findings);
+  // Findings the project config accepted are neither fixed nor remaining; list them on their own.
+  const acceptedAfter = byKey(b.accepted);
+  const fixed = collate([...before.values()].filter((e) => !after.has(e.k) && !acceptedAfter.has(e.k)));
+  const remaining = collate([...after.values()].filter((e) => before.has(e.k)));
+  const added = collate([...after.values()].filter((e) => !before.has(e.k)));
+  const accepted = collate([...acceptedAfter.values()]);
   // New copy: anything visible after that was not visible before. A digit outside [brackets] is a number
   // the original screen never stated, which the skill forbids unless it is a placeholder for the owner.
   const oldCopy = new Set(a.copy || []);
   const newCopy = (b.copy || []).filter((t) => !oldCopy.has(t));
   const unbracketed = newCopy.filter((t) => /\d/.test(t.replace(/\[[^\]]*\]/g, '')));
-  const line = (f) => `  [${f.severity}] ${f.viewport} ${f.check} — ${safe(f.message)}`;
-  console.log(`Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}`);
-  if (fixed.length) console.log('Fixed:\n' + fixed.map(line).join('\n'));
-  if (remaining.length) console.log('Remaining:\n' + remaining.map(line).join('\n'));
-  if (added.length) console.log('New (regressions):\n' + added.map(line).join('\n'));
+  const counts = `Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}`;
+  console.log(`${counts}${accepted.length ? ` · accepted ${accepted.length}` : ''}`);
+  if (fixed.length) console.log('Fixed:\n' + fixed.map(describe).join('\n'));
+  if (remaining.length) console.log('Remaining:\n' + remaining.map(describe).join('\n'));
+  if (added.length) console.log('New (regressions):\n' + added.map(describe).join('\n'));
+  if (accepted.length) console.log('Accepted (project config):\n' + accepted.map((it) => `${describe(it)} — ${safe(it.f.reason)}`).join('\n'));
   if (newCopy.length) console.log('New copy for the owner to review:\n' + newCopy.map((t) => `  "${safe(t)}"`).join('\n'));
-  if (unbracketed.length) console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${safe(t)}"`).join('\n'));
-  process.exit(unbracketed.length || added.some((f) => f.severity === 'error') || remaining.some((f) => f.severity === 'error') ? 1 : 0);
+  if (unbracketed.length) {
+    console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${safe(t)}"`).join('\n'));
+  }
+  const errors = [...added, ...remaining].some((it) => it.f.severity === 'error');
+  process.exit(unbracketed.length || errors ? 1 : 0);
 }
 
 // ---------------------------------------------------------------- in-page measurement
-// Runs inside the page; must be self-contained.
-function measureInPage({ scopeSel, primarySel, TH }) {
+// Runs inside the page through page.evaluate, so everything it uses is defined inside it.
+function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   const vw = innerWidth; const vh = innerHeight;
-  const scope = (scopeSel && document.querySelector(scopeSel)) || document.querySelector('main') || document.body;
-  const findings = [];
-  const add = (check, severity, el, message, measured, expected) => findings.push({ check, severity, selector: sel(el), anchor: anchor(el), message, measured, expected });
+  const scoped = scopeSel && document.querySelector(scopeSel);
+  const scope = scoped || document.querySelector('main') || document.body;
+  const scopeUsed = scoped ? scopeSel : scope === document.body ? 'body' : 'main';
+  const findings = []; const accepted = []; const configErrors = [];
+  const skip = new Set(skipChecks || []);
+  const rules = ignore || [];
+  // a rule whose selector matches the scope root (or body/html) accepts every finding of its check here
+  const broadRules = rules.map((r, i) => (r.selector && matches(scope, r.selector) ? i : -1)).filter((i) => i >= 0);
+
+  // ---- findings and accepted decisions
+  function matches(el, s) {
+    try { return !!(el && el.nodeType === 1 && el.closest(s)); } catch {
+      if (!configErrors.includes(s)) configErrors.push(s);
+      return false;
+    }
+  }
+  // An accepted decision matches a finding on its check and on its element (or an ancestor of it).
+  const ruleFor = (check, el) => rules.find((r) => (!r.check || r.check === check) && (!r.selector || matches(el, r.selector))) || null;
+  const add = (check, severity, el, message, measured, expected, extra = {}) => {
+    if (skip.has(check)) return;
+    const { rule: forced, ...rest } = extra;
+    const rule = 'rule' in extra ? forced : ruleFor(check, el);
+    const f = { check, severity, selector: sel(el), anchor: anchor(el), message, measured, expected, ...rest };
+    if (rule) accepted.push({ ...f, reason: rule.reason, rule: { check: rule.check, selector: rule.selector } });
+    else findings.push(f);
+  };
+  // Items that share a key, in first-seen order.
+  function groupBy(items, keyOf) {
+    const groups = new Map();
+    for (const it of items) { const k = keyOf(it); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it); }
+    return [...groups.values()];
+  }
+  // Several elements with one cause are one finding: a count, up to TH.examples example selectors and every
+  // member, so nothing is lost. A group of one keeps the single-element message and shape.
+  function emitGroup(check, severity, els, rule, single, many, measured, expected, extra = {}) {
+    if (els.length === 1) { add(check, severity, els[0], single, measured, expected, { rule, ...extra.single }); return; }
+    add(check, severity, els[0], many, measured, expected, {
+      rule, anchor: extra.anchor, ...extra.many,
+      count: els.length, examples: els.slice(0, TH.examples).map(sel), members: els.map((e) => ({ selector: sel(e), anchor: anchor(e) })),
+    });
+  }
+
+  // ---- element helpers
   function anchor(el) {
     if (!el || el.nodeType !== 1) return '';
     const tag = el.tagName.toLowerCase();
@@ -99,7 +258,6 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
     return t && t.length <= 40 && el.children.length === 0 ? `${tag}:text("${t}")` : '';
   }
-
   function sel(el) {
     if (!el || el.nodeType !== 1) return '';
     if (el.id) return `#${CSS.escape(el.id)}`;
@@ -109,7 +267,8 @@ function measureInPage({ scopeSel, primarySel, TH }) {
       if (e.id) { parts.unshift(`#${CSS.escape(e.id)}`); break; }
       const nm = e.getAttribute('name'); if (nm) s += `[name="${nm}"]`;
       const parent = e.parentElement;
-      if (parent) { const same = [...parent.children].filter((c) => c.tagName === e.tagName); if (same.length > 1) s += `:nth-of-type(${same.indexOf(e) + 1})`; }
+      const same = parent ? [...parent.children].filter((c) => c.tagName === e.tagName) : [];
+      if (same.length > 1) s += `:nth-of-type(${same.indexOf(e) + 1})`;
       parts.unshift(s);
     }
     return parts.join(' > ');
@@ -118,11 +277,121 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
     return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0.05;
   };
-  const rect = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height), r: Math.round(r.right), b: Math.round(r.bottom + scrollY) }; };
-  const textInputSel = 'input:not([type]), input[type="text"], input[type="number"], input[type="email"], input[type="tel"], input[type="search"], input[type="password"], input[type="url"], input[type="date"], select, textarea';
-  const fields = [...scope.querySelectorAll(textInputSel)].filter(visible);
+  const rect = (el) => {
+    const r = el.getBoundingClientRect();
+    return {
+      x: Math.round(r.left), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height),
+      r: Math.round(r.right), b: Math.round(r.bottom + scrollY),
+    };
+  };
+  const box = (r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+  const minSide = (b) => Math.min(b.r - b.l, b.b - b.t);
 
-  // accessible name
+  // ---- visually hidden: in the DOM for assistive tech or bots, but not on screen
+  // aria-hidden does not count: it hides content from assistive tech, not from the eye.
+  // Each ancestor's own contribution is computed once (clipped away, or a zero-size clipping box).
+  const ownClip = new Map(); const clipUp = new Map(); const zeroUp = new Map();
+  const px = (v, whole) => (v === 'auto' ? null : v.endsWith('%') ? (parseFloat(v) / 100) * whole : parseFloat(v) || 0);
+  // clip: rect(top, right, bottom, left) that leaves no area
+  function rectClipsAll(clip, er) {
+    const m = clip.match(/^rect\(([^)]*)\)$/); if (!m) return false;
+    const [t, r, b, l] = m[1].split(/[\s,]+/).filter(Boolean);
+    const top = px(t, er.height) ?? 0; const left = px(l, er.width) ?? 0;
+    const right = px(r, er.width) ?? er.width; const bottom = px(b, er.height) ?? er.height;
+    return bottom <= top || right <= left;
+  }
+  // clip-path: inset() that removes the whole box, e.g. inset(50%); inset(50% 0 0 0) still shows half
+  function insetClipsAll(clipPath, er) {
+    const m = clipPath.match(/inset\(([^)]*)\)/); if (!m) return false;
+    const v = m[1].split(/\s+round\s+/)[0].trim().split(/\s+/);
+    const [t, r = t, b = t, l = r] = v;
+    return px(t, er.height) + px(b, er.height) >= er.height || px(l, er.width) + px(r, er.width) >= er.width;
+  }
+  function clippedAway(e) {
+    if (!ownClip.has(e)) {
+      const cs = getComputedStyle(e); const er = e.getBoundingClientRect();
+      // sr-only / visually-hidden: clipped to nothing, or 1px or less and clipped
+      const tiny = er.width <= 1 && er.height <= 1 && (cs.clip !== 'auto' || cs.clipPath !== 'none' || /hidden|clip/.test(cs.overflow));
+      ownClip.set(e, tiny || rectClipsAll(cs.clip, er) || insetClipsAll(cs.clipPath, er));
+    }
+    return ownClip.get(e);
+  }
+  const zeroClipBox = (e) => {
+    const er = e.getBoundingClientRect();
+    return /hidden|clip/.test(getComputedStyle(e).overflow) && (er.width < 1 || er.height < 1);
+  };
+  // memoised walk up the tree: true when e or an ancestor satisfies test
+  function upward(cache, test, e) {
+    if (!e || e === document.documentElement) return false;
+    if (!cache.has(e)) cache.set(e, test(e) || upward(cache, test, e.parentElement));
+    return cache.get(e);
+  }
+  const hiddenCache = new Map();
+  function isVisuallyHidden(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (hiddenCache.has(el)) return hiddenCache.get(el);
+    const r = el.getBoundingClientRect();
+    // entirely left of or above the page, or right of a page that cannot scroll that far
+    let hidden = r.right <= 0 || r.bottom + scrollY <= 0 || r.left >= Math.max(vw, document.documentElement.scrollWidth);
+    if (!hidden) hidden = upward(clipUp, clippedAway, el);
+    // a tabindex="-1" control inside a zero-size clipping wrapper: the usual honeypot
+    if (!hidden && el.getAttribute('tabindex') === '-1') hidden = upward(zeroUp, zeroClipBox, el.parentElement);
+    hiddenCache.set(el, hidden);
+    return hidden;
+  }
+  const shown = (el) => visible(el) && !isVisuallyHidden(el);
+
+  const textInputSel = 'input:not([type]), input[type="text"], input[type="number"], input[type="email"], input[type="tel"], '
+    + 'input[type="search"], input[type="password"], input[type="url"], input[type="date"], select, textarea';
+  const fields = [...scope.querySelectorAll(textInputSel)].filter(shown);
+  const rows = [];
+
+  // ---- C1/C2 alignment and equal widths across repeated rows of fields
+  function checkFieldRows() {
+    for (const f of fields.map((el) => ({ el, ...rect(el) })).sort((a, b) => a.y - b.y || a.x - b.x)) {
+      const row = rows.find((r) => Math.abs(r.y - f.y) <= 8);
+      if (row) row.items.push(f); else rows.push({ y: f.y, items: [f] });
+    }
+    rows.forEach((r) => r.items.sort((a, b) => a.x - b.x));
+    for (let i = 1; i < rows.length; i++) {
+      const a = rows[i - 1].items; const b = rows[i].items;
+      if (a.length < 2 || a.length !== b.length) continue;
+      for (let k = 0; k < a.length; k++) {
+        const dx = Math.abs(a[k].x - b[k].x);
+        if (dx <= TH.alignPx) continue;
+        add('column-alignment', 'error', b[k].el, `Field ${k + 1} of this row is ${dx}px out of line with the same column in the row above`, dx, `<= ${TH.alignPx}px`);
+      }
+    }
+    // equal widths: compare each field with the same column in the next row of the same shape
+    for (let i = 1; i < rows.length; i++) {
+      const a = rows[i - 1].items; const b = rows[i].items;
+      if (a.length < 2 || a.length !== b.length) continue;
+      for (let k = 0; k < a.length; k++) {
+        const dw = Math.abs(a[k].w - b[k].w);
+        if (dw <= TH.widthPx) continue;
+        add('equal-widths', 'warn', b[k].el, `Field ${k + 1} of this row is ${b[k].w}px wide; the same column above is ${a[k].w}px`, dw, `<= ${TH.widthPx}px difference`);
+      }
+    }
+  }
+
+  // ---- C3 field fill on narrow screens
+  function checkFieldFill() {
+    if (vw > 480) return;
+    for (const r of rows) {
+      const span = Math.max(...r.items.map((it) => it.r)) - Math.min(...r.items.map((it) => it.x));
+      // the column is the nearest block-level ancestor that contains every field of the row
+      let col = r.items[0].el.parentElement;
+      const holdsRow = (c) => r.items.every((it) => c.contains(it.el)) && !getComputedStyle(c).display.startsWith('inline');
+      while (col && col !== document.body && !holdsRow(col)) col = col.parentElement;
+      const cs = col ? getComputedStyle(col) : null;
+      const colW = col ? col.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) : vw;
+      const ratio = span / colW;
+      if (ratio >= TH.fillRatio) continue;
+      add('field-fill', 'warn', r.items[0].el, `Fields in this row span ${Math.round(ratio * 100)}% of the column on a ${vw}px screen`, +ratio.toFixed(2), `>= ${TH.fillRatio}`);
+    }
+  }
+
+  // ---- C4 accessible names and C5 labels placed after the field
   const accName = (el) => {
     if (el.getAttribute('aria-label')) return el.getAttribute('aria-label').trim();
     const lb = el.getAttribute('aria-labelledby');
@@ -131,53 +400,12 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     const wrap = el.closest('label'); if (wrap) return wrap.textContent.trim();
     return (el.getAttribute('title') || '').trim();
   };
-
-  // ---- C1/C2 alignment and equal widths across repeated rows of fields
-  const rows = [];
-  for (const f of fields.map((el) => ({ el, ...rect(el) })).sort((a, b) => a.y - b.y || a.x - b.x)) {
-    const row = rows.find((r) => Math.abs(r.y - f.y) <= 8);
-    if (row) row.items.push(f); else rows.push({ y: f.y, items: [f] });
-  }
-  rows.forEach((r) => r.items.sort((a, b) => a.x - b.x));
-  for (let i = 1; i < rows.length; i++) {
-    const a = rows[i - 1].items; const b = rows[i].items;
-    if (a.length < 2 || a.length !== b.length) continue;
-    for (let k = 0; k < a.length; k++) {
-      const dx = Math.abs(a[k].x - b[k].x);
-      if (dx > TH.alignPx) add('column-alignment', 'error', b[k].el, `Field ${k + 1} of this row is ${dx}px out of line with the same column in the row above`, dx, `<= ${TH.alignPx}px`);
-    }
-  }
-  // equal widths: compare each field with the same column in the next row of the same shape
-  for (let i = 1; i < rows.length; i++) {
-    const a = rows[i - 1].items; const b = rows[i].items;
-    if (a.length < 2 || a.length !== b.length) continue;
-    for (let k = 0; k < a.length; k++) {
-      const dw = Math.abs(a[k].w - b[k].w);
-      if (dw > TH.widthPx) add('equal-widths', 'warn', b[k].el, `Field ${k + 1} of this row is ${b[k].w}px wide; the same column above is ${a[k].w}px`, dw, `<= ${TH.widthPx}px difference`);
-    }
-  }
-
-  // ---- C3 field fill on narrow screens
-  if (vw <= 480) {
-    for (const r of rows) {
-      const span = Math.max(...r.items.map((it) => it.r)) - Math.min(...r.items.map((it) => it.x));
-      // the column is the nearest block-level ancestor that contains every field of the row
-      let col = r.items[0].el.parentElement;
-      while (col && col !== document.body && (!r.items.every((it) => col.contains(it.el)) || getComputedStyle(col).display.startsWith('inline'))) col = col.parentElement;
-      const cs = col ? getComputedStyle(col) : null;
-      const colW = col ? col.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) : vw;
-      const ratio = span / colW;
-      if (ratio < TH.fillRatio) add('field-fill', 'warn', r.items[0].el, `Fields in this row span ${Math.round(ratio * 100)}% of the column on a ${vw}px screen`, +ratio.toFixed(2), `>= ${TH.fillRatio}`);
-    }
-  }
-
-  // ---- C4 accessible names and C5 labels placed after the field
-  for (const f of fields) {
-    const name = accName(f);
-    if (!name) add('accessible-name', 'error', f, 'Field has no accessible name (no <label for>, aria-label or aria-labelledby)', null, 'label');
-    const fr = f.getBoundingClientRect();
-    const next = f.nextElementSibling;
-    if (next && visible(next) && next.tagName !== 'INPUT') {
+  function checkNamesAndLabels() {
+    for (const f of fields) {
+      if (!accName(f)) add('accessible-name', 'error', f, 'Field has no accessible name (no <label for>, aria-label or aria-labelledby)', null, 'label');
+      const fr = f.getBoundingClientRect();
+      const next = f.nextElementSibling;
+      if (!next || !visible(next) || next.tagName === 'INPUT') continue;
       const nr = next.getBoundingClientRect();
       const txt = (next.textContent || '').trim();
       if (txt && txt.length <= 24 && nr.left >= fr.right - 2 && Math.abs((nr.top + nr.bottom) / 2 - (fr.top + fr.bottom) / 2) < fr.height / 2) {
@@ -186,25 +414,95 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     }
   }
 
-  // ---- C6 tap targets and C7 input font size
-  const controls = [...scope.querySelectorAll('button, a[href], input, select, textarea, [role="button"], summary')].filter(visible);
-  for (const c of controls) {
-    if (c.type === 'hidden') continue;
-    const r = c.getBoundingClientRect();
-    const inline = c.tagName === 'A' && getComputedStyle(c).display === 'inline' && c.closest('p, li');
-    if (inline) continue;
-    const minSide = Math.min(r.height, r.width);
-    if (minSide < TH.tapPx && vw <= 480) add('tap-target', minSide < TH.tapErrorPx ? 'error' : 'warn', c, `Tap target is ${Math.round(r.width)}×${Math.round(r.height)}px`, Math.round(Math.min(r.width, r.height)), `>= ${TH.tapPx}px`);
+  // ---- C6 tap targets
+  // A link is inline (exempt under WCAG 2.5.8) only when it sits in a sentence. The sentence is the link's
+  // text container: its parent, or the first inline ancestor (up to 3 levels) with text of its own. It must
+  // have at least 2 words and 12 letters outside links, and must not be a list of links with nothing but
+  // spaces or punctuation between them (pagination, "Sort by: Price Name").
+  const letters = (t) => (t.match(/\p{L}/gu) || []).length;
+  const hasOwnWords = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && /[\p{L}\p{N}]/u.test(n.textContent));
+  function textOutsideLinks(p) {
+    let text = ''; const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    while (tw.nextNode()) { const a = tw.currentNode.parentElement.closest('a'); if (!a || !p.contains(a)) text += ` ${tw.currentNode.textContent}`; }
+    return text;
   }
-  if (vw <= 480) for (const f of fields) {
-    const fs = parseFloat(getComputedStyle(f).fontSize);
-    if (fs < TH.inputFontPx) add('input-font-size', 'warn', f, `Field text is ${fs}px; iOS zooms the page on focus below 16px`, fs, `>= ${TH.inputFontPx}px`);
+  function isLinkList(p) {
+    const links = [...p.querySelectorAll('a[href]')];
+    if (links.length < 2) return false;
+    return links.slice(1).every((b, i) => {
+      const between = document.createRange(); between.setStartAfter(links[i]); between.setEndBefore(b);
+      return letters(between.toString()) === 0;
+    });
+  }
+  function inSentence(a) {
+    let p = a.parentElement;
+    for (let depth = 0; p && !hasOwnWords(p) && depth < 3; depth++) {
+      if (!getComputedStyle(p).display.startsWith('inline')) return false;
+      p = p.parentElement;
+    }
+    if (!p || !hasOwnWords(p)) return false;
+    const outside = textOutsideLinks(p);
+    const words = outside.split(/\s+/).filter((w) => /\p{L}/u.test(w)).length;
+    return words >= 2 && letters(outside) >= 12 && !isLinkList(p);
+  }
+  const isInlineLink = (c) => c.tagName === 'A' && getComputedStyle(c).display === 'inline' && inSentence(c);
+  // A checkbox or radio is also hit through its label. A label that wraps the control is the target; a
+  // separate label[for] counts when its box is within TH.labelGapPx of the control's. The target is then the
+  // larger of the two boxes on its own, never their bounding union, so the gap itself never counts.
+  function tapTarget(c) {
+    const r = c.getBoundingClientRect();
+    let target = box(r); let via = null;
+    if (c.tagName === 'INPUT' && (c.type === 'checkbox' || c.type === 'radio')) {
+      for (const lab of c.labels || []) {
+        if (!visible(lab)) continue; // a display: contents label has no box of its own
+        const lr = lab.getBoundingClientRect();
+        const apart = Math.max(lr.left - r.right, r.left - lr.right, lr.top - r.bottom, r.top - lr.bottom);
+        if (!lab.contains(c) && apart > TH.labelGapPx) continue;
+        if (minSide(box(lr)) > minSide(target)) { target = box(lr); via = lab; }
+      }
+    }
+    const w = Math.round(target.r - target.l); const h = Math.round(target.b - target.t);
+    const own = `${Math.round(r.width)}×${Math.round(r.height)}px`;
+    const msg = via ? `Tap target is ${own}; its label is a ${w}×${h}px target` : `Tap target is ${w}×${h}px`;
+    return { c, side: minSide(target), w, h, via, msg };
+  }
+  function checkTapTargets() {
+    if (vw > 480) return;
+    const controls = [...scope.querySelectorAll('button, a[href], input, select, textarea, [role="button"], summary')].filter(shown);
+    const small = controls.filter((c) => c.type !== 'hidden' && !isInlineLink(c)).map(tapTarget).filter((t) => t.side < TH.tapPx).map((t) => ({
+      ...t,
+      severity: t.side < TH.tapErrorPx ? 'error' : 'warn',
+      rule: ruleFor('tap-target', t.c),
+      // controls with the same tag, type and classes and the same short side are one finding
+      style: `${t.c.tagName.toLowerCase()}${t.c.tagName === 'INPUT' ? `[type="${t.c.type}"]` : ''}${[...t.c.classList].map((x) => `.${x}`).join('')}`,
+    }));
+    for (const g of groupBy(small, (t) => [t.style, Math.round(t.side), t.severity, t.via ? 1 : 0, rules.indexOf(t.rule)].join('|'))) {
+      const [first] = g; const side = Math.round(first.side);
+      const labelled = first.via ? { effective: { w: first.w, h: first.h }, label: sel(first.via) } : {};
+      const short = first.style.split('.').slice(0, 3).join('.');
+      const many = `${g.length} controls styled ${short} have tap targets ${side}px on the smaller side `
+        + `(the first is ${first.w}×${first.h}px${first.via ? ', label included' : ''})`;
+      emitGroup('tap-target', first.severity, g.map((t) => t.c), first.rule, first.msg, many, side, `>= ${TH.tapPx}px`,
+        { anchor: `tap-target:${first.style}:${side}px`, single: labelled, many: labelled });
+    }
+  }
+
+  // ---- C7 input font size: fields that share a font size below 16px are one finding
+  function checkInputFont() {
+    if (vw > 480) return;
+    const small = fields.map((f) => ({ f, fs: parseFloat(getComputedStyle(f).fontSize) })).filter((x) => x.fs < TH.inputFontPx)
+      .map((x) => ({ ...x, rule: ruleFor('input-font-size', x.f) }));
+    for (const g of groupBy(small, (x) => `${x.fs}|${rules.indexOf(x.rule)}`)) {
+      const { fs, rule } = g[0];
+      emitGroup('input-font-size', 'warn', g.map((x) => x.f), rule, `Field text is ${fs}px; iOS zooms the page on focus below 16px`,
+        `${g.length} fields use ${fs}px text; iOS zooms the page on focus below 16px`, fs, `>= ${TH.inputFontPx}px`, { anchor: `input-font-size:${fs}px` });
+    }
   }
 
   // ---- C8 text size, C9 contrast, C10 type scale
   // Effective background: collect the background layers from the element up to the first opaque one, then
   // alpha-composite them bottom-up (the canvas is white). Unknown under an image or gradient.
-  const bgOf = (el) => {
+  function bgOf(el) {
     const layers = [];
     for (let e = el; e; e = e.parentElement) {
       const cs = getComputedStyle(e);
@@ -218,110 +516,466 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     let c = [255, 255, 255];
     for (const [r, g, b, a] of layers.reverse()) c = [r * a + c[0] * (1 - a), g * a + c[1] * (1 - a), b * a + c[2] * (1 - a)];
     return c;
+  }
+  const lum = ([r, g, b]) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
   };
-  const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
-  const sizes = new Map(); const seenContrast = new Set(); let small = 0; let smallEl = null;
-  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
-  while (walker.nextNode()) {
-    const t = walker.currentNode; const s = t.textContent.trim(); if (s.length < 2) continue;
-    const el = t.parentElement; if (!el || !visible(el)) continue;
-    const cs = getComputedStyle(el); const fsz = parseFloat(cs.fontSize);
-    sizes.set(Math.round(fsz), (sizes.get(Math.round(fsz)) || 0) + 1);
-    if (fsz < TH.textPx) { small++; smallEl = smallEl || el; }
-    const fg = (cs.color.match(/rgba?\(([^)]+)\)/) || [])[1]; const bg = bgOf(el);
-    if (fg && bg) {
+  // The style token of small text is the nearest class that names a size or text role (text-small, caption,
+  // eyebrow, text-[12px]), else the tag.
+  const roleWord = /(^|[-_])(small|smaller|tiny|micro|mini|caption|eyebrow|kicker|overline|meta|hint|helper|help|footnote|fine|legal|label|badge|tag|chip|note)([-_]|$)/i;
+  const sizeish = (c) => roleWord.test(c)
+    || /^(text|font)-(2xs|xs|sm)$/.test(c) || /^(text|font|fs|type)-\[?\d/.test(c) || /^text-\[/.test(c);
+  function styleToken(el) {
+    for (let e = el, i = 0; e && e !== scope.parentElement && i < 4; e = e.parentElement, i++) {
+      const c = [...(e.classList || [])].find(sizeish); if (c) return `.${c}`;
+    }
+    return el.tagName.toLowerCase();
+  }
+  // eyebrow / kicker: a short uppercase letter-spaced label, small on purpose. Upper case means transformed
+  // to upper case, or cased letters with no lower-case ones, so uncased scripts (CJK) never qualify; the
+  // label must be mostly letters, so prices and dates ("$49.99 / 12 MO") do not. Step numbers of up to
+  // three digits ("01") are deliberately counted as labels too.
+  function isEyebrow(s, cs, fsz) {
+    const words = s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+    const tracking = (parseFloat(cs.letterSpacing) || 0) / fsz;
+    if (words.length > TH.eyebrowMaxWords || tracking < TH.eyebrowTrackingEm) return false;
+    const upper = cs.textTransform === 'uppercase' || (/\p{Lu}/u.test(s) && !/\p{Ll}/u.test(s));
+    const mostlyLetters = (s.match(/\p{L}/gu) || []).length > (s.match(/\p{N}/gu) || []).length;
+    return (upper && mostlyLetters) || /^\p{N}{1,3}$/u.test(s);
+  }
+  function checkText() {
+    const sizes = new Map(); const seenContrast = new Set(); const runs = [];
+    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const s = walker.currentNode.textContent.trim(); if (s.length < 2) continue;
+      const el = walker.currentNode.parentElement; if (!el || !visible(el) || isVisuallyHidden(el)) continue;
+      const cs = getComputedStyle(el); const fsz = parseFloat(cs.fontSize);
+      sizes.set(Math.round(fsz), (sizes.get(Math.round(fsz)) || 0) + 1);
+      if (fsz < TH.textPx) runs.push({ el, size: Math.round(fsz), token: styleToken(el), eyebrow: isEyebrow(s, cs, fsz), rule: ruleFor('text-size', el) });
+      const fg = (cs.color.match(/rgba?\(([^)]+)\)/) || [])[1]; const bg = bgOf(el);
+      if (!fg || !bg) continue;
       const c = ratio(fg.split(',').slice(0, 3).map(Number), bg);
       const large = fsz >= 24 || (fsz >= 18.66 && Number(cs.fontWeight) >= 700);
       const need = large ? TH.contrastLarge : TH.contrast;
       const k = sel(el);
-      if (c < need && !seenContrast.has(k)) { seenContrast.add(k); add('contrast', 'error', el, `Text "${s.slice(0, 30)}" has contrast ${c.toFixed(2)}:1`, +c.toFixed(2), `>= ${need}:1`); }
+      if (c >= need || seenContrast.has(k)) continue;
+      seenContrast.add(k);
+      add('contrast', 'error', el, `Text "${s.slice(0, 30)}" has contrast ${c.toFixed(2)}:1`, +c.toFixed(2), `>= ${need}:1`);
     }
+    // Small text is one finding per viewport, broken down into groups by size and style token; eyebrow labels
+    // get their own info finding, and groups an accepted decision covers go to accepted.
+    const groups = groupBy(runs, (x) => [x.size, x.token, x.eyebrow, rules.indexOf(x.rule)].join('|'))
+      .map((g) => ({ ...g[0], count: g.length, els: [...new Set(g.map((x) => x.el))] }))
+      .sort((a, b) => b.count - a.count || b.size - a.size);
+    for (const bucket of groupBy(groups, (g) => `${g.eyebrow}|${rules.indexOf(g.rule)}`)) {
+      const { eyebrow, rule } = bucket[0];
+      const total = bucket.reduce((n, g) => n + g.count, 0);
+      const list = bucket.map((g) => `${g.size}px × ${g.count} (${g.token})`).join(', ');
+      const what = `${total} text run${total === 1 ? '' : 's'}`;
+      const message = eyebrow ? `${what} in short uppercase letter-spaced labels (eyebrow pattern, small by design): ${list}`
+        : `${what} below ${TH.textPx}px: ${list}`;
+      const detail = bucket.map((g) => ({
+        size: g.size, signature: g.token, count: g.count, examples: [...new Set(g.els.map(sel))].slice(0, TH.examples), ...(eyebrow ? { eyebrow: true } : {}),
+      }));
+      add('text-size', eyebrow ? 'info' : 'warn', bucket[0].els[0], message, total, `0 below ${TH.textPx}px`,
+        { rule, anchor: `text-size:${eyebrow ? 'eyebrow' : 'small'}`, count: total, groups: detail });
+    }
+    if (sizes.size <= TH.typeScaleMax) return;
+    const used = [...sizes.keys()].sort((a, b) => a - b).join(', ');
+    add('type-scale', 'info', scope, `${sizes.size} different font sizes in use (${used}px)`, sizes.size, `<= ${TH.typeScaleMax}`);
   }
-  if (small) add('text-size', 'warn', smallEl, `${small} text runs are smaller than ${TH.textPx}px`, small, `0 below ${TH.textPx}px`);
-  if (sizes.size > TH.typeScaleMax) add('type-scale', 'info', scope, `${sizes.size} different font sizes in use (${[...sizes.keys()].sort((a, b) => a - b).join(', ')}px)`, sizes.size, `<= ${TH.typeScaleMax}`);
 
   // ---- C11 horizontal overflow
   // Only visible overflow counts: content clipped by an ancestor (overflow hidden/clip/auto/scroll) that
   // itself fits the viewport does not make the page scroll sideways.
-  const clipped = (e) => { for (let a = e.parentElement; a && a !== document.documentElement; a = a.parentElement) { const ox = getComputedStyle(a).overflowX; if (ox !== 'visible' && a.getBoundingClientRect().right <= vw + 1) return true; } return false; };
-  const over = [...scope.querySelectorAll('*')].filter((e) => visible(e) && e.getBoundingClientRect().right > vw + 1 && getComputedStyle(e).position !== 'fixed' && !clipped(e));
-  const outer = over.filter((e) => !over.some((o) => o !== e && o.contains(e)));
-  // body overflow propagates to the viewport when html's is visible; a clipping viewport cannot scroll sideways
-  const vpOverflow = getComputedStyle(document.documentElement).overflowX !== 'visible' ? getComputedStyle(document.documentElement).overflowX : getComputedStyle(document.body).overflowX;
-  const pageScrolls = !['hidden', 'clip'].includes(vpOverflow) && document.documentElement.scrollWidth > vw + 1;
-  if (pageScrolls || outer.length) add('overflow', 'error', outer[0] || document.body, `Content extends past the ${vw}px viewport`, document.documentElement.scrollWidth, `<= ${vw}px`);
+  function checkOverflow() {
+    const clipped = (e) => {
+      for (let a = e.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+        if (getComputedStyle(a).overflowX !== 'visible' && a.getBoundingClientRect().right <= vw + 1) return true;
+      }
+      return false;
+    };
+    const sticksOut = (e) => visible(e) && e.getBoundingClientRect().right > vw + 1 && getComputedStyle(e).position !== 'fixed' && !clipped(e);
+    const over = [...scope.querySelectorAll('*')].filter(sticksOut);
+    const outer = over.filter((e) => !over.some((o) => o !== e && o.contains(e)));
+    // body overflow propagates to the viewport when html's is visible; a clipping viewport cannot scroll sideways
+    const htmlOx = getComputedStyle(document.documentElement).overflowX;
+    const vpOverflow = htmlOx !== 'visible' ? htmlOx : getComputedStyle(document.body).overflowX;
+    const pageScrolls = !['hidden', 'clip'].includes(vpOverflow) && document.documentElement.scrollWidth > vw + 1;
+    if (!pageScrolls && !outer.length) return;
+    add('overflow', 'error', outer[0] || document.body, `Content extends past the ${vw}px viewport`, document.documentElement.scrollWidth, `<= ${vw}px`);
+  }
 
-  // ---- C12 heading, C13 dead space and distance to the primary action
-  const heads = [...scope.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')].filter(visible);
-  if (!heads.length) add('heading', 'warn', scope, 'No visible heading in the content; the question is not in the heading outline', 0, '>= 1');
-  const primary = (primarySel && document.querySelector(primarySel)) || [...scope.querySelectorAll('button[type="submit"], button, [role="button"]')].filter(visible).sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height)[0];
-  if (primary && fields.length) {
+  // ---- C12 heading
+  const headSel = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+  // Site chrome never introduces a scope: navigation, complementary content, and the page-level header and
+  // footer (banner and content info; a header or footer inside a section or article is not chrome).
+  const chromeSel = 'nav, aside, [role="banner"], [role="navigation"], [role="contentinfo"], [role="complementary"]';
+  function inChrome(h) {
+    if (h.closest(chromeSel)) return true;
+    const hf = h.closest('header, footer');
+    return !!hf && !hf.parentElement.closest('article, aside, main, nav, section');
+  }
+  // the nearest element containing both: main or anything inside it counts, body and html do not
+  function sharesSection(h) {
+    let p = scope.parentElement;
+    while (p && !p.contains(h)) p = p.parentElement;
+    return !!p && !p.matches('body, html');
+  }
+  // A scope narrower than main (a form, a card) is often introduced by a heading just outside it: one that
+  // labels it through aria-labelledby, or the nearest heading before it in the same section, ending within
+  // one screen height above the scope or sitting beside it.
+  function headingOutside() {
+    for (let e = scope; e && e !== document.body; e = e.parentElement) {
+      for (const id of (e.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean)) {
+        const t = document.getElementById(id);
+        const h = t && (t.matches(headSel) ? t : t.querySelector(headSel));
+        if (h && visible(h)) return { h, how: 'labels it through aria-labelledby' };
+      }
+    }
+    if (scope.matches('main, body')) return null;
+    const precedes = (h) => visible(h) && !scope.contains(h) && (h.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const before = [...document.querySelectorAll(headSel)].filter(precedes).filter((h) => !inChrome(h)).pop();
+    if (!before || !sharesSection(before)) return null;
+    const sr = scope.getBoundingClientRect(); const hr = before.getBoundingClientRect();
+    const gap = sr.top - hr.bottom;
+    if (gap > 0) return gap <= vh ? { h: before, how: `sits ${Math.round(gap)}px above it` } : null;
+    // a heading laid out beside the scope overlaps it vertically
+    return hr.top < sr.bottom && hr.bottom > sr.top ? { h: before, how: 'sits beside it' } : null;
+  }
+  function checkHeading() {
+    if ([...scope.querySelectorAll(headSel)].some(visible)) return;
+    const outside = headingOutside();
+    if (outside) {
+      const text = outside.h.textContent.replace(/\s+/g, ' ').trim().slice(0, 40);
+      add('heading', 'info', scope, `Heading is outside the scope: "${text}" ${outside.how}`, 0, '>= 1', { heading: sel(outside.h) });
+    } else add('heading', 'warn', scope, 'No visible heading in the content; the question is not in the heading outline', 0, '>= 1');
+  }
+
+  // ---- C13 dead space and distance to the primary action
+  // What counts as content for dead space is anything a person sees, not a tag list: an element that shows
+  // text of its own (li, span, summary, td, figcaption, a div's text…), a replaced or graphic element, or a
+  // painted box such as a card or chip. A box is an element with a background image, a background colour
+  // that differs from its parent's, a visible border or a shadow, that is smaller than 90% of the scope, so
+  // wrapper sections do not fill the page. Hidden, zero-size and position: fixed elements never count.
+  const replacedTags = new Set(['IMG', 'SVG', 'VIDEO', 'CANVAS', 'IFRAME', 'PICTURE', 'OBJECT', 'EMBED', 'INPUT', 'SELECT', 'TEXTAREA', 'BUTTON']);
+  const fixedUp = new Map();
+  const ownText = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+  const shade = (e) => { const c = e && bgOf(e); return c ? c.map(Math.round).join(',') : 'image'; };
+  function paintsBox(e, cs) {
+    const r = e.getBoundingClientRect(); const sr = scope.getBoundingClientRect();
+    if (r.width * r.height >= 0.9 * sr.width * sr.height) return false;
+    const border = ['Top', 'Right', 'Bottom', 'Left'].some((side) => parseFloat(cs[`border${side}Width`]) > 0
+      && !['none', 'hidden'].includes(cs[`border${side}Style`]) && !/rgba\([^)]*,\s*0\)|transparent/.test(cs[`border${side}Color`]));
+    if (border || cs.boxShadow !== 'none' || cs.backgroundImage !== 'none') return true;
+    const own = (cs.backgroundColor.match(/rgba?\(([^)]+)\)/) || [])[1];
+    const alpha = own ? (own.split(',')[3] === undefined ? 1 : Number(own.split(',')[3])) : 0;
+    return alpha > 0 && shade(e) !== shade(e.parentElement);
+  }
+  function contentBlocks() {
+    return [...scope.querySelectorAll('*')].filter((e) => {
+      if (!shown(e) || upward(fixedUp, (x) => getComputedStyle(x).position === 'fixed', e)) return false;
+      return replacedTags.has(e.tagName.toUpperCase()) || ownText(e) || paintsBox(e, getComputedStyle(e));
+    });
+  }
+  function checkPrimaryAction() {
+    const area = (e) => { const r = e.getBoundingClientRect(); return r.width * r.height; };
+    const primary = (primarySel && document.querySelector(primarySel))
+      || [...scope.querySelectorAll('button[type="submit"], button, [role="button"]')].filter(shown).sort((a, b) => area(b) - area(a))[0];
+    if (!primary || !fields.length) return;
     const lastField = fields.reduce((m, f) => (f.getBoundingClientRect().bottom > m.getBoundingClientRect().bottom ? f : m));
     const pr = primary.getBoundingClientRect(); const lf = lastField.getBoundingClientRect();
     const gap = pr.top - lf.bottom;
-    if (gap > TH.actionGapVh * vh) add('action-distance', 'warn', primary, `The primary action is ${Math.round(gap)}px below the last field`, Math.round(gap), `<= ${Math.round(TH.actionGapVh * vh)}px`);
-    if (pr.bottom > vh && gap > 0 && lf.bottom < vh) add('action-below-fold', 'error', primary, 'The primary action is below the first screen while the fields fit on it', Math.round(pr.bottom), `<= ${vh}px`);
+    if (gap > TH.actionGapVh * vh) {
+      add('action-distance', 'warn', primary, `The primary action is ${Math.round(gap)}px below the last field`, Math.round(gap), `<= ${Math.round(TH.actionGapVh * vh)}px`);
+    }
+    if (pr.bottom > vh && gap > 0 && lf.bottom < vh) {
+      add('action-below-fold', 'error', primary, 'The primary action is below the first screen while the fields fit on it', Math.round(pr.bottom), `<= ${vh}px`);
+    }
     // largest empty band between content blocks above the action
-    const blocks = [...scope.querySelectorAll('h1,h2,h3,p,label,legend,input,select,textarea,button,a,img,svg')].filter(visible).map((e) => e.getBoundingClientRect()).filter((r) => r.bottom <= pr.top + 1).sort((a, b) => a.top - b.top);
+    const blocks = contentBlocks().filter((e) => !e.contains(primary))
+      .map((e) => e.getBoundingClientRect()).filter((r) => r.bottom <= pr.top + 1).sort((a, b) => a.top - b.top);
     let maxGap = 0; let bottom = blocks.length ? blocks[0].bottom : 0;
     for (const r of blocks) { if (r.top - bottom > maxGap) maxGap = r.top - bottom; bottom = Math.max(bottom, r.bottom); }
     if (pr.top - bottom > maxGap) maxGap = pr.top - bottom;
-    if (maxGap > TH.deadSpaceVh * vh) add('dead-space', 'warn', primary, `An empty band of ${Math.round(maxGap)}px sits inside the content above the primary action`, Math.round(maxGap), `<= ${Math.round(TH.deadSpaceVh * vh)}px`);
+    if (maxGap <= TH.deadSpaceVh * vh) return;
+    add('dead-space', 'warn', primary, `An empty band of ${Math.round(maxGap)}px sits inside the content above the primary action`,
+      Math.round(maxGap), `<= ${Math.round(TH.deadSpaceVh * vh)}px`);
   }
 
-  // visible copy, for the compare step's new-copy review
-  const copy = []; const tw = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
-  while (tw.nextNode()) { const t = tw.currentNode.textContent.replace(/\s+/g, ' ').trim(); const el = tw.currentNode.parentElement; if (t && el && visible(el) && !copy.includes(t)) copy.push(t); }
-  for (const el of scope.querySelectorAll('[placeholder], [aria-label]')) for (const a of ['placeholder', 'aria-label']) { const v = (el.getAttribute(a) || '').trim(); if (v && !copy.includes(v)) copy.push(v); }
-  return { viewport: { width: vw, height: vh }, fieldCount: fields.length, rows: rows.map((r) => r.items.map((it) => ({ x: it.x, w: it.w }))), copy, findings };
+  // ---- copy, for the compare step's new-copy review
+  // Everything a person or a screen reader gets, including sr-only and aria-hidden text: a number in hidden
+  // copy is still a claim, so it must reach the invented-number gate.
+  function captureCopy() {
+    const copy = []; const tw = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    while (tw.nextNode()) {
+      const t = tw.currentNode.textContent.replace(/\s+/g, ' ').trim(); const el = tw.currentNode.parentElement;
+      if (t && el && visible(el) && !copy.includes(t)) copy.push(t);
+    }
+    for (const el of scope.querySelectorAll('[placeholder], [aria-label]')) {
+      for (const a of ['placeholder', 'aria-label']) { const v = (el.getAttribute(a) || '').trim(); if (v && !copy.includes(v)) copy.push(v); }
+    }
+    return copy;
+  }
+
+  checkFieldRows();
+  checkFieldFill();
+  checkNamesAndLabels();
+  checkTapTargets();
+  checkInputFont();
+  checkText();
+  checkOverflow();
+  checkHeading();
+  checkPrimaryAction();
+  const copy = captureCopy();
+  const rowSummary = rows.map((r) => r.items.map((it) => ({ x: it.x, w: it.w })));
+  return { viewport: { width: vw, height: vh }, scope: scopeUsed, fieldCount: fields.length, rows: rowSummary, copy, findings, accepted, configErrors, broadRules };
+}
+
+// Hides overlays (cookie banners, chat launchers) with an injected style. Runs inside the page.
+function hideInPage(selectors) {
+  try { document.querySelectorAll(selectors); } catch (e) { return { error: e.message }; }
+  const style = document.createElement('style');
+  style.setAttribute('data-ui-polish-hide', '');
+  style.textContent = `${selectors} { display: none !important; }`;
+  (document.head || document.documentElement).appendChild(style);
+  return { matched: document.querySelectorAll(selectors).length };
+}
+
+// ---------------------------------------------------------------- one target
+// A finding with the same check, severity, element and message on several viewports is reported once, with
+// every viewport in "viewports"; "viewport" stays the first of them for older readers.
+function mergeViewports(list) {
+  const out = []; const seen = new Map();
+  for (const f of list) {
+    const k = JSON.stringify([f.check, f.severity, f.selector, f.message]);
+    const m = seen.get(k);
+    if (m) { if (!m.viewports.includes(f.viewport)) m.viewports.push(f.viewport); continue; }
+    const { viewport, ...rest } = f;
+    const g = { viewport, viewports: [viewport], ...rest }; seen.set(k, g); out.push(g);
+  }
+  return out;
+}
+
+async function measureTarget(browser, target, out, o) {
+  const url = /^https?:\/\//.test(target) ? target : require('url').pathToFileURL(path.resolve(target)).href;
+  fs.mkdirSync(out, { recursive: true });
+  const result = { target, measuredAt: new Date().toISOString(), thresholds: TH, profile: o.profile, viewports: {}, findings: [] };
+  if (o.hide) result.hidden = { selectors: o.hide, matched: 0 };
+  if (o.config.file) result.config = o.config.file;
+  const accepted = []; const configErrors = new Set(); const broad = new Set();
+  for (const v of o.viewports) {
+    const ctx = await browser.newContext({ viewport: VIEWPORTS[v], javaScriptEnabled: o.js, deviceScaleFactor: 1 });
+    try {
+      if (o.offline || o.assetsOnly) {
+        await ctx.route('**/*', (r) => {
+          const q = r.request(); const u = q.url();
+          if (u.startsWith('file:') || u.startsWith('data:')) return r.continue();
+          if (q.isNavigationRequest() && !q.frame().parentFrame()) return r.continue(); // the target page itself, including redirects
+          return o.assetsOnly && ['font', 'stylesheet', 'image'].includes(q.resourceType()) ? r.continue() : r.abort();
+        });
+      }
+      const page = await ctx.newPage();
+      await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+      await page.waitForTimeout(600);
+      if (o.hide) {
+        const h = await page.evaluate(hideInPage, o.hide);
+        if (h.error) throw new UsageError(`--hide "${o.hide}" is not a valid selector list: ${h.error}`);
+        result.hidden.matched = Math.max(result.hidden.matched, h.matched);
+      }
+      const r = await page.evaluate(measureInPage, {
+        scopeSel: o.scope, primarySel: o.primary, TH, skipChecks: PROFILES[o.profile], ignore: o.config.ignore,
+      });
+      await page.screenshot({ path: path.join(out, `${v}.png`) });
+      // The viewport shot shows only the first screen; also capture the whole scope element.
+      const vr = { fieldCount: r.fieldCount, rows: r.rows, scope: r.scope };
+      try {
+        await page.locator(r.scope).first().screenshot({ path: path.join(out, `${v}-scope.png`), timeout: 15000 });
+        vr.scopeScreenshot = `${v}-scope.png`;
+      } catch (e) { vr.scopeScreenshotError = e.message.split('\n')[0]; }
+      result.viewports[v] = vr;
+      result.copy = [...new Set([...(result.copy || []), ...r.copy])];
+      for (const f of r.findings) result.findings.push({ viewport: v, ...f });
+      for (const f of r.accepted) accepted.push({ viewport: v, ...f });
+      r.configErrors.forEach((s) => configErrors.add(s));
+      r.broadRules.forEach((i) => broad.add(i));
+    } finally { await ctx.close(); }
+  }
+  result.findings = mergeViewports(result.findings);
+  if (o.config.ignore.length) result.accepted = mergeViewports(accepted);
+  if (configErrors.size) result.configErrors = [...configErrors];
+  const warnings = configWarnings(o.config.ignore, broad, result.accepted || []);
+  if (warnings.length) result.configWarnings = warnings;
+  if (o.hide && !result.hidden.matched) result.warnings = [`--hide "${o.hide}" matched no elements; overlays were not hidden`];
+  fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
+  return result;
+}
+
+// Accepting is allowed, but an accepted error or a rule that covers the whole scope deserves a second look.
+function configWarnings(rules, broad, accepted) {
+  const name = (r) => [r.check && `check "${r.check}"`, r.selector && `selector "${r.selector}"`].filter(Boolean).join(', ');
+  const out = [...broad].map((i) => `config rule ${name(rules[i])} matches the scope root or body/html, so it accepts every `
+    + `${rules[i].check ? `${rules[i].check} ` : ''}finding on the page`);
+  for (const f of accepted.filter((x) => x.severity === 'error')) {
+    const rule = rules.find((r) => r.check === f.rule.check && r.selector === f.rule.selector);
+    out.push(`config rule ${name(rule || f.rule)} accepts an error: ${f.check} — ${f.message}`);
+  }
+  return [...new Set(out)];
+}
+
+const count = (res, s) => res.findings.filter((f) => f.severity === s).length;
+// Notes about the run itself, printed per target in single- and multi-target mode alike: config selectors
+// that are not valid CSS, warnings (config rules, --hide) and scope screenshots that could not be taken.
+function printNotes(res) {
+  if (res.configErrors) console.log(`Config selectors that are not valid CSS (never matched): ${res.configErrors.map(safe).join(', ')}`);
+  for (const w of [...(res.configWarnings || []), ...(res.warnings || [])]) console.log(`Warning: ${safe(w)}`);
+  for (const [v, vr] of Object.entries(res.viewports)) {
+    if (vr.scopeScreenshotError) console.log(`  (no ${v}-scope.png: ${safe(vr.scopeScreenshotError)})`);
+  }
+}
+function printResult(res, out) {
+  const acc = res.accepted || [];
+  const totals = `${count(res, 'error')} errors · ${count(res, 'warn')} warnings · ${count(res, 'info')} info${acc.length ? ` · ${acc.length} accepted` : ''}`;
+  console.log(`${res.target}\n${totals}  →  ${path.join(out, 'measure.json')}`);
+  const vps = (f) => (f.viewports || [f.viewport]).join('+');
+  for (const f of res.findings) {
+    const where = f.selector ? `  (${safe(f.selector)})` : '';
+    const also = f.examples && f.examples.length > 1 ? `  also ${f.examples.slice(1).map(safe).join(', ')}` : '';
+    console.log(`  [${f.severity}] ${vps(f)} ${f.check}: ${safe(f.message)}${where}${also}`);
+  }
+  if (acc.length) {
+    console.log('Accepted (project config):');
+    for (const f of acc) console.log(`  [${f.severity}] ${vps(f)} ${f.check}: ${safe(f.message)} — ${safe(f.reason)}`);
+  }
+  printNotes(res);
+}
+
+// ---------------------------------------------------------------- several targets: slugs and roll-up
+function slugFor(target, taken) {
+  let s;
+  if (/^https?:\/\//.test(target)) {
+    const u = new URL(target);
+    s = (u.pathname + u.search).replace(/^\/+|\/+$/g, '') || 'index';
+  } else s = path.basename(target).replace(/\.[^.]+$/, '');
+  s = s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|-+$/g, '').slice(0, 80) || 'page';
+  let slug = s; for (let i = 2; taken.has(slug); i++) slug = `${s}-${i}`;
+  taken.add(slug);
+  return slug;
+}
+// The same finding on several pages: same check, same element shape (indexes dropped), same message with
+// numbers and quoted text blanked.
+const signature = (f) => (f.count > 1 && f.anchor ? f.anchor : (f.selector || '').replace(/:nth-of-type\(\d+\)/g, ''));
+const template = (m) => String(m).replace(/"[^"]*"/g, '"…"').replace(/\d+(\.\d+)?/g, 'N');
+const RANK = { error: 3, warn: 2, info: 1 };
+function rollUp(runs) {
+  const merged = new Map();
+  for (const run of runs) {
+    for (const f of run.result ? run.result.findings : []) {
+      // small text merges per style group, so one token used on every page is one line
+      const parts = f.check === 'text-size' && f.groups
+        ? f.groups.map((g) => ({
+          sig: `${g.size}px ${g.signature}${g.eyebrow ? ' eyebrow' : ''}`,
+          message: `${g.size}px × ${g.count} text run${g.count === 1 ? '' : 's'} (${g.signature})${g.eyebrow ? ' in eyebrow labels' : ` below ${TH.textPx}px`}`,
+        }))
+        : [{ sig: signature(f), message: f.message }];
+      for (const part of parts) {
+        const k = `${f.check}|${part.sig}|${template(part.message)}`;
+        const m = merged.get(k) || {
+          check: f.check, severity: f.severity, signature: part.sig, template: template(part.message), example: part.message, pages: [], viewports: [], count: 0,
+        };
+        if (RANK[f.severity] > RANK[m.severity]) m.severity = f.severity;
+        if (!m.pages.includes(run.slug)) m.pages.push(run.slug);
+        for (const v of f.viewports || [f.viewport]) if (!m.viewports.includes(v)) m.viewports.push(v);
+        m.count++;
+        merged.set(k, m);
+      }
+    }
+  }
+  return [...merged.values()].sort((a, b) => RANK[b.severity] - RANK[a.severity] || b.pages.length - a.pages.length || b.count - a.count);
+}
+
+async function run(browser, targets, out, o) {
+  if (targets.length === 1) {
+    const res = await measureTarget(browser, targets[0], out, o);
+    printResult(res, out);
+    return count(res, 'error') ? 1 : 0;
+  }
+  const taken = new Set(); const runs = [];
+  for (const t of targets) {
+    const slug = slugFor(t, taken); const dir = path.join(out, slug);
+    try { runs.push({ target: t, slug, result: await measureTarget(browser, t, dir, o) }); } catch (e) {
+      if (e instanceof UsageError) throw e;
+      runs.push({ target: t, slug, error: e.message.split('\n')[0] });
+    }
+  }
+  const merged = rollUp(runs);
+  const summary = {
+    measuredAt: new Date().toISOString(), profile: o.profile,
+    targets: runs.map((r) => ({
+      target: r.target, slug: r.slug, measure: r.result ? `${r.slug}/measure.json` : null, error: r.error,
+      counts: r.result ? {
+        error: count(r.result, 'error'), warn: count(r.result, 'warn'), info: count(r.result, 'info'), accepted: (r.result.accepted || []).length,
+      } : null,
+    })),
+    merged,
+  };
+  fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2));
+  for (const [i, r] of summary.targets.entries()) {
+    if (r.error) { console.log(`${r.target}\n  run failed: ${safe(r.error)}`); continue; }
+    const c = r.counts;
+    console.log(`${r.target}\n  ${c.error} errors · ${c.warn} warnings · ${c.info} info${c.accepted ? ` · ${c.accepted} accepted` : ''}  →  ${path.join(out, r.measure)}`);
+    printNotes(runs[i].result);
+  }
+  console.log(`\nAcross ${runs.length} targets: ${merged.length} distinct findings  →  ${path.join(out, 'summary.json')}`);
+  for (const m of merged) {
+    const pages = `${m.pages.length} page${m.pages.length === 1 ? '' : 's'}: ${m.pages.map(safe).join(', ')}`;
+    console.log(`  [${m.severity}] ${m.check}: ${safe(m.example)}${m.signature ? `  (${safe(m.signature)})` : ''} — ${pages}`);
+  }
+  // a target that failed to load (3) outranks an error finding on another target (1)
+  if (runs.some((r) => r.error)) return 3;
+  return runs.some((r) => count(r.result, 'error')) ? 1 : 0;
 }
 
 // ---------------------------------------------------------------- main
 (async () => {
   const args = process.argv.slice(2);
   if (args[0] === '--compare') { if (args.length < 3) usage('Missing files to compare'); return compare(args[1], args[2]); }
-  const target = args.find((a, i) => !a.startsWith('--') && !['--out', '--scope', '--viewports', '--primary'].includes(args[i - 1]));
-  if (!target) usage('Missing <file-or-url>');
+  const targets = [];
+  for (let i = 0; i < args.length; i++) {
+    if (VALUE_FLAGS.includes(args[i])) { i++; continue; }
+    if (BOOL_FLAGS.includes(args[i])) continue;
+    if (args[i].startsWith('--')) {
+      const near = [...VALUE_FLAGS, ...BOOL_FLAGS].find((f) => f.startsWith(args[i]) || args[i].startsWith(f));
+      fail(`Unknown option ${args[i]}${near ? ` (did you mean ${near}?)` : ''}. Options: ${[...VALUE_FLAGS, ...BOOL_FLAGS].join(' ')}`);
+    }
+    targets.push(args[i]);
+  }
+  if (!targets.length) usage('Missing <file-or-url>');
   const opt = (n, d) => {
     const i = args.indexOf(`--${n}`); if (i < 0) return d;
     const v = args[i + 1]; if (v === undefined || v.startsWith('--')) usage(`--${n} needs a value`);
     return v;
   };
   const out = path.resolve(opt('out', 'ui-polish-out'));
-  const wanted = opt('viewports', 'phone,desktop').split(',').map((v) => v.trim()).filter(Boolean);
-  for (const v of wanted) if (!VIEWPORTS[v]) usage(`Unknown viewport "${v}" (use phone, desktop)`);
-  const url = /^https?:\/\//.test(target) ? target : require('url').pathToFileURL(path.resolve(target)).href;
+  const viewports = opt('viewports', 'phone,desktop').split(',').map((v) => v.trim()).filter(Boolean);
+  for (const v of viewports) if (!VIEWPORTS[v]) usage(`Unknown viewport "${v}" (use phone, desktop)`);
+  const profile = opt('profile', 'form');
+  if (!PROFILES[profile]) usage(`Unknown profile "${profile}" (use ${Object.keys(PROFILES).join(', ')})`);
+  const hide = (opt('hide', '') || '').trim() || null;
+  const o = {
+    scope: opt('scope', null), primary: opt('primary', null), js: args.includes('--js'),
+    offline: args.includes('--offline'), assetsOnly: args.includes('--assets-only'),
+    hide, profile, viewports, config: loadConfig(opt('config', null)),
+  };
   const { chromium } = loadPlaywright();
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch();
-  const result = { target, measuredAt: new Date().toISOString(), thresholds: TH, viewports: {}, findings: [] };
-  try {
-    for (const v of wanted) {
-      const ctx = await browser.newContext({ viewport: VIEWPORTS[v], javaScriptEnabled: args.includes('--js'), deviceScaleFactor: 1 });
-      if (args.includes('--offline') || args.includes('--assets-only')) {
-        const assets = args.includes('--assets-only');
-        await ctx.route('**/*', (r) => {
-          const q = r.request(); const u = q.url();
-          if (u.startsWith('file:') || u.startsWith('data:')) return r.continue();
-          if (q.isNavigationRequest() && !q.frame().parentFrame()) return r.continue(); // the target page itself, including redirects
-          return assets && ['font', 'stylesheet', 'image'].includes(q.resourceType()) ? r.continue() : r.abort();
-        });
-      }
-      const page = await ctx.newPage();
-      await page.goto(url, { waitUntil: 'load', timeout: 30000 });
-      await page.waitForTimeout(600);
-      const r = await page.evaluate(measureInPage, { scopeSel: opt('scope', null), primarySel: opt('primary', null), TH });
-      await page.screenshot({ path: path.join(out, `${v}.png`) });
-      result.viewports[v] = { fieldCount: r.fieldCount, rows: r.rows };
-      result.copy = [...new Set([...(result.copy || []), ...r.copy])];
-      for (const f of r.findings) result.findings.push({ viewport: v, ...f });
-      await ctx.close();
-    }
-  } finally { await browser.close(); }
-  fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
-  const count = (s) => result.findings.filter((f) => f.severity === s).length;
-  console.log(`${target}\n${count('error')} errors · ${count('warn')} warnings · ${count('info')} info  →  ${path.join(out, 'measure.json')}`);
-  for (const f of result.findings) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}`);
-  process.exit(count('error') ? 1 : 0);
-})().catch((e) => { console.error('measure failed:', e.message); process.exit(3); });
+  let code;
+  try { code = await run(browser, targets, out, o); } finally { await browser.close(); }
+  process.exit(code);
+})().catch((e) => {
+  if (e instanceof UsageError) { console.error(e.message); process.exit(2); }
+  console.error('measure failed:', e.message); process.exit(3);
+});
