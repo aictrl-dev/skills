@@ -193,6 +193,19 @@ test('ui-polish: a 13px paragraph of body text is a text-size warning', { skip }
   assert.match(f.message, /^1 text run below 14px: 13px × 1 \(\.body-small\)/);
 });
 
+test('ui-polish: tracked small text in an uncased script, or a price line, is not an eyebrow', { skip }, () => {
+  const r = measure('controls-small-labels.html', ['--viewports', 'phone']);
+  const [f] = loud(r.report, 'text-size');
+  assert.ok(f, detail(r.report.findings));
+  assert.equal(f.count, 2, 'both the CJK paragraph and the price line are small-text warnings');
+  assert.ok(!r.report.findings.some((x) => x.check === 'text-size' && x.severity === 'info'), detail(r.report.findings));
+});
+
+test('ui-polish: a site-header heading does not introduce a scoped form', { skip }, () => {
+  const r = measure('controls-site-header.html', ['--viewports', 'phone', '--scope', '#signup']);
+  assert.deepEqual(r.report.findings.filter((f) => f.check === 'heading').map((f) => f.severity), ['warn']);
+});
+
 test('ui-polish: a scoped form with no heading nearby still warns', { skip }, () => {
   for (const scope of ['#bare', '#far']) {
     const r = measure('controls-missing-heading.html', ['--viewports', 'phone', '--scope', scope]);

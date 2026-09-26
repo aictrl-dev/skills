@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Positive control: small tracked text that is not an eyebrow</title>
+<!-- Must still warn: letter-spaced 12px text in an uncased script (no upper case), and a short
+     upper-case price line that is mostly digits. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+.cjk { font-size: 12px; letter-spacing: 0.05em; }
+.price { font-size: 12px; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>お知らせ</h1>
+  <p class="cjk">この文章は小さな文字で書かれた本文です。読みにくいので警告されるべきです。</p>
+  <p class="price">$49.99 / 12 MO</p>
+</main>
+</body>
+</html>

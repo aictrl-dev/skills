@@ -467,12 +467,17 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
     }
     return el.tagName.toLowerCase();
   }
-  // eyebrow / kicker: a short uppercase letter-spaced label, small on purpose
+  // eyebrow / kicker: a short uppercase letter-spaced label, small on purpose. Upper case means transformed
+  // to upper case, or cased letters with no lower-case ones, so uncased scripts (CJK) never qualify; the
+  // label must be mostly letters, so prices and dates ("$49.99 / 12 MO") do not. Step numbers of up to
+  // three digits ("01") are deliberately counted as labels too.
   function isEyebrow(s, cs, fsz) {
     const words = s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
     const tracking = (parseFloat(cs.letterSpacing) || 0) / fsz;
-    const upper = cs.textTransform === 'uppercase' || s === s.toUpperCase(); // no lower-case letters on screen
-    return words.length <= TH.eyebrowMaxWords && upper && tracking >= TH.eyebrowTrackingEm;
+    if (words.length > TH.eyebrowMaxWords || tracking < TH.eyebrowTrackingEm) return false;
+    const upper = cs.textTransform === 'uppercase' || (/\p{Lu}/u.test(s) && !/\p{Ll}/u.test(s));
+    const mostlyLetters = (s.match(/\p{L}/gu) || []).length > (s.match(/\p{N}/gu) || []).length;
+    return (upper && mostlyLetters) || /^\p{N}{1,3}$/u.test(s);
   }
   function checkText() {
     const sizes = new Map(); const seenContrast = new Set(); const runs = [];
@@ -539,8 +544,23 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
 
   // ---- C12 heading
   const headSel = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+  // Site chrome never introduces a scope: navigation, complementary content, and the page-level header and
+  // footer (banner and content info; a header or footer inside a section or article is not chrome).
+  const chromeSel = 'nav, aside, [role="banner"], [role="navigation"], [role="contentinfo"], [role="complementary"]';
+  function inChrome(h) {
+    if (h.closest(chromeSel)) return true;
+    const hf = h.closest('header, footer');
+    return !!hf && !hf.parentElement.closest('article, aside, main, nav, section');
+  }
+  // the nearest element containing both, which must sit below main and body
+  function sharesSection(h) {
+    let p = scope.parentElement;
+    while (p && !p.contains(h)) p = p.parentElement;
+    return !!p && !p.matches('main, body, html');
+  }
   // A scope narrower than main (a form, a card) is often introduced by a heading just outside it: one that
-  // labels it through aria-labelledby, or the nearest heading before it within one screen height.
+  // labels it through aria-labelledby, or the nearest heading before it in the same section, ending within
+  // one screen height above the scope or sitting beside it.
   function headingOutside() {
     for (let e = scope; e && e !== document.body; e = e.parentElement) {
       for (const id of (e.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean)) {
@@ -551,11 +571,13 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
     }
     if (scope.matches('main, body')) return null;
     const precedes = (h) => visible(h) && !scope.contains(h) && (h.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING);
-    const before = [...document.querySelectorAll(headSel)].filter(precedes).pop();
-    if (!before) return null;
-    const gap = scope.getBoundingClientRect().top - before.getBoundingClientRect().bottom;
-    if (gap > vh) return null;
-    return { h: before, how: gap > 0 ? `sits ${Math.round(gap)}px above it` : 'sits beside it' };
+    const before = [...document.querySelectorAll(headSel)].filter(precedes).filter((h) => !inChrome(h)).pop();
+    if (!before || !sharesSection(before)) return null;
+    const sr = scope.getBoundingClientRect(); const hr = before.getBoundingClientRect();
+    const gap = sr.top - hr.bottom;
+    if (gap > 0) return gap <= vh ? { h: before, how: `sits ${Math.round(gap)}px above it` } : null;
+    // a heading laid out beside the scope overlaps it vertically
+    return hr.top < sr.bottom && hr.bottom > sr.top ? { h: before, how: 'sits beside it' } : null;
   }
   function checkHeading() {
     if ([...scope.querySelectorAll(headSel)].some(visible)) return;
