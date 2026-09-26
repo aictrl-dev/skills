@@ -24,6 +24,9 @@
  * Writes <out>/measure.json (all findings), <out>/<viewport>.png (the first screen) and
  * <out>/<viewport>-scope.png (the whole scope element), and prints a summary. With several targets each
  * goes to <out>/<slug>/, and <out>/summary.json merges the same finding across pages.
+ * Elements that share a cause are one finding with a count, example selectors and every member: fields with
+ * the same small font size, controls with the same style and tap size, and small text (one finding per
+ * viewport, broken down into style groups; eyebrow labels in their own info finding).
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
  * run itself fails (missing browser, navigation error or timeout).
  *
@@ -92,34 +95,48 @@ function loadConfig(explicit) {
 }
 
 // ---------------------------------------------------------------- compare mode
+// A finding stands for one or more (viewport, element) pairs. Both files are expanded to those pairs, so a
+// group of fields matches the separate findings of an older file.
+// Small text is one finding per viewport in every version, keyed by viewport and kind.
+function expand(findings) {
+  const out = [];
+  for (const f of findings || []) {
+    for (const v of [f.viewport]) {
+      if (f.check === 'text-size') { out.push({ k: `${v}|text-size|${f.severity === 'info' ? 'eyebrow' : 'small'}`, f, v }); continue; }
+      for (const m of f.members || [f]) out.push({ k: `${v}|${f.check}|${m.anchor || m.selector}`, f, v });
+    }
+  }
+  return out;
+}
 function compare(beforeFile, afterFile) {
   const a = JSON.parse(fs.readFileSync(beforeFile, 'utf8'));
   const b = JSON.parse(fs.readFileSync(afterFile, 'utf8'));
   // Key on a stable anchor (id, name, aria-label, placeholder) when the element has one, so inserting a
   // sibling during a fix does not shift nth-of-type indexes and turn an unchanged finding into a "new" one.
-  const key = (f) => `${f.viewport}|${f.check}|${f.anchor || f.selector}`;
-  const before = new Map(a.findings.map((f) => [key(f), f]));
-  const after = new Map(b.findings.map((f) => [key(f), f]));
+  const byKey = (list) => new Map(expand(list).map((e) => [e.k, e]));
+  const before = byKey(a.findings); const after = byKey(b.findings);
   // Findings the project config accepted are neither fixed nor remaining; list them on their own.
-  const acceptedAfter = new Map((b.accepted || []).map((f) => [key(f), f]));
-  const fixed = [...before.keys()].filter((k) => !after.has(k) && !acceptedAfter.has(k)).map((k) => before.get(k));
-  const remaining = [...after.keys()].filter((k) => before.has(k)).map((k) => after.get(k));
-  const added = [...after.keys()].filter((k) => !before.has(k)).map((k) => after.get(k));
-  const accepted = [...acceptedAfter.values()];
+  const acceptedAfter = byKey(b.accepted);
+  // one line per finding and viewport, however many elements it groups
+  const once = (list) => { const seen = new Set(); return list.filter((e) => { const id = `${e.v}\u0000${e.f.check}\u0000${e.f.selector}\u0000${e.f.message}`; if (seen.has(id)) return false; seen.add(id); return true; }); };
+  const fixed = once([...before.values()].filter((e) => !after.has(e.k) && !acceptedAfter.has(e.k)));
+  const remaining = once([...after.values()].filter((e) => before.has(e.k)));
+  const added = once([...after.values()].filter((e) => !before.has(e.k)));
+  const accepted = once([...acceptedAfter.values()]);
   // New copy: anything visible after that was not visible before. A digit outside [brackets] is a number
   // the original screen never stated, which the skill forbids unless it is a placeholder for the owner.
   const oldCopy = new Set(a.copy || []);
   const newCopy = (b.copy || []).filter((t) => !oldCopy.has(t));
   const unbracketed = newCopy.filter((t) => /\d/.test(t.replace(/\[[^\]]*\]/g, '')));
-  const line = (f) => `  [${f.severity}] ${f.viewport} ${f.check} — ${safe(f.message)}`;
+  const line = (e) => `  [${e.f.severity}] ${e.v} ${e.f.check} — ${safe(e.f.message)}`;
   console.log(`Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}${accepted.length ? ` · accepted ${accepted.length}` : ''}`);
   if (fixed.length) console.log('Fixed:\n' + fixed.map(line).join('\n'));
   if (remaining.length) console.log('Remaining:\n' + remaining.map(line).join('\n'));
   if (added.length) console.log('New (regressions):\n' + added.map(line).join('\n'));
-  if (accepted.length) console.log('Accepted (project config):\n' + accepted.map((f) => `${line(f)} — ${safe(f.reason)}`).join('\n'));
+  if (accepted.length) console.log('Accepted (project config):\n' + accepted.map((e) => `${line(e)} — ${safe(e.f.reason)}`).join('\n'));
   if (newCopy.length) console.log('New copy for the owner to review:\n' + newCopy.map((t) => `  "${safe(t)}"`).join('\n'));
   if (unbracketed.length) console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${safe(t)}"`).join('\n'));
-  process.exit(unbracketed.length || added.some((f) => f.severity === 'error') || remaining.some((f) => f.severity === 'error') ? 1 : 0);
+  process.exit(unbracketed.length || added.some((e) => e.f.severity === 'error') || remaining.some((e) => e.f.severity === 'error') ? 1 : 0);
 }
 
 // ---------------------------------------------------------------- in-page measurement
@@ -200,6 +217,9 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
     return hidden;
   };
   const shown = (el) => visible(el) && !isVisuallyHidden(el);
+  // Several elements with one cause (same style, same measurement) are one finding: a count, up to
+  // TH.examples example selectors, and every member so nothing is lost.
+  const members = (els) => ({ count: els.length, examples: els.slice(0, TH.examples).map(sel), members: els.map((e) => ({ selector: sel(e), anchor: anchor(e) })) });
   const rect = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height), r: Math.round(r.right), b: Math.round(r.bottom + scrollY) }; };
   const textInputSel = 'input:not([type]), input[type="text"], input[type="number"], input[type="email"], input[type="tel"], input[type="search"], input[type="password"], input[type="url"], input[type="date"], select, textarea';
   const fields = [...scope.querySelectorAll(textInputSel)].filter(shown);
@@ -283,6 +303,7 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   const box = (r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
   const union = (a, b) => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
   const controls = [...scope.querySelectorAll('button, a[href], input, select, textarea, [role="button"], summary')].filter(shown);
+  const tapGroups = new Map();
   for (const c of controls) {
     if (c.type === 'hidden') continue;
     const r = c.getBoundingClientRect();
@@ -302,12 +323,35 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
       }
     }
     const side = minSide(target); const w = Math.round(target.r - target.l); const h = Math.round(target.b - target.t);
+    if (side >= TH.tapPx || vw > 480) continue;
     const msg = via ? `Tap target is ${Math.round(r.width)}×${Math.round(r.height)}px; its label extends it to ${w}×${h}px` : `Tap target is ${w}×${h}px`;
-    if (side < TH.tapPx && vw <= 480) add('tap-target', side < TH.tapErrorPx ? 'error' : 'warn', c, msg, Math.round(side), `>= ${TH.tapPx}px`, via ? { effective: { w, h }, label: sel(via) } : {});
+    // controls with the same tag, type and classes and the same short side are one finding
+    const style = `${c.tagName.toLowerCase()}${c.tagName === 'INPUT' ? `[type="${c.type}"]` : ''}${[...c.classList].map((x) => `.${x}`).join('')}`;
+    const severity = side < TH.tapErrorPx ? 'error' : 'warn'; const rule = ruleFor('tap-target', c);
+    const k = [style, Math.round(side), severity, via ? 1 : 0, rules.indexOf(rule)].join('|');
+    const g = tapGroups.get(k) || { style, severity, rule, side: Math.round(side), items: [] };
+    g.items.push({ c, msg, w, h, via }); tapGroups.set(k, g);
   }
-  if (vw <= 480) for (const f of fields) {
-    const fs = parseFloat(getComputedStyle(f).fontSize);
-    if (fs < TH.inputFontPx) add('input-font-size', 'warn', f, `Field text is ${fs}px; iOS zooms the page on focus below 16px`, fs, `>= ${TH.inputFontPx}px`);
+  for (const g of tapGroups.values()) {
+    const [first] = g.items;
+    const extra = first.via ? { effective: { w: first.w, h: first.h }, label: sel(first.via) } : {};
+    if (g.items.length === 1) { add('tap-target', g.severity, first.c, first.msg, g.side, `>= ${TH.tapPx}px`, { rule: g.rule, ...extra }); continue; }
+    const short = g.style.split('.').slice(0, 3).join('.');
+    add('tap-target', g.severity, first.c, `${g.items.length} controls styled ${short} have tap targets ${g.side}px on the smaller side (the first is ${first.w}×${first.h}px${first.via ? ', label included' : ''})`, g.side, `>= ${TH.tapPx}px`, { rule: g.rule, anchor: `tap-target:${g.style}:${g.side}px`, ...extra, ...members(g.items.map((i) => i.c)) });
+  }
+  // fields that share a font size below 16px are one finding
+  if (vw <= 480) {
+    const bySize = new Map();
+    for (const f of fields) {
+      const fs = parseFloat(getComputedStyle(f).fontSize);
+      if (fs >= TH.inputFontPx) continue;
+      const rule = ruleFor('input-font-size', f); const k = `${fs}|${rules.indexOf(rule)}`;
+      const g = bySize.get(k) || { fs, rule, els: [] }; g.els.push(f); bySize.set(k, g);
+    }
+    for (const g of bySize.values()) {
+      if (g.els.length === 1) add('input-font-size', 'warn', g.els[0], `Field text is ${g.fs}px; iOS zooms the page on focus below 16px`, g.fs, `>= ${TH.inputFontPx}px`, { rule: g.rule });
+      else add('input-font-size', 'warn', g.els[0], `${g.els.length} fields use ${g.fs}px text; iOS zooms the page on focus below 16px`, g.fs, `>= ${TH.inputFontPx}px`, { rule: g.rule, anchor: `input-font-size:${g.fs}px`, ...members(g.els) });
+    }
   }
 
   // ---- C8 text size, C9 contrast, C10 type scale
@@ -330,8 +374,9 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   };
   const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
-  // Small text is grouped by size and style token, so one design token gives one finding. The token is the
+  // Small text is one finding per viewport, broken down into groups by size and style token. The token is the
   // nearest class that names a size or text role (text-small, caption, eyebrow, text-[12px]), else the tag.
+  // Eyebrow labels get their own info finding; groups an accepted decision covers go to accepted.
   const sizeish = (c) => /(^|[-_])(small|smaller|tiny|micro|mini|caption|eyebrow|kicker|overline|meta|hint|helper|help|footnote|fine|legal|label|badge|tag|chip|note)([-_]|$)/i.test(c) || /^(text|font)-(2xs|xs|sm)$/.test(c) || /^(text|font|fs|type)-\[?\d/.test(c) || /^text-\[/.test(c);
   const styleToken = (el) => {
     for (let e = el, i = 0; e && e !== scope.parentElement && i < 4; e = e.parentElement, i++) {
@@ -368,12 +413,18 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
       if (c < need && !seenContrast.has(k)) { seenContrast.add(k); add('contrast', 'error', el, `Text "${s.slice(0, 30)}" has contrast ${c.toFixed(2)}:1`, +c.toFixed(2), `>= ${need}:1`); }
     }
   }
-  for (const g of [...smallGroups.values()].sort((a, b) => b.count - a.count)) {
-    const label = g.token;
-    const examples = [...new Set(g.els.map(sel))].slice(0, TH.examples);
-    const runs = `${g.size}px × ${g.count} text run${g.count === 1 ? '' : 's'} (${label})`;
-    const message = g.eyebrow ? `${runs}: short uppercase letter-spaced labels (eyebrow pattern), small by design` : `${runs} smaller than ${TH.textPx}px`;
-    add('text-size', g.eyebrow ? 'info' : 'warn', g.els[0], message, g.count, `0 below ${TH.textPx}px`, { rule: g.rule, anchor: `text-size:${g.size}px:${label}${g.eyebrow ? ':eyebrow' : ''}`, group: label, fontSize: g.size, count: g.count, examples });
+  const buckets = new Map();
+  for (const g of [...smallGroups.values()].sort((a, b) => b.count - a.count || b.size - a.size)) {
+    const k = `${g.eyebrow}|${rules.indexOf(g.rule)}`;
+    const b = buckets.get(k) || { eyebrow: g.eyebrow, rule: g.rule, groups: [] }; b.groups.push(g); buckets.set(k, b);
+  }
+  for (const b of buckets.values()) {
+    const total = b.groups.reduce((n, g) => n + g.count, 0);
+    const list = b.groups.map((g) => `${g.size}px × ${g.count} (${g.token})`).join(', ');
+    const runs = `${total} text run${total === 1 ? '' : 's'}`;
+    const message = b.eyebrow ? `${runs} in short uppercase letter-spaced labels (eyebrow pattern, small by design): ${list}` : `${runs} below ${TH.textPx}px: ${list}`;
+    const groups = b.groups.map((g) => ({ size: g.size, signature: g.token, count: g.count, examples: [...new Set(g.els.map(sel))].slice(0, TH.examples), ...(g.eyebrow ? { eyebrow: true } : {}) }));
+    add('text-size', b.eyebrow ? 'info' : 'warn', b.groups[0].els[0], message, total, `0 below ${TH.textPx}px`, { rule: b.rule, anchor: `text-size:${b.eyebrow ? 'eyebrow' : 'small'}`, count: total, groups });
   }
   if (sizes.size > TH.typeScaleMax) add('type-scale', 'info', scope, `${sizes.size} different font sizes in use (${[...sizes.keys()].sort((a, b) => a - b).join(', ')}px)`, sizes.size, `<= ${TH.typeScaleMax}`);
 
@@ -519,20 +570,26 @@ function slugFor(target, taken) {
 }
 // The same finding on several pages: same check, same element shape (indexes dropped), same message with
 // numbers and quoted text blanked.
-const signature = (f) => (f.group ? `${f.fontSize}px ${f.group}` : (f.selector || '').replace(/:nth-of-type\(\d+\)/g, ''));
+const signature = (f) => (f.count > 1 && f.anchor ? f.anchor : (f.selector || '').replace(/:nth-of-type\(\d+\)/g, ''));
 const template = (m) => String(m).replace(/"[^"]*"/g, '"…"').replace(/\d+(\.\d+)?/g, 'N');
 const RANK = { error: 3, warn: 2, info: 1 };
 function rollUp(runs) {
   const merged = new Map();
   for (const run of runs) {
     for (const f of run.result ? run.result.findings : []) {
-      const k = `${f.check}|${signature(f)}|${template(f.message)}`;
-      const m = merged.get(k) || { check: f.check, severity: f.severity, signature: signature(f), template: template(f.message), example: f.message, pages: [], viewports: [], count: 0 };
-      if (RANK[f.severity] > RANK[m.severity]) m.severity = f.severity;
-      if (!m.pages.includes(run.slug)) m.pages.push(run.slug);
-      if (!m.viewports.includes(f.viewport)) m.viewports.push(f.viewport);
-      m.count++;
-      merged.set(k, m);
+      // small text merges per style group, so one token used on every page is one line
+      const parts = f.check === 'text-size' && f.groups
+        ? f.groups.map((g) => ({ sig: `${g.size}px ${g.signature}${g.eyebrow ? ' eyebrow' : ''}`, message: `${g.size}px × ${g.count} text run${g.count === 1 ? '' : 's'} (${g.signature})${g.eyebrow ? ' in eyebrow labels' : ` below ${TH.textPx}px`}` }))
+        : [{ sig: signature(f), message: f.message }];
+      for (const part of parts) {
+        const k = `${f.check}|${part.sig}|${template(part.message)}`;
+        const m = merged.get(k) || { check: f.check, severity: f.severity, signature: part.sig, template: template(part.message), example: part.message, pages: [], viewports: [], count: 0 };
+        if (RANK[f.severity] > RANK[m.severity]) m.severity = f.severity;
+        if (!m.pages.includes(run.slug)) m.pages.push(run.slug);
+        if (!m.viewports.includes(f.viewport)) m.viewports.push(f.viewport);
+        m.count++;
+        merged.set(k, m);
+      }
     }
   }
   return [...merged.values()].sort((a, b) => RANK[b.severity] - RANK[a.severity] || b.pages.length - a.pages.length || b.count - a.count);
