@@ -70,7 +70,9 @@ test('ui-polish: short uppercase letter-spaced labels are reported as info, not 
   assert.equal(r.status, 0, r.stderr);
   assertQuiet(r.report, ['text-size']);
   const info = r.report.findings.filter((f) => f.check === 'text-size' && f.severity === 'info');
-  assert.ok(info.some((f) => /eyebrow/.test(f.message) && f.group === '.eyebrow' && f.count === 2), detail(info));
+  assert.equal(info.length, 1, detail(info));
+  assert.match(info[0].message, /eyebrow/);
+  assert.ok(info[0].groups.some((g) => g.signature === '.eyebrow' && g.count === 2 && g.eyebrow === true), JSON.stringify(info[0].groups));
 });
 
 test('ui-polish: a heading just above a scoped form, or labelling it, is info', { skip }, () => {
@@ -152,8 +154,8 @@ test('ui-polish: a 13px paragraph of body text is a text-size warning', { skip }
   const [f] = loud(r.report, 'text-size');
   assert.ok(f, detail(r.report.findings));
   assert.equal(f.severity, 'warn');
-  assert.equal(f.fontSize, 13);
-  assert.match(f.message, /^13px × 1 text run \(\.body-small\)/);
+  assert.deepEqual(f.groups.map(({ size, signature, count }) => ({ size, signature, count })), [{ size: 13, signature: '.body-small', count: 1 }]);
+  assert.match(f.message, /^1 text run below 14px: 13px × 1 \(\.body-small\)/);
 });
 
 test('ui-polish: a scoped form with no heading nearby still warns', { skip }, () => {
@@ -192,5 +194,62 @@ test('ui-polish: --compare still reads measure.json files from before grouping',
   writeFileSync(old, JSON.stringify({ findings: [{ viewport: 'phone', check: 'text-size', severity: 'warn', selector: 'main > p', anchor: '', message: '1 text runs are smaller than 14px' }], copy: r.report.copy }));
   const cmp = spawnSync(process.execPath, [script, '--compare', old, join(r.out, 'measure.json')], { encoding: 'utf8' });
   assert.equal(cmp.status, 0, cmp.stdout);
-  assert.match(cmp.stdout, /^Fixed 1 · remaining 0 · new 1/);
+  assert.match(cmp.stdout, /^Fixed 0 · remaining 1 · new 0/, 'one small-text finding per viewport in both versions');
+});
+
+// ---- consolidation: one finding per cause
+
+test('ui-polish: fields and controls that share a cause are one finding with their members', { skip }, () => {
+  const r = measure('consolidate.html', ['--viewports', 'phone']);
+  const inputs = r.report.findings.filter((f) => f.check === 'input-font-size');
+  assert.equal(inputs.length, 1, detail(inputs));
+  assert.match(inputs[0].message, /^2 fields use 15px text/);
+  assert.equal(inputs[0].count, 2);
+  assert.deepEqual(inputs[0].members.map((m) => m.anchor), ['#first', '#last']);
+  const taps = r.report.findings.filter((f) => f.check === 'tap-target');
+  assert.equal(taps.length, 1, detail(taps));
+  assert.equal(taps[0].severity, 'error');
+  assert.equal(taps[0].count, 2);
+  assert.equal(taps[0].examples.length, 2);
+});
+
+test('ui-polish: small text is one finding per viewport with its groups', { skip }, () => {
+  const r = measure('consolidate.html', ['--viewports', 'phone']);
+  const text = r.report.findings.filter((f) => f.check === 'text-size');
+  const warn = text.filter((f) => f.severity === 'warn');
+  assert.equal(warn.length, 1, detail(text));
+  assert.match(warn[0].message, /^3 text runs below 14px: 13px × 2 \(\.note\), 12px × 1 \(\.caption\)$/);
+  assert.deepEqual(warn[0].groups.map(({ size, signature, count }) => ({ size, signature, count })), [{ size: 13, signature: '.note', count: 2 }, { size: 12, signature: '.caption', count: 1 }]);
+  assert.ok(warn[0].groups.every((g) => g.examples.length >= 1 && g.examples.length <= 3));
+  const info = text.filter((f) => f.severity === 'info');
+  assert.equal(info.length, 1, 'eyebrow labels are one info finding');
+  assert.ok(info[0].groups.every((g) => g.eyebrow === true));
+});
+
+test('ui-polish: a finding identical on phone and desktop is reported once', { skip }, () => {
+  const r = measure('consolidate.html');
+  const text = r.report.findings.filter((f) => f.check === 'text-size' && f.severity === 'warn');
+  assert.equal(text.length, 1, detail(text));
+  assert.deepEqual(text[0].viewports, ['phone', 'desktop']);
+  assert.equal(text[0].viewport, 'phone', 'viewport stays the first one for older readers');
+  const printed = r.stdout.split('\n').filter((l) => /\[warn\] \S+ text-size:/.test(l));
+  assert.equal(printed.length, 1, r.stdout);
+  assert.match(printed[0], /\[warn\] phone\+desktop text-size:/);
+  const warnings = r.report.findings.filter((f) => f.severity === 'warn').length;
+  assert.match(r.stdout, new RegExp(`· ${warnings} warnings ·`));
+
+  // compare normalises both sides: the same findings split per viewport and per element are not "fixed"
+  const split = { ...r.report, findings: [] };
+  for (const f of r.report.findings) {
+    for (const v of f.viewports) {
+      for (const m of f.members || [f]) {
+        const { viewports, members, count, examples, ...rest } = f;
+        split.findings.push({ ...rest, viewport: v, selector: m.selector, anchor: m.anchor });
+      }
+    }
+  }
+  const old = join(work, 'split-measure.json');
+  writeFileSync(old, JSON.stringify(split));
+  const cmp = spawnSync(process.execPath, [script, '--compare', old, join(r.out, 'measure.json')], { encoding: 'utf8' });
+  assert.match(cmp.stdout, /^Fixed 0 · remaining \d+ · new 0/, cmp.stdout);
 });
