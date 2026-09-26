@@ -27,6 +27,7 @@
  * Elements that share a cause are one finding with a count, example selectors and every member: fields with
  * the same small font size, controls with the same style and tap size, and small text (one finding per
  * viewport, broken down into style groups; eyebrow labels in their own info finding).
+ * A finding identical on phone and desktop is written once, with "viewports": ["phone", "desktop"].
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
  * run itself fails (missing browser, navigation error or timeout).
  *
@@ -96,12 +97,12 @@ function loadConfig(explicit) {
 
 // ---------------------------------------------------------------- compare mode
 // A finding stands for one or more (viewport, element) pairs. Both files are expanded to those pairs, so a
-// group of fields matches the separate findings of an older file.
+// finding merged across viewports, or a group of fields, matches the separate findings of an older file.
 // Small text is one finding per viewport in every version, keyed by viewport and kind.
 function expand(findings) {
   const out = [];
   for (const f of findings || []) {
-    for (const v of [f.viewport]) {
+    for (const v of f.viewports || [f.viewport]) {
       if (f.check === 'text-size') { out.push({ k: `${v}|text-size|${f.severity === 'info' ? 'eyebrow' : 'small'}`, f, v }); continue; }
       for (const m of f.members || [f]) out.push({ k: `${v}|${f.check}|${m.anchor || m.selector}`, f, v });
     }
@@ -499,6 +500,20 @@ function hideInPage(selectors) {
 }
 
 // ---------------------------------------------------------------- one target
+// A finding with the same check, severity, element and message on several viewports is reported once, with
+// every viewport in "viewports"; "viewport" stays the first of them for older readers.
+function mergeViewports(list) {
+  const out = []; const seen = new Map();
+  for (const f of list) {
+    const k = JSON.stringify([f.check, f.severity, f.selector, f.message]);
+    const m = seen.get(k);
+    if (m) { if (!m.viewports.includes(f.viewport)) m.viewports.push(f.viewport); continue; }
+    const { viewport, ...rest } = f;
+    const g = { viewport, viewports: [viewport], ...rest }; seen.set(k, g); out.push(g);
+  }
+  return out;
+}
+
 async function measureTarget(browser, target, out, o) {
   const url = /^https?:\/\//.test(target) ? target : require('url').pathToFileURL(path.resolve(target)).href;
   fs.mkdirSync(out, { recursive: true });
@@ -540,7 +555,8 @@ async function measureTarget(browser, target, out, o) {
       r.configErrors.forEach((s) => configErrors.add(s));
     } finally { await ctx.close(); }
   }
-  if (o.config.ignore.length) result.accepted = accepted;
+  result.findings = mergeViewports(result.findings);
+  if (o.config.ignore.length) result.accepted = mergeViewports(accepted);
   if (configErrors.size) result.configErrors = [...configErrors];
   fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
   return result;
@@ -550,10 +566,11 @@ const count = (res, s) => res.findings.filter((f) => f.severity === s).length;
 function printResult(res, out) {
   const acc = res.accepted || [];
   console.log(`${res.target}\n${count(res, 'error')} errors · ${count(res, 'warn')} warnings · ${count(res, 'info')} info${acc.length ? ` · ${acc.length} accepted` : ''}  →  ${path.join(out, 'measure.json')}`);
-  for (const f of res.findings) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}${f.examples && f.examples.length > 1 ? `  also ${f.examples.slice(1).map(safe).join(', ')}` : ''}`);
+  const vps = (f) => (f.viewports || [f.viewport]).join('+');
+  for (const f of res.findings) console.log(`  [${f.severity}] ${vps(f)} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}${f.examples && f.examples.length > 1 ? `  also ${f.examples.slice(1).map(safe).join(', ')}` : ''}`);
   if (acc.length) {
     console.log('Accepted (project config):');
-    for (const f of acc) console.log(`  [${f.severity}] ${f.viewport} ${f.check}: ${safe(f.message)} — ${safe(f.reason)}`);
+    for (const f of acc) console.log(`  [${f.severity}] ${vps(f)} ${f.check}: ${safe(f.message)} — ${safe(f.reason)}`);
   }
   if (res.configErrors) console.log(`Config selectors that are not valid CSS (never matched): ${res.configErrors.map(safe).join(', ')}`);
   for (const [v, vr] of Object.entries(res.viewports)) if (vr.scopeScreenshotError) console.log(`  (no ${v}-scope.png: ${safe(vr.scopeScreenshotError)})`);
@@ -586,7 +603,7 @@ function rollUp(runs) {
         const m = merged.get(k) || { check: f.check, severity: f.severity, signature: part.sig, template: template(part.message), example: part.message, pages: [], viewports: [], count: 0 };
         if (RANK[f.severity] > RANK[m.severity]) m.severity = f.severity;
         if (!m.pages.includes(run.slug)) m.pages.push(run.slug);
-        if (!m.viewports.includes(f.viewport)) m.viewports.push(f.viewport);
+        for (const v of f.viewports || [f.viewport]) if (!m.viewports.includes(v)) m.viewports.push(v);
         m.count++;
         merged.set(k, m);
       }
