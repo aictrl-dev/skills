@@ -50,6 +50,19 @@ test('ui-polish: a small checkbox or radio in a 44px label row is a full-size ta
   assertQuiet(r.report, ['tap-target']);
 });
 
+test('ui-polish: a 44px label[for] beside a 20px checkbox with a small gap is the target', { skip }, () => {
+  const r = measure('checkbox-label-gap.html', ['--viewports', 'phone']);
+  assert.equal(r.status, 0, r.stderr);
+  assertQuiet(r.report, ['tap-target']);
+});
+
+test('ui-polish: a heading directly above a scoped form in main is info', { skip }, () => {
+  const r = measure('heading-above-scope.html', ['--viewports', 'phone', '--scope', '#f']);
+  const h = r.report.findings.filter((f) => f.check === 'heading');
+  assert.deepEqual(h.map((f) => f.severity), ['info'], detail(h));
+  assert.match(h[0].message, /Heading is outside the scope: "Create your account" sits \d+px above it/);
+});
+
 test('ui-polish: honeypots, sr-only and off-screen text are not measured', { skip }, () => {
   const r = measure('honeypot.html', ['--viewports', 'phone']);
   assert.equal(r.status, 0, r.stderr);

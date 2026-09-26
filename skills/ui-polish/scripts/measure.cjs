@@ -53,6 +53,7 @@ const TH = {
   deadSpaceVh: 0.3, // a vertical gap inside the content above the primary action larger than this share of the viewport
   actionGapVh: 0.25, // distance from the last field to the primary action larger than this share of the viewport
   typeScaleMax: 6, // more distinct font sizes than this in the scope is reported
+  labelGapPx: 12, // a separate label[for] at most this far from its checkbox or radio can be the tap target
   eyebrowMaxWords: 4, // small uppercase letter-spaced labels of at most this many words are the eyebrow pattern (info)
   eyebrowTrackingEm: 0.04, // minimum letter-spacing, in em, for the eyebrow pattern
   examples: 3, // example selectors listed per grouped finding
@@ -433,8 +434,8 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   }
   const isInlineLink = (c) => c.tagName === 'A' && getComputedStyle(c).display === 'inline' && inSentence(c);
   // A checkbox or radio is also hit through its label. A label that wraps the control is the target; a
-  // separate label[for] counts only when its box touches or overlaps the control's. The target is then the
-  // larger of the two boxes: never their bounding union, and never across a gap.
+  // separate label[for] counts when its box is within TH.labelGapPx of the control's. The target is then the
+  // larger of the two boxes on its own, never their bounding union, so the gap itself never counts.
   function tapTarget(c) {
     const r = c.getBoundingClientRect();
     let target = box(r); let via = null;
@@ -443,7 +444,7 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
         if (!visible(lab)) continue; // a display: contents label has no box of its own
         const lr = lab.getBoundingClientRect();
         const apart = Math.max(lr.left - r.right, r.left - lr.right, lr.top - r.bottom, r.top - lr.bottom);
-        if (!lab.contains(c) && apart > 0.5) continue;
+        if (!lab.contains(c) && apart > TH.labelGapPx) continue;
         if (minSide(box(lr)) > minSide(target)) { target = box(lr); via = lab; }
       }
     }
@@ -604,11 +605,11 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
     const hf = h.closest('header, footer');
     return !!hf && !hf.parentElement.closest('article, aside, main, nav, section');
   }
-  // the nearest element containing both, which must sit below main and body
+  // the nearest element containing both: main or anything inside it counts, body and html do not
   function sharesSection(h) {
     let p = scope.parentElement;
     while (p && !p.contains(h)) p = p.parentElement;
-    return !!p && !p.matches('main, body, html');
+    return !!p && !p.matches('body, html');
   }
   // A scope narrower than main (a form, a card) is often introduced by a heading just outside it: one that
   // labels it through aria-labelledby, or the nearest heading before it in the same section, ending within

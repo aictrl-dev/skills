@@ -12,7 +12,7 @@ controls still fired.
 
 | Criterion | Result |
 |---|---|
-| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 28/28 after round 3; the original script fails 12 of the first 14) |
+| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 30/30 after round 4; the original script fails 12 of the first 14) |
 | N9: one finding per cause, one small-text finding per viewport with groups, identical findings once across viewports, `--compare` normalises old and new files | PASS (round 2) |
 | Positive controls still fire (bare 20px checkbox error, short label warn, standalone link, 13px body paragraph warn, missing heading warn; round 3 adds a label 10px below or `display: contents`, pager and sort-by link rows, CJK and price-line small text, a site-header-only heading, visible `aria-hidden` content, `inset(50% 0 0 0)` text, a number added only in hidden copy, and a partial compare with a new error) | PASS |
 | Measured seeds M1–M9 still reported on `height-weight-step.html` | PASS (round 2: 9 errors, 13 warnings, most now shown once for both viewports; `--compare` against the original run: fixed 0, new 0) |
@@ -22,17 +22,18 @@ Before and after on a production marketing site, 4 pages (two sign-up forms, one
 options, a long-form guide and the home page), `--js`, default scope `main`. The original script ran
 per page; the branch versions ran all four in one call with `--hide` on the cookie banner. The
 original server was gone by round 3, so every column below was re-measured on one local build of the
-same site; the before column matches the first run exactly (12 errors, 26 warnings, 6 info).
+same site (and re-measured again in round 4, on a newer build, with identical counts); the before column
+matches the first run exactly (12 errors, 26 warnings, 6 info).
 
-| Check | Before | After round 1 | After round 2 | After round 3 |
-|---|---|---|---|---|
-| `tap-target` | 12 error, 3 warn | 0 | 0 | 1 error |
-| `input-font-size` | 13 warn | 13 warn | 3 warn | 3 warn |
-| `dead-space` | 2 warn | 2 warn | 2 warn | 2 warn |
-| `text-size` | 8 warn | 16 warn, 10 info | 4 warn, 5 info | 5 warn, 5 info |
-| `type-scale` | 6 info | 6 info | 6 info | 6 info |
-| **Total** | **12 error, 26 warn, 6 info** | **0 error, 31 warn, 16 info** | **0 error, 9 warn, 11 info** | **1 error, 10 warn, 11 info** |
-| Distinct across the 4 pages (roll-up) | 22 (20 warn or error) | 19 (14) | 12 (7) | 14 (9) |
+| Check | Before | After round 1 | After round 2 | After round 3 | After round 4 |
+|---|---|---|---|---|---|
+| `tap-target` | 12 error, 3 warn | 0 | 0 | 1 error | 1 error |
+| `input-font-size` | 13 warn | 13 warn | 3 warn | 3 warn | 3 warn |
+| `dead-space` | 2 warn | 2 warn | 2 warn | 2 warn | 2 warn |
+| `text-size` | 8 warn | 16 warn, 10 info | 4 warn, 5 info | 5 warn, 5 info | 5 warn, 5 info |
+| `type-scale` | 6 info | 6 info | 6 info | 6 info | 6 info |
+| **Total** | **12 error, 26 warn, 6 info** | **0 error, 31 warn, 16 info** | **0 error, 9 warn, 11 info** | **1 error, 10 warn, 11 info** | **1 error, 10 warn, 11 info** |
+| Distinct across the 4 pages (roll-up) | 22 (20 warn or error) | 19 (14) | 12 (7) | 14 (9) | 14 (9) |
 
 - Round 1 removed the false positives: 20px checkboxes inside 44px labels, a policy link inside a
   consent sentence, and an off-screen honeypot. It split each page's small-text count into located
@@ -46,6 +47,10 @@ same site; the before column matches the first run exactly (12 errors, 26 warnin
   - Only links inside a real sentence are exempt, and link lists never are.
   - Upper case must be real upper case for the eyebrow pattern.
   - A heading outside the scope must be in the same section and outside site chrome.
+- Round 4 relaxed two round-3 rules that brought back common false positives, without touching these
+  pages' counts. A separate `label[for]` within 12px of its checkbox or radio is the target again, as in
+  the usual flex row with a small gap; the target is still the label's own box, never the union. A
+  heading directly above a scoped form in `main` counts as introducing it again.
 - Round 3's new error is real: five table-of-contents links on the guide, 18px tall inside list items,
   which the old blanket `li` exemption had hidden.
 - Round 3's extra small-text warning is also real: visible `aria-hidden` mock-up badges at 11px are
@@ -56,8 +61,8 @@ empty band above the lead form's submit button (and one on the home page), and t
 token on all four pages. The consent-sentence policy link is not reported, because it sits inline in
 a sentence, which WCAG 2.5.8 exempts.
 
-Repository checks (round 3): `npm test` 56 tests (28 pass and 28 skip without Playwright, as in CI;
-56/56 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills and the
+Repository checks (round 4): `npm test` 58 tests (28 pass and 30 skip without Playwright, as in CI;
+58/58 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills and the
 plugin; `CHECKSUMS.sha256` regenerated in byte order.
 
 Verdict: PASS for the noise criteria. The blind fresh-agent re-run of the whole skill that the

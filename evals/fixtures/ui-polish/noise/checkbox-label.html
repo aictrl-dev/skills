@@ -4,8 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Checkbox in a label row</title>
-<!-- False positive: a 20px checkbox in a 44px label that wraps it, and a 20px radio whose 44px label[for]
-     touches it. The label is the target. -->
+<!-- False positive: a 20px checkbox or radio whose label row is 44px tall. The label is part of the target. -->
 <style>
 body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
 main { padding: 24px; }
@@ -13,8 +12,7 @@ input[type="text"], input[type="email"] { display: block; width: 100%; box-sizin
 button { min-height: 48px; padding: 0 24px; font-size: 16px; }
 .option { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .option input { width: 20px; height: 20px; margin: 0; }
-.row { display: flex; align-items: center; }
-.row label { padding-left: 8px; } /* the label touches the radio: its box is the target */
+.row { display: flex; align-items: center; gap: 8px; }
 .row input { width: 20px; height: 20px; margin: 0; }
 </style>
 </head>
