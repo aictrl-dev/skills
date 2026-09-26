@@ -163,8 +163,25 @@ test('ui-polish: a bare 20px checkbox, a short label row and a standalone link s
   const by = (name) => taps.find((f) => f.selector.includes(name));
   assert.equal(by('digest').severity, 'error');
   assert.equal(by('alerts').severity, 'warn');
-  assert.match(by('alerts').message, /its label extends it to \d+×30px/);
+  assert.match(by('alerts').message, /its label is a \d+×30px target/);
   assert.ok(taps.some((f) => f.selector.endsWith('> a')), detail(taps));
+});
+
+test('ui-polish: a label below the control, or with no box, does not enlarge the target', { skip }, () => {
+  const r = measure('controls-label-apart.html', ['--viewports', 'phone']);
+  const taps = r.report.findings.filter((f) => f.check === 'tap-target');
+  for (const name of ['stacked', 'contents']) {
+    const f = taps.find((x) => x.selector.includes(name) || (x.members || []).some((m) => m.selector.includes(name)));
+    assert.ok(f && f.severity === 'error', `${name}:\n${detail(taps)}`);
+  }
+});
+
+test('ui-polish: links in a pager or a sort row are not inline text', { skip }, () => {
+  const r = measure('controls-link-lists.html', ['--viewports', 'phone']);
+  const taps = loud(r.report, 'tap-target');
+  const covered = taps.flatMap((f) => (f.members || [f]).map((m) => m.selector));
+  for (const row of ['pager', 'sort']) assert.ok(covered.some((s) => s.includes(row)), `${row}:\n${detail(taps)}`);
+  assert.ok(taps.every((f) => f.severity === 'error'), detail(taps));
 });
 
 test('ui-polish: a 13px paragraph of body text is a text-size warning', { skip }, () => {

@@ -51,7 +51,6 @@ const TH = {
   deadSpaceVh: 0.3, // a vertical gap inside the content above the primary action larger than this share of the viewport
   actionGapVh: 0.25, // distance from the last field to the primary action larger than this share of the viewport
   typeScaleMax: 6, // more distinct font sizes than this in the scope is reported
-  labelGapPx: 12, // a checkbox or radio label at most this far from the control extends its tap target
   eyebrowMaxWords: 4, // small uppercase letter-spaced labels of at most this many words are the eyebrow pattern (info)
   eyebrowTrackingEm: 0.04, // minimum letter-spacing, in em, for the eyebrow pattern
   examples: 3, // example selectors listed per grouped finding
@@ -350,35 +349,55 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   }
 
   // ---- C6 tap targets
-  // A link is inline (exempt under WCAG 2.5.8) when it sits in running text: inside a paragraph or list item,
-  // or when its parent (or the nearest inline ancestor with text) has words of its own around the link.
+  // A link is inline (exempt under WCAG 2.5.8) only when it sits in a sentence. The sentence is the link's
+  // text container: its parent, or the first inline ancestor (up to 3 levels) with text of its own. It must
+  // have at least 2 words and 12 letters outside links, and must not be a list of links with nothing but
+  // spaces or punctuation between them (pagination, "Sort by: Price Name").
+  const letters = (t) => (t.match(/\p{L}/gu) || []).length;
   const hasOwnWords = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && /[\p{L}\p{N}]/u.test(n.textContent));
-  function inSentence(a) {
-    for (let p = a.parentElement, depth = 0; p && depth < 3; p = p.parentElement, depth++) {
-      if (hasOwnWords(p)) return true;
-      if (!getComputedStyle(p).display.startsWith('inline')) return false;
-    }
-    return false;
+  function textOutsideLinks(p) {
+    let text = ''; const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    while (tw.nextNode()) { const a = tw.currentNode.parentElement.closest('a'); if (!a || !p.contains(a)) text += ` ${tw.currentNode.textContent}`; }
+    return text;
   }
-  const isInlineLink = (c) => c.tagName === 'A' && getComputedStyle(c).display === 'inline' && (c.closest('p, li') || inSentence(c));
-  const union = (a, b) => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
-  // A checkbox or radio is also hit through its label: the effective target is the control plus a label
-  // that wraps it or sits right next to it.
+  function isLinkList(p) {
+    const links = [...p.querySelectorAll('a[href]')];
+    if (links.length < 2) return false;
+    return links.slice(1).every((b, i) => {
+      const between = document.createRange(); between.setStartAfter(links[i]); between.setEndBefore(b);
+      return letters(between.toString()) === 0;
+    });
+  }
+  function inSentence(a) {
+    let p = a.parentElement;
+    for (let depth = 0; p && !hasOwnWords(p) && depth < 3; depth++) {
+      if (!getComputedStyle(p).display.startsWith('inline')) return false;
+      p = p.parentElement;
+    }
+    if (!p || !hasOwnWords(p)) return false;
+    const outside = textOutsideLinks(p);
+    const words = outside.split(/\s+/).filter((w) => /\p{L}/u.test(w)).length;
+    return words >= 2 && letters(outside) >= 12 && !isLinkList(p);
+  }
+  const isInlineLink = (c) => c.tagName === 'A' && getComputedStyle(c).display === 'inline' && inSentence(c);
+  // A checkbox or radio is also hit through its label. A label that wraps the control is the target; a
+  // separate label[for] counts only when its box touches or overlaps the control's. The target is then the
+  // larger of the two boxes: never their bounding union, and never across a gap.
   function tapTarget(c) {
     const r = c.getBoundingClientRect();
     let target = box(r); let via = null;
     if (c.tagName === 'INPUT' && (c.type === 'checkbox' || c.type === 'radio')) {
       for (const lab of c.labels || []) {
-        if (!visible(lab)) continue;
+        if (!visible(lab)) continue; // a display: contents label has no box of its own
         const lr = lab.getBoundingClientRect();
-        const gap = Math.max(lr.left - r.right, r.left - lr.right, lr.top - r.bottom, r.top - lr.bottom, 0);
-        if (!lab.contains(c) && gap > TH.labelGapPx) continue;
-        const u = union(target, box(lr));
-        if (minSide(u) > minSide(target)) { target = u; via = lab; }
+        const apart = Math.max(lr.left - r.right, r.left - lr.right, lr.top - r.bottom, r.top - lr.bottom);
+        if (!lab.contains(c) && apart > 0.5) continue;
+        if (minSide(box(lr)) > minSide(target)) { target = box(lr); via = lab; }
       }
     }
     const w = Math.round(target.r - target.l); const h = Math.round(target.b - target.t);
-    const msg = via ? `Tap target is ${Math.round(r.width)}×${Math.round(r.height)}px; its label extends it to ${w}×${h}px` : `Tap target is ${w}×${h}px`;
+    const own = `${Math.round(r.width)}×${Math.round(r.height)}px`;
+    const msg = via ? `Tap target is ${own}; its label is a ${w}×${h}px target` : `Tap target is ${w}×${h}px`;
     return { c, side: minSide(target), w, h, via, msg };
   }
   function checkTapTargets() {
