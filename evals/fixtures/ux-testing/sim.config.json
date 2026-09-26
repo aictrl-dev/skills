@@ -1,0 +1,6 @@
+{
+  "model": "access-console.ux-model.yaml",
+  "url": "access-console.html",
+  "stateHook": "__state",
+  "regions": { "main": "main", "menu": "nav", "topbar": "header" }
+}

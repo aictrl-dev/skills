@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acme Access · Overview</title>
+<!--
+  ux-testing eval fixture: an access-request console for a made-up company, built with seeded usability traps.
+  The answer key lives in evals/ux-testing.eval.md; do not give that file (or this comment) to testers.
+  Self-contained: no network, no external assets. State is exposed read-only as window.__state for checks.
+-->
+<style>
+  :root { --ink: #1d2330; --muted: #5b6475; --line: #d9dde5; --bg: #f5f6f8; --card: #fff; --primary: #2952cc; --danger: #b42318; --ok: #1a7f37; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  header { height: 56px; display: flex; align-items: center; gap: 24px; padding: 0 24px; background: #fff; border-bottom: 1px solid var(--line); }
+  header .brand { font-weight: 700; }
+  header nav a { color: var(--muted); text-decoration: none; margin-right: 16px; }
+  header .spacer { flex: 1; }
+  .icon-btn { width: 36px; height: 36px; border: 1px solid var(--line); background: #fff; border-radius: 2px; display: grid; place-items: center; cursor: pointer; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: #c9d3ea; display: grid; place-items: center; font-size: 13px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; padding: 24px; max-width: 1366px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 16px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 2px; padding: 16px; margin-bottom: 20px; }
+  .attention { border-left: 4px solid #d97706; }
+  .attn-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .attn-item:first-of-type { border-top: 0; }
+  .attn-item .what { flex: 1; }
+  .btn { font: inherit; padding: 8px 14px; border-radius: 2px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+  .btn-big { padding: 12px 22px; font-size: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; border-top: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eef1f6; }
+  .badge.revoked { background: #fde8e7; color: var(--danger); }
+  label { display: block; font-weight: 500; margin: 12px 0 4px; }
+  select, textarea { font: inherit; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 2px; }
+  .radios label { display: inline-flex; gap: 6px; font-weight: 400; margin-right: 16px; }
+  .policy { color: var(--muted); font-size: 13px; background: #fafbfc; border: 1px solid var(--line); padding: 12px; margin-top: 12px; }
+  .policy p { margin: 0 0 8px; }
+  .check { display: flex; gap: 8px; font-weight: 400; }
+  .toast { position: fixed; right: 24px; bottom: 24px; background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 2px; display: none; }
+  .toast.show { display: block; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">Acme Access</span>
+  <nav aria-label="Main"><a href="#overview">Overview</a><a href="#reviews">Reviews</a><a href="#grants">Grants</a><a href="#settings">Settings</a></nav>
+  <span class="spacer"></span>
+  <!-- Export this week's requests as CSV. -->
+  <button class="icon-btn" onclick="exportCsv()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg></button>
+  <span class="avatar" aria-hidden="true">MC</span>
+</header>
+
+<div class="layout">
+  <main id="overview">
+    <h1>Access overview</h1>
+
+    <section class="card attention" aria-labelledby="attn-h">
+      <h2 id="attn-h">Needs your attention</h2>
+      <div id="attention"></div>
+    </section>
+
+    <section class="card" id="reviews" aria-labelledby="reviews-h">
+      <h2 id="reviews-h">Access reviews</h2>
+      <table><thead><tr><th>Team</th><th>Status</th><th>Due</th><th></th></tr></thead><tbody id="review-rows"></tbody></table>
+    </section>
+
+    <section class="card" aria-labelledby="pending-h">
+      <h2 id="pending-h">Pending requests</h2>
+      <table><thead><tr><th>Request</th><th>Requested by</th><th>Resource</th><th>Waiting</th></tr></thead><tbody id="pending-rows"></tbody></table>
+    </section>
+
+    <section class="card" id="grants" aria-labelledby="grants-h">
+      <h2 id="grants-h">Current grants</h2>
+      <table><thead><tr><th>Person</th><th>Resource</th><th>Level</th><th></th></tr></thead><tbody id="grant-rows"></tbody></table>
+    </section>
+  </main>
+
+  <aside>
+    <section class="card" aria-labelledby="req-h">
+      <h2 id="req-h">Request access</h2>
+      <p class="muted">Ask for access to a system you need for your work. Requests go to the resource owner.</p>
+      <label for="resource">Resource</label>
+      <select id="resource"><option value="">Choose a resource</option><option value="prod-db">prod-db</option><option value="billing-replica">billing-replica</option><option value="analytics-warehouse">analytics-warehouse</option></select>
+      <label id="level-l">Access level</label>
+      <div class="radios" role="radiogroup" aria-labelledby="level-l">
+        <label><input type="radio" name="level" value="read" checked> Read</label>
+        <label><input type="radio" name="level" value="write"> Write</label>
+        <label><input type="radio" name="level" value="admin"> Admin</label>
+      </div>
+      <label for="justification">Justification</label>
+      <textarea id="justification" rows="4"></textarea>
+      <div class="policy">
+        <p><strong>Access policy.</strong> Access is granted for the minimum level needed and expires after 90 days unless renewed.</p>
+        <p>Production systems require approval from the resource owner and a second reviewer. Requests without a justification are declined automatically.</p>
+        <p>Admin access is only granted to named employees. Contractors may request read access through their sponsor.</p>
+        <p>All access is logged and included in the quarterly access review for the owning team.</p>
+        <p>If you no longer need access, ask the resource owner to revoke it so the next review stays short.</p>
+      </div>
+      <label class="check"><input type="checkbox" id="ack"> I have read the access policy</label>
+      <p id="req-error" class="muted" role="alert"></p>
+      <button class="btn btn-primary btn-big" onclick="submitRequest()">Submit request</button>
+    </section>
+
+    <section class="card" id="settings" aria-labelledby="notif-h">
+      <h2 id="notif-h">Notifications</h2>
+      <label for="digest">Email me</label>
+      <select id="digest"><option value="immediate">Immediately</option><option value="daily">Daily digest</option><option value="weekly">Weekly digest</option></select>
+      <p></p>
+      <button class="btn" aria-label="Persist preferences" onclick="saveSettings()">Save</button>
+    </section>
+  </aside>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+  // App state. window.__state is a read-only test hook for ux-testing checks; the UI never reads it.
+  const S = {
+    requests: [
+      { id: 'REQ-298', by: 'Sam Okafor', resource: 'billing-replica', level: 'read', waitingDays: 6, status: 'pending' },
+      { id: 'REQ-305', by: 'Priya Nair', resource: 'analytics-warehouse', level: 'write', waitingDays: 3, status: 'pending' },
+      { id: 'REQ-311', by: 'ext-vendor-7 (contractor)', resource: 'prod-db', level: 'admin', waitingDays: 0, waitingLabel: '2 hours', status: 'pending', team: 'Payments' },
+    ],
+    reviews: [
+      { team: 'Payments', status: 'not_started', due: 'in 3 days' },
+      { team: 'Platform', status: 'in_progress', due: 'in 9 days' },
+      { team: 'Support', status: 'done', due: '—' },
+    ],
+    grants: [
+      { user: 'Jordan Lee', resource: 'prod-db', level: 'admin' },
+      { user: 'Priya Nair', resource: 'billing-replica', level: 'read' },
+      { user: 'Sam Okafor', resource: 'prod-db', level: 'read' },
+    ],
+    exports: [],
+    settings: { digest: 'immediate' },
+  };
+  window.__state = S;
+
+  const $ = (id) => document.getElementById(id);
+  const statusText = { not_started: 'Not started', in_progress: 'In progress', done: 'Done' };
+  let fakeRevoked = new Set(); // UI-only: the Revoke button is an unwired stub
+
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 4000); }
+
+  function render() {
+    const risky = S.requests.find((r) => r.id === 'REQ-311');
+    $('attention').innerHTML = (risky.status === 'pending' ? `
+      <div class="attn-item">
+        <div class="what"><strong>Payments</strong> · ext-vendor-7 (contractor) requests <strong>admin</strong> on prod-db<br><span class="muted">REQ-311 · waiting 2 hours</span></div>
+        <button class="btn btn-primary btn-big" onclick="decide('REQ-311','approved')">Approve</button>
+        <button class="btn" aria-label="Reject request REQ-311" onclick="decide('REQ-311','denied')">Deny</button>
+      </div>` : '') + `
+      <div class="attn-item"><div class="what">The Payments quarterly access review is due in 3 days.</div></div>`;
+
+    $('review-rows').innerHTML = S.reviews.map((r, i) => `<tr><td>${r.team}</td><td><span class="badge">${statusText[r.status]}</span></td><td>${r.due}</td><td>${
+      r.status === 'not_started' ? `<button class="btn" onclick="startReview(${i})">Start review</button>` : r.status === 'in_progress' ? `<span class="muted">Reviewing</span>` : ''}</td></tr>`).join('');
+
+    $('pending-rows').innerHTML = S.requests.filter((r) => r.status === 'pending' && !r.mine).map((r) => `<tr><td>${r.id}</td><td>${r.by}</td><td>${r.resource} (${r.level})</td><td>${r.waitingLabel || r.waitingDays + ' days'}</td></tr>`).join('');
+
+    $('grant-rows').innerHTML = S.grants.map((g, i) => `<tr><td>${g.user}</td><td>${g.resource}</td><td>${g.level}</td><td>${
+      fakeRevoked.has(i) ? '<span class="badge revoked">Revoked</span>' : `<button class="btn" aria-label="Revoke ${g.user} on ${g.resource}" onclick="revoke(${i})">Revoke</button>`}</td></tr>`).join('');
+  }
+
+  function decide(id, status) { S.requests.find((r) => r.id === id).status = status; toast(`${id} ${status}`); render(); }
+  function startReview(i) { S.reviews[i].status = 'in_progress'; toast(`${S.reviews[i].team} review started`); render(); }
+  // Stub: pretends to succeed. Shows a toast and a "Revoked" badge but never changes S.grants.
+  function revoke(i) { fakeRevoked.add(i); toast(`Access revoked for ${S.grants[i].user}`); render(); }
+  function exportCsv() { S.exports.push({ at: Date.now(), rows: S.requests.length }); toast('Export ready: access-requests.csv'); }
+  function submitRequest() {
+    const resource = $('resource').value; const level = document.querySelector('input[name=level]:checked').value; const why = $('justification').value.trim();
+    if (!resource) { $('req-error').textContent = 'Choose a resource.'; return; }
+    if (!why) { $('req-error').textContent = 'Add a justification.'; return; }
+    if (!$('ack').checked) { $('req-error').textContent = 'Confirm you have read the access policy.'; return; }
+    S.requests.push({ id: 'REQ-' + (312 + S.requests.filter((r) => r.mine).length), by: 'You', resource, level, waitingDays: 0, status: 'pending', mine: true, justified: true });
+    $('req-error').textContent = ''; $('justification').value = ''; $('ack').checked = false; $('resource').value = '';
+    toast('Request sent to the resource owner'); render();
+  }
+  function saveSettings() { S.settings.digest = $('digest').value; toast('Preferences saved'); }
+  render();
+</script>
+</body>
+</html>
