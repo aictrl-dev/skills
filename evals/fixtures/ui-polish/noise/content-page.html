@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Long-form article</title>
+<!-- False positive under --profile content: the form-step checks (type scale, action distance, action below
+     the fold, dead space) do not apply to an article with a search box at the top and a button at the end. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input[type="text"], input[type="email"] { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+button { min-height: 48px; padding: 0 24px; font-size: 16px; }
+h1 { font-size: 36px; } h2 { font-size: 26px; } h3 { font-size: 20px; }
+article p { font-size: 18px; }
+blockquote { font-size: 22px; }
+figcaption { font-size: 15px; }
+.byline { font-size: 17px; }
+</style>
+</head>
+<body>
+<main>
+  <form role="search"><label for="q">Search articles</label><input id="q" type="text" name="q"></form>
+  <article>
+    <h1>Writing things down</h1>
+    <p class="byline">A short essay on keeping team knowledge.</p>
+    <h2>Why it matters</h2>
+    <p>Most of what a team knows lives in people's heads. When someone is away, the answer is away too. Writing it down is the first step to sharing it.</p>
+    <p>Notes do not need to be perfect. A rough page that exists beats a polished page that does not.</p>
+    <blockquote>The best time to write it down is right after you explained it twice.</blockquote>
+    <h3>Start small</h3>
+    <p>Pick one question you answer every week and write the answer once. Link to it next time.</p>
+    <p>Then pick the next one. After a month the team has a small library that answers the common questions.</p>
+    <figure><div style="height: 240px; background: #eef1f5;"></div><figcaption>A shelf of short answers grows one page at a time.</figcaption></figure>
+    <h3>Keep it current</h3>
+    <p>Put a date on each page and a name next to it. When something changes, the person who changed it updates the page.</p>
+    <p>Old pages are fine as long as they say they are old.</p>
+    <p>Review the list once a quarter and archive what nobody opens.</p>
+  </article>
+  <button type="button">Read the next essay</button>
+</main>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidden fields and screen-reader text</title>
+<!-- False positive: honeypot fields and sr-only text are in the DOM but never on screen. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input[type="text"], input[type="email"] { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+button { min-height: 48px; padding: 0 24px; font-size: 16px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; font-size: 12px; color: #ccc; }
+.skip { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); font-size: 12px; }
+.trap { position: absolute; left: -9999px; width: 0; height: 0; overflow: hidden; }
+.trap-inline { width: 0; height: 0; overflow: hidden; }
+.offscreen { position: absolute; left: -10000px; font-size: 11px; color: #ddd; }
+</style>
+</head>
+<body>
+<main>
+  <a class="skip" href="#email">Skip to the form</a>
+  <h1>Contact us</h1>
+  <form>
+    <span class="sr-only">Required fields are marked with an asterisk</span>
+    <label for="email">Email *</label>
+    <input id="email" type="email" name="email">
+    <div class="trap" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+    <div class="trap-inline"><input type="text" name="homepage" tabindex="-1" autocomplete="off" style="font-size: 12px; height: 20px;"></div>
+    <p class="offscreen">Off-screen note for robots</p>
+    <button type="submit">Send</button>
+  </form>
+</main>
+</body>
+</html>
