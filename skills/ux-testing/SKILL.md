@@ -47,11 +47,11 @@ node $SKILL/scripts/ux.cjs t0 open && node $SKILL/scripts/ux.cjs t0 snapshot | h
 ### 2. Baseline
 
 - For every task launch **2 novice testers** (small model) and **1 control** (stronger model), in parallel and in the background, with the brief from `reference/tester-brief.md` and a unique session id each (`T1-t1`, `T1-t2`, `T1-c1`, …). Add 1 vision tester per task when the layout or the fold matters. This is the sampling rule in `reference/task-model.md` too.
-- For tasks that start mid-flow, open the session yourself first: `node $SKILL/scripts/ux.cjs <session> open <scenario>`. Add `--viewport 390x844` for a phone or `--viewport 1366x768` for a laptop.
+- For tasks that start mid-flow, open the session yourself first: `UX_VERIFY_TOKEN=<token> node $SKILL/scripts/ux.cjs <session> open <scenario>`. Add `--viewport 390x844` for a phone or `--viewport 1366x768` for a laptop. Opening with a scenario or viewport, re-opening a live session, `errors` and `close` are operator-only: the harness refuses them without the verify token, so one tester cannot reset, read or close another's session.
 - When all testers finish, score each session:
   - **Success** from the check: `UX_VERIFY_TOKEN=<token> node $SKILL/scripts/verify.cjs <check.js> <sessions…>`, or from the answer for question tasks. Testers do claim success falsely, especially after a control that only looks like it worked.
   - **Commands** from the log (`python3 $SKILL/scripts/summarize.py $UX_OUT/actions.jsonl`), not the tester's own count.
-  - **Page errors** per session: `node $SKILL/scripts/ux.cjs <session> errors`.
+  - **Page errors** per session: `UX_VERIFY_TOKEN=<token> node $SKILL/scripts/ux.cjs <session> errors`.
   - **Friction**: hesitations, dead ends, confusing terms. A step that trips the novice but not the control is a clarity problem; one that trips both is a design problem.
   - **Prototype gaps** (a scripted chat that doesn't understand free text, stub pages) are listed separately and not scored as design failures, unless the stub pretends to succeed; that is a finding.
 - With a task model, record outcomes in a results file and run `python3 $SKILL/scripts/score.py <model.yaml> results.json $UX_OUT/actions.jsonl --out scorecard.json` (success by task and role, weighted cost J).
@@ -105,7 +105,7 @@ When the results go beyond this session, build the visual report in `reference/v
 - **Timers.** Pages that simulate progress need `wait` calls; tell testers to wait and re-snapshot.
 - **Agents are not people.** They are patient, read text instead of layout, and never see colour. Treat results as a clarity and flow check, and use real users for the final answer.
 - **The fold.** Text testers read the whole accessibility tree, so they find what people would miss below the fold. When only vision testers fail, re-test at 1366×768.
-- **Harness memory.** Close finished sessions (`ux.cjs <session> close`; at most 32 are open at once) and restart the harness between batches of about 6 testers; Chromium otherwise crashes ("Target crashed") under memory pressure. Void and re-run those sessions; say how many were voided.
+- **Harness memory.** Close finished sessions (`UX_VERIFY_TOKEN=<token> node $SKILL/scripts/ux.cjs <session> close`; at most 32 are open at once) and restart the harness between batches of about 6 testers; Chromium otherwise crashes ("Target crashed") under memory pressure. Void and re-run those sessions; say how many were voided.
 - **Cost.** A baseline of 6 tasks is 18 tester runs (3 per task), plus 1 per task that gets a vision tester, most on the small model. Review and fixer rounds use the main model. A task-model round of 20 tasks is about 70 runs; screen with the simulator first when you have one.
 
 ---

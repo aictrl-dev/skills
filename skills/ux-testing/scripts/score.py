@@ -23,6 +23,7 @@ import sys
 
 FREQ = {'daily': 5, 'weekly': 3, 'monthly': 1}
 OPERATOR = ('open', 'eval', 'errors', 'close')
+TESTER_TYPES = ('t', 'v', 'c', 'h')  # text, vision, control, hurried
 
 ap = argparse.ArgumentParser()
 ap.add_argument('model')
@@ -61,11 +62,19 @@ with open(a.log) as f:
 rows = []
 for tid, sessions in results.items():
     t = tasks[tid]
+    if not isinstance(sessions, dict) or any(v not in (0, 1, None) or isinstance(v, bool) for v in sessions.values()):
+        raise SystemExit(f'results.json: {tid} must map session suffixes to 1, 0 or null')
     valid = {s: v for s, v in sessions.items() if v is not None}
     if not valid:
         continue
-    if 'ideal_steps' not in t or 'frequency' not in t or 'criticality' not in t:
-        raise SystemExit(f'Task {tid} needs frequency, criticality and ideal_steps in the model')
+    if 'ideal_steps' not in t or 'frequency' not in t or 'criticality' not in t or 'role' not in t:
+        raise SystemExit(f'Task {tid} needs role, frequency, criticality and ideal_steps in the model')
+    if t['frequency'] not in FREQ:
+        raise SystemExit(f'Task {tid}: frequency must be one of {", ".join(FREQ)} (got {t["frequency"]!r})')
+    if t['criticality'] not in (1, 2, 3):
+        raise SystemExit(f'Task {tid}: criticality must be 1, 2 or 3 (got {t["criticality"]!r})')
+    if not isinstance(t['ideal_steps'], (int, float)) or t['ideal_steps'] <= 0:
+        raise SystemExit(f'Task {tid}: ideal_steps must be a positive number (got {t["ideal_steps"]!r})')
     ok = sum(valid.values())
     # A scored session with no logged commands almost always means its id does not match the log (a typo, or a
     # log from another harness run). Leave it out of the median, which would otherwise read as a zero-step path,
@@ -79,8 +88,11 @@ for tid, sessions in results.items():
         raise SystemExit(f'No logged commands for {tid} sessions {list(valid)}; check the session ids in the log')
     by_type = collections.defaultdict(lambda: [0, 0])
     for s, v in valid.items():
-        by_type[s[0]][0] += v
-        by_type[s[0]][1] += 1
+        kind = s[0] if s and s[0] in TESTER_TYPES else '?'
+        if kind == '?':
+            print(f'warning: {tid}: session {s!r} does not start with a tester type ({", ".join(TESTER_TYPES)}); counted under "?"', file=sys.stderr)
+        by_type[kind][0] += v
+        by_type[kind][1] += 1
     rows.append({
         'task': tid, 'role': t['role'], 'criticality': t['criticality'],
         'raw_weight': FREQ[t['frequency']] * t['criticality'],

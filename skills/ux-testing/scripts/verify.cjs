@@ -40,6 +40,7 @@ function evalIn(session) {
         method: 'POST',
         path: '/',
         headers: { 'x-ux-token': token, 'x-ux-verify-token': verifyToken },
+        timeout: 30000, // a stalled harness must not hang operator scripts
       },
       (res) => {
         let d = '';
@@ -47,6 +48,7 @@ function evalIn(session) {
         res.on('end', () => resolve(d));
       },
     );
+    req.on('timeout', () => req.destroy(new Error('harness did not answer within 30 s')));
     req.on('error', (e) => resolve('ERROR: ' + e.message));
     req.end(JSON.stringify({ session, action: 'eval', expr }));
   });

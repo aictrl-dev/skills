@@ -22,7 +22,8 @@
 // reads it. The verify-only "eval" action needs a second token that the harness never writes to disk: set it
 // yourself as UX_VERIFY_TOKEN (>= 32 chars) in the server's environment, or the server generates one and prints
 // it once (then any captured stdout holds a copy). Pass the same value to verify.cjs as UX_VERIFY_TOKEN.
-// Both tokens keep tester agents, which are only given ux.cjs, to the tester commands; they are not a defence
+// Operator-only actions need the verify token too: eval, close, errors, open with a scenario or viewport, and
+// re-opening a live session id. Both tokens keep tester agents, which are only given ux.cjs, to the tester commands; they are not a defence
 // against other processes running as your user. Requests carrying an Origin or Referer header (i.e. sent by a
 // browser) and requests for another Host are rejected.
 // Typed text is never written to the log (testers may type credentials).
@@ -31,7 +32,7 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
-const { loadPlaywright, tokenFile } = require('./common.cjs');
+const { loadPlaywright, tokenFile, resolveTarget: resolve } = require('./common.cjs');
 
 const { chromium } = loadPlaywright();
 const PORT = Number(process.env.UX_PORT || 3917);
@@ -145,53 +146,11 @@ async function open(id, scenario, viewport) {
   return 'Opened the app. Use "snapshot" to see the page.';
 }
 
-const ROLES = ['button', 'link', 'tab', 'option', 'menuitem', 'checkbox', 'radio', 'treeitem', 'row', 'combobox'];
-
-// Returns { loc, note }, { error } for malformed input, or null when nothing matches.
-// A trailing " #N" picks the Nth match, but only when the literal text (e.g. "Run #210") matches
-// nothing, so names that end in a number stay clickable.
-async function resolve(page, target) {
-  const literal = await locate(page, target, 0);
-  if (literal) return literal;
-  const m = target.match(/^(.*?)\s+#(\d+)$/);
-  if (!m) return null;
-  const idx = Number(m[2]) - 1;
-  if (idx < 0) return { error: 'ERROR: matches are numbered from #1.' };
-  return locate(page, m[1], idx);
-}
-
-const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 // What was actually clicked, so the tester and the log both see it.
 async function nameOf(loc) {
   return loc
     .evaluate((el) => (el.getAttribute('aria-label') || (el.labels && el.labels[0] ? el.labels[0].innerText : '') || el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 120))
     .catch(() => '');
-}
-
-async function locate(page, target, idx) {
-  let role = null;
-  let name = target.trim();
-  const rm = name.match(/^(\w+):(.*)$/);
-  if (rm && ROLES.includes(rm[1])) { role = rm[1]; name = rm[2].trim(); }
-  if (!name) return { error: 'ERROR: click needs the visible name of what to click.' };
-  const roles = role ? [role] : ROLES;
-  const tries = [
-    ...roles.map((r) => page.getByRole(r, { name, exact: true })),
-    // Fuzzy fallback: the element's name must START with the text (never merely contain it), so
-    // "run #210" cannot hit "Approve gate: … (run #210)". Accessible names start with the visible label.
-    ...roles.map((r) => page.getByRole(r, { name: new RegExp('^\\s*' + escapeRe(name), 'i') })),
-    ...(role ? [] : [page.getByText(name, { exact: true }), page.getByText(name)]),
-  ];
-  for (const loc of tries) {
-    const vis = loc.filter({ visible: true });
-    const count = await vis.count();
-    if (count > 0) {
-      const note = count > 1 ? ` (${count} matches; clicked #${Math.min(idx + 1, count)}. Add " #2" etc. to pick another.)` : '';
-      return { loc: vis.nth(Math.min(idx, count - 1)), note };
-    }
-  }
-  return null;
 }
 
 async function snapshot(page) {
@@ -223,6 +182,7 @@ async function run(s, action, args) {
       if (!field || rest.length === 0) return 'ERROR: select needs a quoted label and an option, e.g. select "Status" Ready';
       const boxes = page.getByRole('combobox', { name: field }).filter({ visible: true });
       const n = await boxes.count();
+      if (!n) return `ERROR: nothing visible matches field "${field}". Take a snapshot and use a label you can see.`;
       await boxes.first().selectOption({ label: rest.join(' ') });
       await page.waitForTimeout(500);
       return 'Selected.' + (n > 1 ? ` (${n} fields named "${field}"; used the first.)` : '');
@@ -240,13 +200,14 @@ async function run(s, action, args) {
       if (!words.join(' ').trim()) return 'ERROR: type needs text, e.g. type Hello --enter or type --field "Title" New title';
       const named = field ? page.getByRole('textbox', { name: field }).filter({ visible: true }) : null;
       const n = named ? await named.count() : 0;
+      if (field && !n) return `ERROR: nothing visible matches field "${field}". Take a snapshot and use a label you can see.`;
+      // The chat box is a textarea; only fall back to single-line inputs (e.g. a search field) when there is none.
+      // Picking by DOM order breaks when the chat panel sits before the page content.
+      const inputs = page.locator('input[type="text"]:visible, input[type="search"]:visible, input:not([type]):visible');
       const box = field
         ? named.first()
-        : // The chat box is a textarea; only fall back to single-line inputs (e.g. a search field) when there is none.
-          // Picking by DOM order breaks when the chat panel sits before the page content.
-          ((await page.locator('textarea:visible').count())
-            ? page.locator('textarea:visible').last()
-            : page.locator('input[type="text"]:visible, input[type="search"]:visible, input:not([type]):visible').last());
+        : ((await page.locator('textarea:visible').count()) ? page.locator('textarea:visible').last() : inputs.last());
+      if (!field && !(await box.count())) return 'ERROR: there is no visible text box. Use type --field "<label>" with a label you can see.';
       await box.fill(words.join(' '));
       if (enter) { await box.press('Enter'); await page.waitForTimeout(900); }
       return (enter ? 'Typed and sent.' : 'Typed.') + (n > 1 ? ` (${n} fields named "${field}"; used the first.)` : '');
@@ -273,8 +234,13 @@ async function run(s, action, args) {
 }
 
 // Never persist typed text: it can contain credentials entered during sign-in.
+// Only actions whose arguments are never secret are logged verbatim; "type" keeps its --field label and --enter
+// flag; anything else (an unknown or misspelled action, e.g. "type " or "Type") is fully redacted.
+const LOGGED_ARGS = new Set(['snapshot', 'click', 'select', 'press', 'wait', 'screenshot', 'open', 'close', 'errors', 'eval']);
 function redactArgs(action, args) {
-  if (action !== 'type' || !Array.isArray(args)) return args;
+  if (!Array.isArray(args) || args.length === 0) return args;
+  if (typeof action === 'string' && LOGGED_ARGS.has(action)) return args;
+  if (typeof action !== 'string' || action.trim().toLowerCase() !== 'type') return ['<redacted>'];
   const out = [];
   const words = [...args];
   if (words[0] === '--field') out.push('--field', words[1] ?? '');
@@ -334,17 +300,27 @@ function reply(res, status, text) {
       let parsed = {};
       try {
         parsed = JSON.parse(body || '{}');
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) { parsed = {}; throw new Error('request must be a JSON object'); }
         const { session, action, args = [], scenario, expr, viewport } = parsed;
+        // Operator-only actions (eval, close, errors, open with a scenario or viewport, re-opening a live session)
+        // need the verify token, which tester agents never get; they share only the harness token.
+        const operator = tokenMatches(req.headers['x-ux-verify-token'], VERIFY_TOKEN);
+        const needOperator = (what) => { if (!operator) throw new Error(`${what} is operator-only (needs UX_VERIFY_TOKEN)`); };
         if (typeof session !== 'string' || !/^[\w.-]{1,64}$/.test(session)) throw new Error('session must be 1-64 letters, digits, "_", "-" or "."');
         if (!Array.isArray(args) || args.some((a) => typeof a !== 'string')) throw new Error('args must be a list of strings');
         if (scenario !== undefined && typeof scenario !== 'string') throw new Error('scenario must be a string');
         if (expr !== undefined && typeof expr !== 'string') throw new Error('expr must be a string');
         if (typeof action !== 'string') throw new Error('action must be a string');
+        const extra = {};
         if (action === 'open') {
+          if (scenario || viewport) needOperator('open with a scenario or viewport');
+          if (sessions.has(session) && !operator) throw new Error(`session "${session}" is already open: use snapshot, or pick a new session id`);
+          if (scenario) extra.scenario = scenario;
+          if (viewport) extra.viewport = viewport;
           out = await open(session, scenario, viewport);
         } else if (action === 'eval') {
           // Verification only: needs the separate verify token, never given to testers.
-          if (!tokenMatches(req.headers['x-ux-verify-token'], VERIFY_TOKEN)) throw new Error('forbidden');
+          if (!operator) throw new Error('forbidden');
           const s = sessions.get(session);
           if (!s) throw new Error(`No session "${session}"`);
           if (!expr) throw new Error('eval needs an expression');
@@ -352,14 +328,18 @@ function reply(res, status, text) {
           // A check that returns nothing asserted nothing; never let it read as a pass.
           if (value === undefined) throw new Error('the check returned undefined; make the expression return a value');
           out = JSON.stringify(value);
+          extra.expr = expr.slice(0, 500);
+          extra.result = out.slice(0, 2000);
         } else if (action === 'close') {
           // Operator: close a finished session and free its slot.
+          needOperator('close');
           const s = sessions.get(session);
           if (!s) throw new Error(`No session "${session}"`);
           sessions.delete(session);
           await s.ctx.close().catch(() => {});
           out = 'Closed.';
         } else if (action === 'errors') {
+          needOperator('errors');
           const s = sessions.get(session);
           if (!s) throw new Error(`No session "${session}"`);
           out = JSON.stringify(s.errors);
@@ -370,10 +350,12 @@ function reply(res, status, text) {
           out = await run(s, action, args);
           if (s.lastClicked !== undefined) parsed.clicked = s.lastClicked;
         }
-        logLine({ session, action, args, ok: !String(out).startsWith('ERROR'), ...(parsed.clicked !== undefined ? { clicked: parsed.clicked } : {}) });
+        logLine({ session, action, args, ok: !String(out).startsWith('ERROR'), ...extra, ...(parsed.clicked !== undefined ? { clicked: parsed.clicked } : {}) });
       } catch (e) {
         out = 'ERROR: ' + String(e.message).split('\n')[0];
-        logLine({ session: parsed.session, action: parsed.action, args: parsed.args, ok: false, error: out });
+        // Keep the keys even for a malformed request, so every row can be attributed.
+        const str = (v, dflt) => (typeof v === 'string' ? v.slice(0, 64) : dflt);
+        logLine({ session: str(parsed.session, '(malformed)'), action: str(parsed.action, '(unknown)'), args: Array.isArray(parsed.args) ? parsed.args : [], ok: false, error: out });
       }
       reply(res, 200, out);
     });

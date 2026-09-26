@@ -1,8 +1,9 @@
 // Tester client: node ux.cjs <session> <action> [args...]
 // Actions: open · snapshot · click <name> · type [--field "<label>"] <text> [--enter] · select "<label>" <option>
 //          · press <key> · wait <ms> · screenshot
-// Operator only: "open <scenario> [--viewport WxH]" (start a tester mid-flow or at another size; testers run
-// plain "open"), "errors" (page errors in this session), "close" (end a finished session and free its slot).
+// Operator only (the harness requires the verify token; run with UX_VERIFY_TOKEN set, never in a tester brief):
+// "open <scenario> [--viewport WxH]" (start a tester mid-flow or at another size; testers run plain "open"),
+// re-opening a live session, "errors" (page errors in this session), "close" (end a finished session).
 // Exits non-zero when the harness is unreachable or answers with an ERROR, so shell && chains stop.
 // Never calls process.exit(): it sets the exit code and returns, so piped stderr is always flushed.
 const fs = require('fs');
@@ -41,7 +42,10 @@ function main() {
     action === 'open' ? { session, action, scenario: args[0], viewport } : { session, action, args },
   );
   const req = http.request(
-    { host: '127.0.0.1', port, method: 'POST', path: '/', headers: { 'x-ux-token': token } },
+    {
+      host: '127.0.0.1', port, method: 'POST', path: '/',
+      headers: { 'x-ux-token': token, ...(process.env.UX_VERIFY_TOKEN ? { 'x-ux-verify-token': process.env.UX_VERIFY_TOKEN } : {}) },
+    },
     (res) => {
       let d = '';
       res.on('data', (c) => (d += c));

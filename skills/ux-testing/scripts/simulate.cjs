@@ -65,7 +65,13 @@ const saveCache = () => { if (dirty) { fs.writeFileSync(CACHE_F, JSON.stringify(
 
 // Every walk gets its own generator, seeded from --seed and the walk's identity (case, profile, condition,
 // run index), so a re-run with the same --seed and a warm cache repeats exactly, whatever the worker count.
-const sample = (rnd, dist) => { const r = rnd(); let acc = 0; for (const [k, v] of dist) { acc += v; if (r <= acc) return k; } return dist[dist.length - 1][0]; };
+// Probabilities may sum to 1 ± 0.02 (the contract's tolerance); renormalise so no leftover mass falls on one option.
+const sample = (rnd, dist) => {
+  const total = dist.reduce((t, [, v]) => t + v, 0);
+  const r = rnd() * total; let acc = 0;
+  for (const [k, v] of dist) { acc += v; if (r < acc) return k; }
+  return dist.find(([, v]) => v > 0)[0]; // floating-point edge: the most likely option, never the least
+};
 
 const SEL = 'button, a[href], [role="button"], [role="tab"], input[type="radio"], input[type="checkbox"], summary, select';
 
@@ -165,7 +171,8 @@ async function judge(task, g, profile, cond, step) {
     can_answer: { type: 'noul', instructions: 'Can the user answer the question in the `task` from what is readable on the `screen` right now?' },
   };
   if (facts.length) questions.answer_correct = { type: 'noul', instructions: { expected_answer_contains: facts, question: 'If the user answered the `task` from what is readable on the `screen`, would their answer contain the information in `expected_answer_contains` (different wording is fine)?' } };
-  const k = crypto.createHash('sha1').update(JSON.stringify([BACKEND.endpoint, BACKEND.model, state, criteria, Object.keys(questions)])).digest('hex');
+  // Hash the full questions: their instructions carry the task's answer facts, so editing them re-asks.
+  const k = crypto.createHash('sha1').update(JSON.stringify([BACKEND.endpoint, BACKEND.model, state, questions])).digest('hex');
   if (cache[k]) return cache[k];
   const j = await BACKEND.ask(state, questions);
   calls++;
@@ -232,7 +239,7 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     await page.waitForTimeout((CFG.slowScenarios || {})[scenario] || 500);
     if (c.mutate) await page.evaluate(c.mutate);
     const hasChat = (await page.locator(`${REGIONS.chat} textarea`).count()) > 0;
-    const isQuestion = !task.success; const facts = (task.answer || []).map((f) => String(f).toLowerCase());
+    const isQuestion = !task.success;
     let chats = 0; const trail = [];
     for (let step = 0; step <= MAX_STEPS; step++) {
       if (c.mutate) await page.evaluate(c.mutate); // re-apply after re-renders
@@ -245,7 +252,7 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
       const stopP = isQuestion ? J.answer : J.done;
       if (stopP >= STOP_MIN && rnd() < stopP) {
         if (!isQuestion) return { end: 'premature-stop', steps: step, trail };
-        const right = J.correct != null ? rnd() < J.correct : facts.every((f) => (g.text + ' ' + g.chat).toLowerCase().includes(f));
+        const right = rnd() < J.correct; // question tasks always have answer facts (checked at start-up)
         return { end: right ? 'success' : 'wrong-answer', steps: step, trail };
       }
       const a = sample(rnd, Object.entries(J.next).sort((x, y) => y[1] - x[1]));
@@ -259,6 +266,16 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     if (e instanceof CheckError || /^simulator /.test(e.message)) throw e;
     return { end: 'error', steps: 0, trail: [String(e.message).slice(0, 80)] };
   } finally { await page.close(); }
+}
+
+// A task needs a success check, or (a question task) the facts its answer must contain; otherwise every walk
+// would "succeed" with nothing checked.
+function assertGradeable(ids) {
+  for (const id of ids) {
+    const t = TASKS[id];
+    if (!t) throw new Error(`Task ${id} is not in the model`);
+    if (!t.success && !(Array.isArray(t.answer) && t.answer.length)) throw new Error(`Task ${id} has neither a success check nor answer facts, so it cannot be graded. Add \`success\` or \`answer: [...]\`.`);
+  }
 }
 
 async function run(browser, c, profile, cond = 'focused') {
@@ -300,6 +317,7 @@ function boot(a, b, key, iters = 2000) {
 }
 
 async function hypothesis(browser, H, hypDir) {
+  assertGradeable(H.tasks);
   const rows = [];
   const variant = (v, tid) => ({ id: tid, task: tid, url: v && v.url ? fileUrl(v.url, hypDir) : fileUrl(CFG.url), mutate: v && v.mutate });
   const stepsOf = (R) => { const ok = R.raw.filter((r) => r.ok); return ok.length ? +(ok.reduce((t, r) => t + r.steps, 0) / ok.length).toFixed(1) : null; };
@@ -341,6 +359,7 @@ async function hypothesis(browser, H, hypDir) {
       ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url) })),
     ].filter((c) => !only || only.includes(c.id) || only.includes(c.task));
     if (!cases.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }
+    assertGradeable(cases.map((c) => c.task));
     const rows = [];
     for (const c of cases) {
       const t0 = Date.now();

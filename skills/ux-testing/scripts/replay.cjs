@@ -13,7 +13,7 @@
 // Writes <dir>/replays.json and <dir>/img/*.jpg. See reference/visual-report.md for the config and the page.
 const fs = require('fs');
 const path = require('path');
-const { loadPlaywright, simBackend, options } = require('./common.cjs');
+const { loadPlaywright, simBackend, options, resolveTarget, locateLegacy } = require('./common.cjs');
 
 const args = process.argv.slice(2);
 const O = options(args);
@@ -33,18 +33,20 @@ const fileUrl = (p) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(C
 const HIDE_SEL = CFG.hideCss ? CFG.hideCss.split('{')[0] : '';
 const REGIONS = { chat: '[data-ux-chat]', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
 
-const ROLES = ['button', 'link', 'tab', 'radio', 'checkbox', 'option', 'menuitem', 'combobox'];
-const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-// Same matching order as the harness: exact name, then names starting with the text. Older logs (before the
-// harness recorded `clicked`) may need the substring fallback, which the harness itself no longer uses.
-async function find(page, name) {
-  const tries = [];
-  for (const r of ROLES) tries.push(page.getByRole(r, { name, exact: true }));
-  for (const r of ROLES) tries.push(page.getByRole(r, { name: new RegExp('^\\s*' + esc(name), 'i') }));
-  for (const r of ROLES) tries.push(page.getByRole(r, { name: new RegExp(esc(name), 'i') }));
-  tries.push(page.getByText(name, { exact: true }));
-  for (const t of tries) { const v = t.filter({ visible: true }); if (await v.count()) return v.first(); }
-  return null;
+// Replays each click with the harness's own matcher (common.cjs) on the tester's original target, so the same
+// page state gives the same element. Falls back to the recorded clicked name, then (for logs written before the
+// harness recorded it) a contains-match that the harness itself never uses.
+async function find(page, e) {
+  const target = (e.args || []).join(' ');
+  if (target) {
+    const r = await resolveTarget(page, target);
+    if (r && r.loc) return r.loc;
+  }
+  if (e.clicked) {
+    const r = await resolveTarget(page, e.clicked);
+    if (r && r.loc) return r.loc;
+  }
+  return locateLegacy(page, e.clicked || target);
 }
 
 async function open(browser, url, viewport) {
@@ -63,60 +65,77 @@ async function hasChat(browser, exp, arm) {
 
 const box = (b) => b && { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) };
 
+let skippedLines = 0;
+function readLog(file) {
+  // A truncated or malformed line (e.g. from a crashed harness) is skipped and counted, like summarize.py.
+  return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => {
+    try { return JSON.parse(l); } catch { skippedLines++; return null; }
+  }).filter((e) => e && typeof e === 'object');
+}
+
 async function replay(browser, exp, arm, sid, outcome) {
-  const log = fs.readFileSync(path.resolve(CONFIG_DIR, arm.log), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.session === sid);
+  const log = readLog(path.resolve(CONFIG_DIR, arm.log)).filter((e) => e.session === sid);
   if (!log.length) throw new Error(`No log entries for session ${sid} in ${arm.log}`);
   const page = await open(browser, arm.url, exp.viewport);
-  const steps = [];
-  for (const e of log) {
-    if (steps.length >= MAX_STEPS) break;
-    if (e.action === 'wait') { await page.waitForTimeout(Math.min(Number(e.args[0]) || 1000, 3000)); continue; }
-    if (e.action === 'press') { await page.keyboard.press(e.args[0]); await page.waitForTimeout(400); continue; }
-    if (e.action !== 'click') continue;
-    const name = e.clicked || e.args.join(' ');
-    const loc = await find(page, name);
-    if (!loc) { steps.push({ label: name, missing: true }); continue; }
-    await loc.scrollIntoViewIfNeeded().catch(() => {});
-    const img = `img/${exp.id}-${arm.arm}-${sid}-${steps.length}.jpg`;
-    await page.screenshot({ path: path.join(OUT, img), type: 'jpeg', quality: 72 });
-    steps.push({ label: name, img, box: box(await loc.boundingBox()) });
-    await loc.click(); await page.waitForTimeout(1200);
+  try {
+    const steps = [];
+    for (const e of log) {
+      if (steps.length >= MAX_STEPS) break;
+      if (e.ok === false) continue; // the harness rejected it, so it did nothing to the page
+      const a0 = Array.isArray(e.args) ? e.args[0] : undefined;
+      if (e.action === 'wait') { await page.waitForTimeout(Math.min(Number(a0) || 1000, 3000)); continue; }
+      if (e.action === 'press' && a0) { await page.keyboard.press(a0); await page.waitForTimeout(400); continue; }
+      if (e.action !== 'click') continue;
+      const name = e.clicked || (e.args || []).join(' ');
+      const loc = await find(page, e);
+      if (!loc) { steps.push({ label: name, missing: true }); continue; }
+      await loc.scrollIntoViewIfNeeded().catch(() => {});
+      const img = `img/${exp.id}-${arm.arm}-${sid}-${steps.length}.jpg`;
+      await page.screenshot({ path: path.join(OUT, img), type: 'jpeg', quality: 72 });
+      steps.push({ label: name, img, box: box(await loc.boundingBox()) });
+      await loc.click(); await page.waitForTimeout(1200);
+    }
+    const end = `img/${exp.id}-${arm.arm}-${sid}-end.jpg`;
+    await page.screenshot({ path: path.join(OUT, end), type: 'jpeg', quality: 72 });
+    const missing = steps.filter((s) => s.missing).length;
+    if (missing) console.warn(`${sid}: ${missing} click(s) could not be matched on replay`);
+    return { session: sid, outcome, steps, end };
+  } finally {
+    await page.close().catch(() => {});
   }
-  const end = `img/${exp.id}-${arm.arm}-${sid}-end.jpg`;
-  await page.screenshot({ path: path.join(OUT, end), type: 'jpeg', quality: 72 });
-  await page.close();
-  const missing = steps.filter((s) => s.missing).length;
-  if (missing) console.warn(`${sid}: ${missing} click(s) could not be matched on replay`);
-  return { session: sid, outcome, steps, end };
 }
 
 // The first screen, and (with a simulator backend) where a busy first-time user would click first.
 async function firstScreen(browser, exp, arm) {
   const page = await open(browser, arm.url, exp.viewport);
   const img = `img/${exp.id}-${arm.arm}-first.jpg`;
-  await page.screenshot({ path: path.join(OUT, img), type: 'jpeg', quality: 72 });
-  const g = await page.evaluate(({ HIDE_SEL, R }) => {
-    const vh = innerHeight; const out = []; const seen = new Set();
-    for (const el of document.querySelectorAll('button, a[href], [role="button"], [role="tab"], input[type="radio"], input[type="checkbox"], select')) {
-      if (HIDE_SEL && el.closest(HIDE_SEL)) continue;
-      const r = el.getBoundingClientRect(); if (r.width === 0 || r.height === 0 || r.top >= vh - 4 || r.bottom <= 0) continue;
-      const txt = (el.innerText || '').trim().replace(/\s+/g, ' '); const aria = (el.getAttribute('aria-label') || txt).trim();
-      const key = aria || `icon@${Math.round(r.x)},${Math.round(r.y)}`;
-      if (seen.has(key)) continue; seen.add(key);
-      const within = (sel) => { try { return sel && el.closest(sel); } catch { return false; } };
-      const region = within(R.menu) ? 'menu' : within(R.chat) ? 'chat' : within(R.topbar) ? 'top bar' : 'page';
-      out.push({ label: txt || (aria ? `(icon) ${aria}` : '(icon, no label)'), region, box: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } });
-    }
-    let text = ''; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    while (w.nextNode() && text.length < 1600) {
-      const n = w.currentNode; const s = n.textContent.trim(); if (!s) continue;
-      if (!n.parentElement || n.parentElement.closest('script,style,noscript') || (HIDE_SEL && n.parentElement.closest(HIDE_SEL))) continue;
-      const r = n.parentElement.getBoundingClientRect(); if (r.height === 0 || r.top > vh) continue;
-      text += s + ' | ';
-    }
-    return { out, text };
-  }, { HIDE_SEL, R: REGIONS });
-  await page.close();
+  let g;
+  try {
+    await page.screenshot({ path: path.join(OUT, img), type: 'jpeg', quality: 72 });
+    g = await page.evaluate(({ HIDE_SEL, R }) => {
+      const vh = innerHeight; const out = []; const seen = new Set();
+      for (const el of document.querySelectorAll('button, a[href], [role="button"], [role="tab"], input[type="radio"], input[type="checkbox"], select')) {
+        if (HIDE_SEL && el.closest(HIDE_SEL)) continue;
+        const r = el.getBoundingClientRect(); if (r.width === 0 || r.height === 0 || r.top >= vh - 4 || r.bottom <= 0) continue;
+        const txt = (el.innerText || '').trim().replace(/\s+/g, ' '); const aria = (el.getAttribute('aria-label') || txt).trim();
+        const key = aria || `icon@${Math.round(r.x)},${Math.round(r.y)}`;
+        if (seen.has(key)) continue; seen.add(key);
+        const within = (sel) => { try { return sel && el.closest(sel); } catch { return false; } };
+        const region = within(R.menu) ? 'menu' : within(R.chat) ? 'chat' : within(R.topbar) ? 'top bar' : 'page';
+        out.push({ label: txt || (aria ? `(icon) ${aria}` : '(icon, no label)'), region, box: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } });
+      }
+      let text = ''; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      while (w.nextNode() && text.length < 1600) {
+        const n = w.currentNode; const s = n.textContent.trim(); if (!s) continue;
+        if (!n.parentElement || n.parentElement.closest('script,style,noscript') || (HIDE_SEL && n.parentElement.closest(HIDE_SEL))) continue;
+        const r = n.parentElement.getBoundingClientRect(); if (r.height === 0 || r.top > vh) continue;
+        text += s + ' | ';
+      }
+      return { out, text };
+    }, { HIDE_SEL, R: REGIONS });
+  } finally {
+    await page.close().catch(() => {});
+  }
   if (SIM.error) return { img, probs: null };
   const criteria = {}; g.out.forEach((c, i) => { criteria['c' + i] = `"${c.label}" (${c.region})`; });
   criteria.__scroll = 'Scroll down to see more';
@@ -178,6 +197,7 @@ async function firstScreen(browser, exp, arm) {
     await browser.close();
     save();
   }
+  if (skippedLines) console.warn(`skipped ${skippedLines} malformed log line(s)`);
   console.log(`wrote ${path.join(OUT, 'replays.json')}${failures ? ` with ${failures} error(s); see the warnings above` : ''}`);
   if (failures) process.exitCode = 1;
 })();

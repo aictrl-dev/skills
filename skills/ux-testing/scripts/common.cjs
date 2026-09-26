@@ -9,8 +9,10 @@ const path = require('path');
 // an untrusted prototype, and a planted node_modules/playwright there would run as you before any page opens.
 function requireFrom(name) {
   try { return require(name); } catch (e) {
-    if (e && e.code !== 'MODULE_NOT_FOUND') throw e;
-    return null;
+    // Absent only when the package itself is missing; a broken install (a missing dependency inside it) is
+    // reported as it is, not as "not installed".
+    if (e && e.code === 'MODULE_NOT_FOUND' && String(e.message).startsWith(`Cannot find module '${name}'`)) return null;
+    throw e;
   }
 }
 
@@ -85,13 +87,17 @@ async function ask(endpoint, key, model, state, questions) {
     } catch (e) {
       lastStatus = `network error: ${e.code || e.name}`;
     }
-    if (r && r.ok) return validate(await r.json(), questions);
+    if (r && r.ok) {
+      let j;
+      try { j = await r.json(); } catch { throw new Error('simulator response is not JSON'); }
+      return validate(j, questions);
+    }
     if (r) {
       lastStatus = `HTTP ${r.status}`;
       // Auth and request errors will not fix themselves; only retry rate limits and server errors.
       if (r.status !== 429 && r.status < 500) break;
     }
-    await new Promise((res) => setTimeout(res, 1500 * (attempt + 1)));
+    if (attempt < 2) await new Promise((res) => setTimeout(res, 1500 * (attempt + 1)));
   }
   throw new Error(`simulator request failed (${lastStatus})`);
 }
@@ -115,6 +121,59 @@ function validate(j, questions) {
     }
   }
   return j;
+}
+
+// ---------------------------------------------------------------- matching controls by visible name
+// Shared by the harness (server.cjs) and replay.cjs, so a replay clicks what the tester clicked.
+const ROLES = ['button', 'link', 'tab', 'option', 'menuitem', 'checkbox', 'radio', 'treeitem', 'row', 'combobox'];
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Returns { loc, note }, { error } for malformed input, or null when nothing matches.
+// A trailing " #N" picks the Nth match, but only when the literal text (e.g. "Run #210") matches
+// nothing, so names that end in a number stay clickable.
+async function resolveTarget(page, target) {
+  const literal = await locate(page, target, 0);
+  if (literal) return literal;
+  const m = target.match(/^(.*?)\s+#(\d+)$/);
+  if (!m) return null;
+  const idx = Number(m[2]) - 1;
+  if (idx < 0) return { error: 'ERROR: matches are numbered from #1.' };
+  return locate(page, m[1], idx);
+}
+
+async function locate(page, target, idx) {
+  let role = null;
+  let name = target.trim();
+  const rm = name.match(/^(\w+):(.*)$/);
+  if (rm && ROLES.includes(rm[1])) { role = rm[1]; name = rm[2].trim(); }
+  if (!name) return { error: 'ERROR: click needs the visible name of what to click.' };
+  const roles = role ? [role] : ROLES;
+  const tries = [
+    ...roles.map((r) => page.getByRole(r, { name, exact: true })),
+    // Fuzzy fallback: the element's name must START with the text (never merely contain it), so
+    // "run #210" cannot hit "Approve gate: … (run #210)". Accessible names start with the visible label.
+    ...roles.map((r) => page.getByRole(r, { name: new RegExp('^\\s*' + escapeRe(name), 'i') })),
+    ...(role ? [] : [page.getByText(name, { exact: true }), page.getByText(name)]),
+  ];
+  for (const loc of tries) {
+    const vis = loc.filter({ visible: true });
+    const count = await vis.count();
+    if (count > 0) {
+      const note = count > 1 ? ` (${count} matches; clicked #${Math.min(idx + 1, count)}. Add " #2" etc. to pick another.)` : '';
+      return { loc: vis.nth(Math.min(idx, count - 1)), note };
+    }
+  }
+  return null;
+}
+
+// Replay only: logs written before the harness recorded the clicked name may need a contains-match on roles,
+// which the harness itself never uses. Tried last, after the harness ladder.
+async function locateLegacy(page, name) {
+  for (const r of ROLES) {
+    const v = page.getByRole(r, { name: new RegExp(escapeRe(name), 'i') }).filter({ visible: true });
+    if (await v.count()) return v.first();
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- options and randomness
@@ -165,4 +224,4 @@ function seedOf(...parts) {
   return h >>> 0;
 }
 
-module.exports = { loadPlaywright, loadModel, tokenFile, simBackend, requireSimBackend, options, rng, seedOf };
+module.exports = { loadPlaywright, loadModel, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy };

@@ -62,7 +62,8 @@ hypotheses:                     # design bets, with their evidence once tested (
 
 Per task, per round (the same rule as SKILL.md): 2 text testers (small model, accessibility snapshot) and 1
 control (stronger model, text); add 1 vision tester (small model, screenshots only) when the layout or the fold
-matters for that task. Use 5 samples for criticality-3 tasks. Add a **hurried** persona (see
+matters for that task. Every task gets the same mix, criticality-3 tasks included, so rounds and variants
+stay comparable; `must_not` checks, not extra samples, are what catch their costly failures. Add a **hurried** persona (see
 `tester-brief.md`) when testing a hypothesis about first glances.
 
 Void, don't score, runs broken by the harness (a crashed browser, a click routed to the wrong control) and
@@ -94,5 +95,5 @@ usually means a whole job is missing a place in the UI.
   they cannot use a control that has no accessible name.
 - Vision testers see only screenshots, so they miss anything below the fold and guess at icon-only controls.
   When only vision testers fail, suspect the fold or the visual hierarchy, and check at 1366×768
-  (`open --viewport 1366x768`).
+  (an operator `open --viewport 1366x768`, see SKILL.md).
 - The simulator (see `simulator.md`) sits between the two: its scanner sees the fold like a vision tester.
