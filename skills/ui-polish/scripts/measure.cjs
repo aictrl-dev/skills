@@ -38,6 +38,7 @@ const TH = {
   deadSpaceVh: 0.3, // a vertical gap inside the content above the primary action larger than this share of the viewport
   actionGapVh: 0.25, // distance from the last field to the primary action larger than this share of the viewport
   typeScaleMax: 6, // more distinct font sizes than this in the scope is reported
+  labelGapPx: 12, // a checkbox or radio label at most this far from the control extends its tap target
 };
 
 // Page text is untrusted: strip control characters (ANSI/OSC escapes) before printing it to a terminal.
@@ -90,7 +91,7 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   const vw = innerWidth; const vh = innerHeight;
   const scope = (scopeSel && document.querySelector(scopeSel)) || document.querySelector('main') || document.body;
   const findings = [];
-  const add = (check, severity, el, message, measured, expected) => findings.push({ check, severity, selector: sel(el), anchor: anchor(el), message, measured, expected });
+  const add = (check, severity, el, message, measured, expected, extra = {}) => findings.push({ check, severity, selector: sel(el), anchor: anchor(el), message, measured, expected, ...extra });
   function anchor(el) {
     if (!el || el.nodeType !== 1) return '';
     const tag = el.tagName.toLowerCase();
@@ -118,9 +119,37 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
     return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0.05;
   };
+  // In the DOM for assistive tech or bots but not on screen: sr-only text, honeypot fields, off-screen and
+  // aria-hidden content. visible() passes these (they have a size), so the checks about what a person sees
+  // or taps also skip them.
+  const hiddenCache = new Map();
+  const isVisuallyHidden = (el) => {
+    if (!el || el.nodeType !== 1) return false;
+    if (hiddenCache.has(el)) return hiddenCache.get(el);
+    let hidden = !!el.closest('[aria-hidden="true"]');
+    if (!hidden) {
+      const r = el.getBoundingClientRect();
+      // entirely left of or above the page, or right of a page that cannot scroll that far
+      hidden = r.right <= 0 || r.bottom + scrollY <= 0 || r.left >= Math.max(vw, document.documentElement.scrollWidth);
+    }
+    const probe = el.getAttribute('tabindex') === '-1';
+    for (let e = el; !hidden && e && e !== document.documentElement; e = e.parentElement) {
+      const cs = getComputedStyle(e); const er = e.getBoundingClientRect();
+      const tiny = er.width <= 1 && er.height <= 1;
+      const clipZero = /^rect\(\s*0(px)?[\s,]+0(px)?[\s,]+0(px)?[\s,]+0(px)?\s*\)$/.test(cs.clip);
+      const insetHalf = /inset\(\s*50%/.test(cs.clipPath);
+      // sr-only / visually-hidden: clipped to nothing, or clipped and at most 1px
+      if (clipZero || insetHalf || (tiny && (/^rect\(/.test(cs.clip) || cs.clipPath !== 'none'))) hidden = true;
+      // a tabindex="-1" control inside a zero-size clipping wrapper: the usual honeypot
+      else if (probe && e !== el && /hidden|clip/.test(cs.overflow) && (er.width < 1 || er.height < 1)) hidden = true;
+    }
+    hiddenCache.set(el, hidden);
+    return hidden;
+  };
+  const shown = (el) => visible(el) && !isVisuallyHidden(el);
   const rect = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height), r: Math.round(r.right), b: Math.round(r.bottom + scrollY) }; };
   const textInputSel = 'input:not([type]), input[type="text"], input[type="number"], input[type="email"], input[type="tel"], input[type="search"], input[type="password"], input[type="url"], input[type="date"], select, textarea';
-  const fields = [...scope.querySelectorAll(textInputSel)].filter(visible);
+  const fields = [...scope.querySelectorAll(textInputSel)].filter(shown);
 
   // accessible name
   const accName = (el) => {
@@ -187,14 +216,41 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   }
 
   // ---- C6 tap targets and C7 input font size
-  const controls = [...scope.querySelectorAll('button, a[href], input, select, textarea, [role="button"], summary')].filter(visible);
+  // A link is inline (exempt under WCAG 2.5.8) when it sits in running text: inside a paragraph or list item,
+  // or when its parent (or the nearest inline ancestor with text) has words of its own around the link.
+  const hasOwnWords = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && /[\p{L}\p{N}]/u.test(n.textContent));
+  const inSentence = (a) => {
+    for (let p = a.parentElement, depth = 0; p && depth < 3; p = p.parentElement, depth++) {
+      if (hasOwnWords(p)) return true;
+      if (!getComputedStyle(p).display.startsWith('inline')) return false;
+    }
+    return false;
+  };
+  const minSide = (b) => Math.min(b.r - b.l, b.b - b.t);
+  const box = (r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+  const union = (a, b) => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
+  const controls = [...scope.querySelectorAll('button, a[href], input, select, textarea, [role="button"], summary')].filter(shown);
   for (const c of controls) {
     if (c.type === 'hidden') continue;
     const r = c.getBoundingClientRect();
-    const inline = c.tagName === 'A' && getComputedStyle(c).display === 'inline' && c.closest('p, li');
+    const inline = c.tagName === 'A' && getComputedStyle(c).display === 'inline' && (c.closest('p, li') || inSentence(c));
     if (inline) continue;
-    const minSide = Math.min(r.height, r.width);
-    if (minSide < TH.tapPx && vw <= 480) add('tap-target', minSide < TH.tapErrorPx ? 'error' : 'warn', c, `Tap target is ${Math.round(r.width)}×${Math.round(r.height)}px`, Math.round(Math.min(r.width, r.height)), `>= ${TH.tapPx}px`);
+    // A checkbox or radio is also hit through its label: the effective target is the control plus a label
+    // that wraps it or sits right next to it.
+    let target = box(r); let via = null;
+    if (c.tagName === 'INPUT' && (c.type === 'checkbox' || c.type === 'radio')) {
+      for (const lab of c.labels || []) {
+        if (!visible(lab)) continue;
+        const lr = lab.getBoundingClientRect();
+        const gap = Math.max(lr.left - r.right, r.left - lr.right, lr.top - r.bottom, r.top - lr.bottom, 0);
+        if (!lab.contains(c) && gap > TH.labelGapPx) continue;
+        const u = union(target, box(lr));
+        if (minSide(u) > minSide(target)) { target = u; via = lab; }
+      }
+    }
+    const side = minSide(target); const w = Math.round(target.r - target.l); const h = Math.round(target.b - target.t);
+    const msg = via ? `Tap target is ${Math.round(r.width)}×${Math.round(r.height)}px; its label extends it to ${w}×${h}px` : `Tap target is ${w}×${h}px`;
+    if (side < TH.tapPx && vw <= 480) add('tap-target', side < TH.tapErrorPx ? 'error' : 'warn', c, msg, Math.round(side), `>= ${TH.tapPx}px`, via ? { effective: { w, h }, label: sel(via) } : {});
   }
   if (vw <= 480) for (const f of fields) {
     const fs = parseFloat(getComputedStyle(f).fontSize);
@@ -225,7 +281,7 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const t = walker.currentNode; const s = t.textContent.trim(); if (s.length < 2) continue;
-    const el = t.parentElement; if (!el || !visible(el)) continue;
+    const el = t.parentElement; if (!el || !visible(el) || isVisuallyHidden(el)) continue;
     const cs = getComputedStyle(el); const fsz = parseFloat(cs.fontSize);
     sizes.set(Math.round(fsz), (sizes.get(Math.round(fsz)) || 0) + 1);
     if (fsz < TH.textPx) { small++; smallEl = smallEl || el; }
@@ -255,7 +311,7 @@ function measureInPage({ scopeSel, primarySel, TH }) {
   // ---- C12 heading, C13 dead space and distance to the primary action
   const heads = [...scope.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')].filter(visible);
   if (!heads.length) add('heading', 'warn', scope, 'No visible heading in the content; the question is not in the heading outline', 0, '>= 1');
-  const primary = (primarySel && document.querySelector(primarySel)) || [...scope.querySelectorAll('button[type="submit"], button, [role="button"]')].filter(visible).sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height)[0];
+  const primary = (primarySel && document.querySelector(primarySel)) || [...scope.querySelectorAll('button[type="submit"], button, [role="button"]')].filter(shown).sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height)[0];
   if (primary && fields.length) {
     const lastField = fields.reduce((m, f) => (f.getBoundingClientRect().bottom > m.getBoundingClientRect().bottom ? f : m));
     const pr = primary.getBoundingClientRect(); const lf = lastField.getBoundingClientRect();
@@ -263,7 +319,7 @@ function measureInPage({ scopeSel, primarySel, TH }) {
     if (gap > TH.actionGapVh * vh) add('action-distance', 'warn', primary, `The primary action is ${Math.round(gap)}px below the last field`, Math.round(gap), `<= ${Math.round(TH.actionGapVh * vh)}px`);
     if (pr.bottom > vh && gap > 0 && lf.bottom < vh) add('action-below-fold', 'error', primary, 'The primary action is below the first screen while the fields fit on it', Math.round(pr.bottom), `<= ${vh}px`);
     // largest empty band between content blocks above the action
-    const blocks = [...scope.querySelectorAll('h1,h2,h3,p,label,legend,input,select,textarea,button,a,img,svg')].filter(visible).map((e) => e.getBoundingClientRect()).filter((r) => r.bottom <= pr.top + 1).sort((a, b) => a.top - b.top);
+    const blocks = [...scope.querySelectorAll('h1,h2,h3,p,label,legend,input,select,textarea,button,a,img,svg')].filter(shown).map((e) => e.getBoundingClientRect()).filter((r) => r.bottom <= pr.top + 1).sort((a, b) => a.top - b.top);
     let maxGap = 0; let bottom = blocks.length ? blocks[0].bottom : 0;
     for (const r of blocks) { if (r.top - bottom > maxGap) maxGap = r.top - bottom; bottom = Math.max(bottom, r.bottom); }
     if (pr.top - bottom > maxGap) maxGap = pr.top - bottom;
@@ -272,8 +328,11 @@ function measureInPage({ scopeSel, primarySel, TH }) {
 
   // visible copy, for the compare step's new-copy review
   const copy = []; const tw = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
-  while (tw.nextNode()) { const t = tw.currentNode.textContent.replace(/\s+/g, ' ').trim(); const el = tw.currentNode.parentElement; if (t && el && visible(el) && !copy.includes(t)) copy.push(t); }
-  for (const el of scope.querySelectorAll('[placeholder], [aria-label]')) for (const a of ['placeholder', 'aria-label']) { const v = (el.getAttribute(a) || '').trim(); if (v && !copy.includes(v)) copy.push(v); }
+  while (tw.nextNode()) { const t = tw.currentNode.textContent.replace(/\s+/g, ' ').trim(); const el = tw.currentNode.parentElement; if (t && el && shown(el) && !copy.includes(t)) copy.push(t); }
+  for (const el of scope.querySelectorAll('[placeholder], [aria-label]')) {
+    if (isVisuallyHidden(el)) continue;
+    for (const a of ['placeholder', 'aria-label']) { const v = (el.getAttribute(a) || '').trim(); if (v && !copy.includes(v)) copy.push(v); }
+  }
   return { viewport: { width: vw, height: vh }, fieldCount: fields.length, rows: rows.map((r) => r.items.map((it) => ({ x: it.x, w: it.w }))), copy, findings };
 }
 
