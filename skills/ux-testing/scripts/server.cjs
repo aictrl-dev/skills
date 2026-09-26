@@ -250,9 +250,18 @@ function redactArgs(action, args) {
   return out;
 }
 
+// A logging failure (a full disk, the output directory removed mid-round) must not take down the harness and
+// every open session with it: warn on stderr and keep serving.
+let logWarned = false;
 function logLine(entry) {
-  const safe = { ...entry, args: redactArgs(entry.action, entry.args) };
-  fs.appendFileSync(LOG, JSON.stringify({ t: Date.now(), ...safe }) + '\n');
+  try {
+    const safe = { ...entry, args: redactArgs(entry.action, entry.args) };
+    fs.appendFileSync(LOG, JSON.stringify({ t: Date.now(), ...safe }) + '\n');
+    logWarned = false;
+  } catch (e) {
+    if (!logWarned) console.error(`WARNING: could not write the action log ${LOG} (${e.code || e.message}); actions are not being recorded, but the harness keeps serving.`);
+    logWarned = true;
+  }
 }
 
 function reply(res, status, text) {

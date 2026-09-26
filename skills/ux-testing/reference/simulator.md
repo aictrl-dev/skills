@@ -80,7 +80,8 @@ The response must be `200` with:
 - `noul` → `noul`: the probability, in [0, 1], that the statement is true.
 - Extra fields are ignored. The scripts retry network errors, rate limits (`429`) and server errors (`5xx`)
   up to twice with back-off, fail fast on other statuses, and stop the run on a response that breaks the contract, printing
-  only the HTTP status or the contract violation, never the key or the response body.
+  only the HTTP status or the contract violation, never the key or the response body. A backend failure that
+  survives the retries is never scored as a user failure: the run stops with exit code 3 and names the task.
 
 ## How it works
 
@@ -102,6 +103,11 @@ Each simulated user walks one path:
    is at least 0.3 and a coin flip at that probability says so.
 4. **Check.** After every step, evaluate the task's `success` and `must_not` (from the task model) in the
    page. Ends: success, harm, premature-stop, wrong-answer, give-up, too-long (16 steps), error.
+
+`error` is a harness failure (a page crash, a failed navigation, a control replaced mid-click), not a user
+outcome. Error walks are left out of `success`, `harm` and the hypothesis bootstrap; each run reports `n`
+(walks scored) and `errors` (walks left out), and hypothesis rows carry `nA`/`nB` and `errorsA`/`errorsB`. If
+more than 10% of a run's walks end in `error`, the run stops with exit code 3 instead of scoring the rest.
 
 Load conditions (scanner only), run unless `--no-load`:
 

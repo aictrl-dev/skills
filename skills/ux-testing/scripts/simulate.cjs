@@ -48,6 +48,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const MAX_STEPS = 16; // a path longer than this counts as a failure ("too-long")
 const MAX_CHATS = 3; // a user who types into the chat more than this gives up
+const MAX_ERROR_SHARE = 0.1; // a run whose walks end in harness errors more often than this stops, unscored
 const STOP_MIN = 0.3; // a user only considers stopping when the model's stop probability reaches this
 const SETTLE_MS = 1100;
 const LAPTOP = { width: 1366, height: 768 };
@@ -222,6 +223,7 @@ async function check(page, task) {
 }
 
 class CheckError extends Error {}
+class RunError extends Error {}
 
 function viewportFor(task, cond) {
   if (cond === 'laptop') return LAPTOP;
@@ -263,9 +265,12 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     }
   } catch (e) {
     // A backend failure or a broken check is not a usability result: stop the run rather than score it.
-    if (e instanceof CheckError || /^simulator /.test(e.message)) throw e;
-    return { end: 'error', steps: 0, trail: [String(e.message).slice(0, 80)] };
-  } finally { await page.close(); }
+    if (e instanceof CheckError) throw e;
+    if (/^simulator /.test(e.message)) throw new RunError(`task ${task.id}: a walk failed from a simulator backend error (${e.message}). Nothing from this run is scored; check the backend and run again.`);
+    // Any other failure (page crash, navigation, a control replaced mid-click) is the harness's, not the user's:
+    // it ends as `error`, which run() leaves out of success and harm and reports separately.
+    return { end: 'error', steps: 0, trail: [String(e.message).split('\n')[0].slice(0, 120)] };
+  } finally { await page.close().catch(() => {}); }
 }
 
 // A task needs a success check, or (a question task) the facts its answer must contain; otherwise every walk
@@ -290,14 +295,23 @@ async function run(browser, c, profile, cond = 'focused') {
   };
   await Promise.all(Array.from({ length: Math.min(WORKERS, N) }, worker));
   saveCache();
-  const count = (e) => results.filter((r) => r.end === e).length;
-  const ok = results.filter((r) => r.end === 'success');
+  // Walks that ended in a harness error say nothing about the user: they are left out of success, harm and the
+  // bootstrap, and counted in `errors`. Too many of them and the run is not trustworthy, so it stops.
+  const errors = results.filter((r) => r.end === 'error');
+  if (errors.length > N * MAX_ERROR_SHARE) {
+    throw new RunError(`task ${task.id} (${profile}, ${cond}): ${errors.length} of ${N} walks failed from harness errors (more than ${MAX_ERROR_SHARE * 100}%), e.g. "${errors[0].trail[0]}". Nothing from this run is scored; fix the page or the config and run again.`);
+  }
+  const scored = results.filter((r) => r.end !== 'error');
+  const count = (e) => scored.filter((r) => r.end === e).length;
+  const ok = scored.filter((r) => r.end === 'success');
   const ends = {}; results.forEach((r) => { ends[r.end] = (ends[r.end] || 0) + 1; });
-  const fails = {}; results.filter((r) => r.end !== 'success').forEach((r) => { const k = `${r.end}: ${r.trail.slice(0, 4).join(' → ') || '(start)'}`; fails[k] = (fails[k] || 0) + 1; });
+  const fails = {}; scored.filter((r) => r.end !== 'success').forEach((r) => { const k = `${r.end}: ${r.trail.slice(0, 4).join(' → ') || '(start)'}`; fails[k] = (fails[k] || 0) + 1; });
   return {
-    raw: results.map((r) => ({ ok: r.end === 'success' ? 1 : 0, harm: r.end === 'harm' ? 1 : 0, steps: r.steps })),
-    success: +(count('success') / N).toFixed(2),
-    harm: +(count('harm') / N).toFixed(2),
+    raw: scored.map((r) => ({ ok: r.end === 'success' ? 1 : 0, harm: r.end === 'harm' ? 1 : 0, steps: r.steps })),
+    n: scored.length,
+    errors: errors.length,
+    success: +(count('success') / scored.length).toFixed(2),
+    harm: +(count('harm') / scored.length).toFixed(2),
     steps: ok.length ? +(ok.reduce((s, r) => s + r.steps, 0) / ok.length).toFixed(1) : null,
     ends,
     topFail: Object.entries(fails).sort((a, b) => b[1] - a[1]).slice(0, 1).map(([k, v]) => `${v}× ${k}`)[0] || '',
@@ -327,7 +341,7 @@ async function hypothesis(browser, H, hypDir) {
       const A = await run(browser, variant(H.a, tid), 'scanner', cond);
       const B = await run(browser, variant(H.b, tid), 'scanner', cond);
       const s = boot(A.raw, B.raw, 'ok'); const h = boot(A.raw, B.raw, 'harm');
-      const row = { task: tid, cond, A: A.success, B: B.success, stepsA: stepsOf(A), stepsB: stepsOf(B), success: { ...s, verdict: verdict(s) }, harmA: A.harm, harmB: B.harm, harm: { ...h, verdict: verdict(h) }, failA: A.topFail, failB: B.topFail };
+      const row = { task: tid, cond, A: A.success, B: B.success, nA: A.n, nB: B.n, errorsA: A.errors, errorsB: B.errors, stepsA: stepsOf(A), stepsB: stepsOf(B), success: { ...s, verdict: verdict(s) }, harmA: A.harm, harmB: B.harm, harm: { ...h, verdict: verdict(h) }, failA: A.topFail, failB: B.topFail };
       rows.push(row); console.log(JSON.stringify(row));
     }
   }
