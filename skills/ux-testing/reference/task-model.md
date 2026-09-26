@@ -32,7 +32,7 @@ tasks:
     ideal_steps: 3              # shortest known path in tester commands (clicks plus a snapshot after each)
     success: S.reviews.find(r => r.team === 'Payments').status === 'in_progress'
     must_not: S.requests.find(r => r.id === 'REQ-311').status === 'approved'   # harmful side effect to rule out
-    status: ready               # ready | needs-target (the target cannot express it yet)
+    status: ready               # ready | needs-target (the target cannot express it yet; simulate.cjs skips it)
 
   - id: Q1                      # a question task: no success check, graded on the answer
     role: approver
@@ -60,9 +60,10 @@ hypotheses:                     # design bets, with their evidence once tested (
 
 ## Sampling
 
-Per task, per round: 2 text testers (small model, accessibility snapshot), 1 vision tester (small model,
-screenshots only), 1 control (stronger model, text). Use 5 samples for criticality-3 tasks. Add a **hurried**
-persona (see `tester-brief.md`) when testing a hypothesis about first glances.
+Per task, per round (the same rule as SKILL.md): 2 text testers (small model, accessibility snapshot) and 1
+control (stronger model, text); add 1 vision tester (small model, screenshots only) when the layout or the fold
+matters for that task. Use 5 samples for criticality-3 tasks. Add a **hurried** persona (see
+`tester-brief.md`) when testing a hypothesis about first glances.
 
 Void, don't score, runs broken by the harness (a crashed browser, a click routed to the wrong control) and
 say how many were voided.

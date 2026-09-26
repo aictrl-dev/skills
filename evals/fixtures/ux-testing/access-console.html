@@ -155,8 +155,8 @@
         <div class="what"><strong>Payments</strong> · ext-vendor-7 (contractor) requests <strong>admin</strong> on prod-db<br><span class="muted">REQ-311 · waiting 2 hours</span></div>
         <button class="btn btn-primary btn-big" onclick="decide('REQ-311','approved')">Approve</button>
         <button class="btn" aria-label="Reject request REQ-311" onclick="decide('REQ-311','denied')">Deny</button>
-      </div>` : '') + `
-      <div class="attn-item"><div class="what">The Payments quarterly access review is due in 3 days.</div></div>`;
+      </div>` : '') + (S.reviews[0].status === 'not_started' ? `
+      <div class="attn-item"><div class="what">The Payments quarterly access review is due in 3 days.</div></div>` : '');
 
     $('review-rows').innerHTML = S.reviews.map((r, i) => `<tr><td>${r.team}</td><td><span class="badge">${statusText[r.status]}</span></td><td>${r.due}</td><td>${
       r.status === 'not_started' ? `<button class="btn" onclick="startReview(${i})">Start review</button>` : r.status === 'in_progress' ? `<span class="muted">Reviewing</span>` : ''}</td></tr>`).join('');

@@ -15,12 +15,16 @@
 //   UX_SETUP         path to a .cjs module exporting async (page, ctx) => {} run after navigation
 //                    (e.g. sign in to a test account)
 //   UX_STORAGE_STATE Playwright storageState JSON for an already signed-in context
+//   UX_VERIFY_TOKEN  optional verify token of your choice (>= 32 chars); when set it is not printed
 //
 // Access control: every request needs the per-run token that the server writes to
 // $TMPDIR/ux-harness-<uid>/<port>.token, inside a directory only this user can open (0700); ux.cjs
-// reads it. The verify-only "eval" action needs a second token that is never written to disk: the
-// server prints it once for the operator, who passes it to verify.cjs as UX_VERIFY_TOKEN. Requests
-// carrying an Origin or Referer header (i.e. sent by a browser) and requests for another Host are rejected.
+// reads it. The verify-only "eval" action needs a second token that the harness never writes to disk: set it
+// yourself as UX_VERIFY_TOKEN (>= 32 chars) in the server's environment, or the server generates one and prints
+// it once (then any captured stdout holds a copy). Pass the same value to verify.cjs as UX_VERIFY_TOKEN.
+// Both tokens keep tester agents, which are only given ux.cjs, to the tester commands; they are not a defence
+// against other processes running as your user. Requests carrying an Origin or Referer header (i.e. sent by a
+// browser) and requests for another Host are rejected.
 // Typed text is never written to the log (testers may type credentials).
 const crypto = require('crypto');
 const fs = require('fs');
@@ -57,7 +61,14 @@ if (!dirStat.isDirectory() || dirStat.isSymbolicLink() || (uid !== null && dirSt
   process.exit(1);
 }
 const TOKEN = crypto.randomBytes(24).toString('hex');
-const VERIFY_TOKEN = crypto.randomBytes(24).toString('hex');
+// The operator may choose the verify token (UX_VERIFY_TOKEN in the server's environment), so it is never printed.
+// Otherwise one is generated and printed once; anything that captures the server's stdout then holds a copy.
+const VERIFY_TOKEN_GIVEN = Boolean(process.env.UX_VERIFY_TOKEN);
+if (VERIFY_TOKEN_GIVEN && process.env.UX_VERIFY_TOKEN.length < 32) {
+  console.error('UX_VERIFY_TOKEN must be at least 32 characters (e.g. 24 random bytes as hex).');
+  process.exit(1);
+}
+const VERIFY_TOKEN = VERIFY_TOKEN_GIVEN ? process.env.UX_VERIFY_TOKEN : crypto.randomBytes(24).toString('hex');
 
 // Constant-time comparison without leaking the length: compare fixed-size digests.
 function tokenMatches(given, expected) {
@@ -66,16 +77,6 @@ function tokenMatches(given, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
-let DEFAULT_VIEWPORT = { width: 1440, height: 900 };
-if (process.env.UX_VIEWPORT) {
-  const m = /^(\d+)x(\d+)$/.exec(process.env.UX_VIEWPORT);
-  if (!m) { console.error('UX_VIEWPORT must be WIDTHxHEIGHT, e.g. 1366x768'); process.exit(1); }
-  DEFAULT_VIEWPORT = { width: Number(m[1]), height: Number(m[2]) };
-}
-
-let browser;
-const sessions = new Map();
-
 function validViewport(v) {
   if (!v) return null;
   const ok = (n) => Number.isInteger(n) && n >= 320 && n <= 3840;
@@ -83,13 +84,39 @@ function validViewport(v) {
   return { width: v.width, height: v.height };
 }
 
+let DEFAULT_VIEWPORT = { width: 1440, height: 900 };
+if (process.env.UX_VIEWPORT) {
+  const m = /^(\d+)x(\d+)$/.exec(process.env.UX_VIEWPORT);
+  try {
+    if (!m) throw new Error();
+    DEFAULT_VIEWPORT = validViewport({ width: Number(m[1]), height: Number(m[2]) });
+  } catch {
+    console.error('UX_VIEWPORT must be WIDTHxHEIGHT between 320 and 3840, e.g. 1366x768');
+    process.exit(1);
+  }
+}
+
+let browser;
+const sessions = new Map(); // live sessions only: an entry is removed when its browser context closes
+let opening = 0; // new session ids whose open is in flight, counted against MAX_SESSIONS
+
 async function open(id, scenario, viewport) {
   if (scenario && !process.env.UX_SCENARIO_SEL) throw new Error(`scenario "${scenario}" given but UX_SCENARIO_SEL is not configured`);
-  if (!sessions.has(id) && sessions.size >= MAX_SESSIONS) throw new Error(`too many open sessions (${MAX_SESSIONS}); restart the harness between batches`);
-  const ctx = await browser.newContext({
-    viewport: validViewport(viewport) || validViewport(DEFAULT_VIEWPORT),
-    ...(process.env.UX_STORAGE_STATE ? { storageState: process.env.UX_STORAGE_STATE } : {}),
-  });
+  const vp = validViewport(viewport) || DEFAULT_VIEWPORT;
+  // Reserve the slot synchronously, so concurrent opens of new ids cannot pass the check together.
+  const isNew = !sessions.has(id);
+  if (isNew && sessions.size + opening >= MAX_SESSIONS) throw new Error(`too many open sessions (${MAX_SESSIONS}); close finished sessions ("close") or restart the harness between batches`);
+  if (isNew) opening++;
+  let ctx;
+  try {
+    ctx = await browser.newContext({
+      viewport: vp,
+      ...(process.env.UX_STORAGE_STATE ? { storageState: process.env.UX_STORAGE_STATE } : {}),
+    });
+  } catch (e) {
+    if (isNew) opening--;
+    throw e;
+  }
   ctx.setDefaultTimeout(ACTION_TIMEOUT_MS);
   const errors = [];
   let page;
@@ -102,13 +129,18 @@ async function open(id, scenario, viewport) {
     if (process.env.UX_HIDE_CSS) await page.addStyleTag({ content: process.env.UX_HIDE_CSS });
     await page.waitForTimeout(500);
   } catch (e) {
+    if (isNew) opening--;
     await ctx.close().catch(() => {});
     throw e;
   }
+  if (isNew) opening--;
   // Swap only after the new session is fully ready, then close the old one. The get and set run in
   // one synchronous step, so of two overlapping opens the later one always closes the earlier one.
   const previous = sessions.get(id);
-  sessions.set(id, { ctx, page, errors });
+  const entry = { ctx, page, errors };
+  sessions.set(id, entry);
+  // Free the slot when this context goes away (closed, replaced, or the browser crashed).
+  ctx.on('close', () => { if (sessions.get(id) === entry) sessions.delete(id); });
   if (previous) await previous.ctx.close().catch(() => {});
   return 'Opened the app. Use "snapshot" to see the page.';
 }
@@ -305,6 +337,9 @@ function reply(res, status, text) {
         const { session, action, args = [], scenario, expr, viewport } = parsed;
         if (typeof session !== 'string' || !/^[\w.-]{1,64}$/.test(session)) throw new Error('session must be 1-64 letters, digits, "_", "-" or "."');
         if (!Array.isArray(args) || args.some((a) => typeof a !== 'string')) throw new Error('args must be a list of strings');
+        if (scenario !== undefined && typeof scenario !== 'string') throw new Error('scenario must be a string');
+        if (expr !== undefined && typeof expr !== 'string') throw new Error('expr must be a string');
+        if (typeof action !== 'string') throw new Error('action must be a string');
         if (action === 'open') {
           out = await open(session, scenario, viewport);
         } else if (action === 'eval') {
@@ -312,10 +347,18 @@ function reply(res, status, text) {
           if (!tokenMatches(req.headers['x-ux-verify-token'], VERIFY_TOKEN)) throw new Error('forbidden');
           const s = sessions.get(session);
           if (!s) throw new Error(`No session "${session}"`);
+          if (!expr) throw new Error('eval needs an expression');
           const value = await s.page.evaluate(expr);
           // A check that returns nothing asserted nothing; never let it read as a pass.
           if (value === undefined) throw new Error('the check returned undefined; make the expression return a value');
           out = JSON.stringify(value);
+        } else if (action === 'close') {
+          // Operator: close a finished session and free its slot.
+          const s = sessions.get(session);
+          if (!s) throw new Error(`No session "${session}"`);
+          sessions.delete(session);
+          await s.ctx.close().catch(() => {});
+          out = 'Closed.';
         } else if (action === 'errors') {
           const s = sessions.get(session);
           if (!s) throw new Error(`No session "${session}"`);
@@ -344,12 +387,26 @@ function reply(res, status, text) {
     process.exit(1);
   });
   server.listen(PORT, '127.0.0.1', () => {
-    fs.writeFileSync(TOKEN_FILE, TOKEN, { mode: 0o600 });
+    // Never follow a link planted at the token path: remove any stale file we own, then create exclusively.
+    try {
+      const st = fs.lstatSync(TOKEN_FILE);
+      if (!st.isFile() || (uid !== null && st.uid !== uid)) {
+        console.error(`ERROR: ${TOKEN_FILE} exists and is not a regular file you own. Remove it and start again.`);
+        process.exit(1);
+      }
+      fs.unlinkSync(TOKEN_FILE); // left by a harness that was killed before it could clean up
+    } catch (e) {
+      if (e.code !== 'ENOENT') throw e;
+    }
+    const fd = fs.openSync(TOKEN_FILE, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW || 0), 0o600);
+    fs.writeSync(fd, TOKEN);
+    fs.closeSync(fd);
     process.on('exit', () => {
       try { fs.unlinkSync(TOKEN_FILE); } catch { /* already gone */ }
     });
     for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(0));
     console.log(`ux harness on ${PORT} → ${TARGET_URL}\noutput: ${OUT}`);
-    console.log(`verify token (operator only; pass to verify.cjs as UX_VERIFY_TOKEN, never to testers): ${VERIFY_TOKEN}`);
+    if (VERIFY_TOKEN_GIVEN) console.log('verify token: the UX_VERIFY_TOKEN you set (not printed)');
+    else console.log(`verify token (operator only; pass to verify.cjs as UX_VERIFY_TOKEN, never to testers; set UX_VERIFY_TOKEN yourself to keep it out of captured output): ${VERIFY_TOKEN}`);
   });
 })();

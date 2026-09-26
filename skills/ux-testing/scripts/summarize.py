@@ -2,7 +2,7 @@
 
 Usage: python3 summarize.py <actions.jsonl> [session-prefix]
 Counts every tester command (snapshot, click, type, select, press, wait, screenshot);
-excludes open (session setup, not a tester command) and eval/errors (operator-only actions).
+excludes open (session setup, not a tester command) and eval/errors/close (operator-only actions).
 Log lines without a session (a malformed client call) are skipped. Malformed log lines are skipped
 and counted.
 """
@@ -32,7 +32,7 @@ with open(path) as f:
         session = entry.get('session')
         if not isinstance(session, str) or not session:
             continue
-        if not session.startswith(prefix) or entry.get('action') in ('open', 'eval', 'errors'):
+        if not session.startswith(prefix) or entry.get('action') in ('open', 'eval', 'errors', 'close'):
             continue
         counts[session] += 1
         if not entry.get('ok', True):

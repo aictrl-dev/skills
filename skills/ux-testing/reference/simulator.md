@@ -97,7 +97,8 @@ Each simulated user walks one path:
    - `can_answer` and `answer_correct` (noul): for question tasks.
    Answers are cached per screen and backend (`.sim-cache.json` in the output directory), so re-runs with
    the same `--out` are free.
-3. **Act.** Sample one action from the probabilities and perform it. A user stops when the stop probability
+3. **Act.** Sample one action from the probabilities and perform it on the exact element perceived (it is
+   tagged with a `data-ux-sim` attribute; if a re-render replaced it, the walk ends as `error`). A user stops when the stop probability
    is at least 0.3 and a coin flip at that probability says so.
 4. **Check.** After every step, evaluate the task's `success` and `must_not` (from the task model) in the
    page. Ends: success, harm, premature-stop, wrong-answer, give-up, too-long (16 steps), error.
@@ -147,7 +148,12 @@ node $SKILL/scripts/simulate.cjs --config sim.config.json --tasks T1,T3 --n 16 -
 node $SKILL/scripts/simulate.cjs --config sim.config.json --hyp H1.json --n 24 --out <dir>
 ```
 
-`--out` defaults to a new temp directory; pass the same one to reuse the cache. About 4 minutes and
+`--out` defaults to a new temp directory; pass the same one to reuse the cache. `--n` and `--workers` must
+be integers of at least 1 and `--seed` a non-negative integer (default 42). Every simulated user has its own
+random stream derived from the seed, so the same `--seed` with a warm cache repeats a run exactly, for any
+`--workers`. A `success` or `must_not` expression that throws stops the run with the task id and the
+expression (exit 3): it is a broken check, not a failed user, so write expressions that return true or false
+in every page state. About 4 minutes and
 100–200 model calls per task with load conditions at n = 16; far fewer on re-runs.
 
 ## Hypothesis mode

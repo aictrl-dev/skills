@@ -4,12 +4,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// Resolve a package from the skill's own location first, then from the current directory, so the
-// scripts work when the skill is installed globally and run from a project that has the package.
+// Resolve a package only from the skill's own location (node_modules next to or above the scripts) or from
+// NODE_PATH, which the operator sets explicitly. Never from the current directory: the target under test may be
+// an untrusted prototype, and a planted node_modules/playwright there would run as you before any page opens.
 function requireFrom(name) {
-  try { return require(name); } catch { /* try the project */ }
-  try { return require(require.resolve(name, { paths: [process.cwd()] })); } catch { /* not found */ }
-  return null;
+  try { return require(name); } catch (e) {
+    if (e && e.code !== 'MODULE_NOT_FOUND') throw e;
+    return null;
+  }
 }
 
 function loadPlaywright() {
@@ -17,7 +19,7 @@ function loadPlaywright() {
     const mod = requireFrom(name);
     if (mod) return mod;
   }
-  console.error('Playwright is not installed. Run `npm i -D playwright && npx playwright install chromium` in the project, or set NODE_PATH to a node_modules that has it.');
+  console.error('Playwright was not found next to the skill or on NODE_PATH. Install it in a directory you trust (`npm i -D playwright && npx playwright install chromium`) and run with NODE_PATH=<that directory>/node_modules.');
   process.exit(2);
 }
 
@@ -27,7 +29,7 @@ function loadModel(file) {
   if (/\.json$/i.test(file)) return JSON.parse(text);
   const yaml = requireFrom('js-yaml');
   if (!yaml) {
-    console.error(`Reading ${path.basename(file)} needs js-yaml: run \`npm i -D js-yaml\` in the project, set NODE_PATH, or write the task model as JSON.`);
+    console.error(`Reading ${path.basename(file)} needs js-yaml next to the skill or on NODE_PATH (\`npm i -D js-yaml\` in a directory you trust), or write the task model as JSON.`);
     process.exit(2);
   }
   return yaml.load(text);
@@ -115,4 +117,52 @@ function validate(j, questions) {
   return j;
 }
 
-module.exports = { loadPlaywright, loadModel, tokenFile, simBackend, requireSimBackend };
+// ---------------------------------------------------------------- options and randomness
+// Command-line options: `--name value`. A flag given without a value (last argument, or followed by another
+// --flag) is a usage error rather than silently becoming undefined/NaN.
+function options(argv) {
+  const has = (name) => argv.includes(`--${name}`);
+  const str = (name, dflt) => {
+    const i = argv.indexOf(`--${name}`);
+    if (i < 0) return dflt;
+    const v = argv[i + 1];
+    if (v === undefined || v.startsWith('--')) usageError(`--${name} needs a value`);
+    return v;
+  };
+  const int = (name, dflt, min) => {
+    const raw = str(name, undefined);
+    if (raw === undefined) return dflt;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < min) usageError(`--${name} must be an integer >= ${min} (got "${raw}")`);
+    return n;
+  };
+  return { has, str, int };
+}
+
+function usageError(msg) {
+  console.error(msg);
+  process.exit(2);
+}
+
+// mulberry32: a small PRNG on exact 32-bit integer arithmetic (Math.imul, >>> 0), uniform in [0, 1).
+// Floating-point LCGs lose low bits once the product passes 2^53 and drift from uniform.
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// A stable 32-bit seed from any parts (e.g. seed, case id, profile, condition, run index), so every simulated
+// walk has its own generator and results do not depend on how concurrent workers interleave.
+function seedOf(...parts) {
+  let h = 2166136261;
+  for (const ch of JSON.stringify(parts)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+module.exports = { loadPlaywright, loadModel, tokenFile, simBackend, requireSimBackend, options, rng, seedOf };

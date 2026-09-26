@@ -8,7 +8,8 @@
 // Usage (needs Playwright with Chromium; js-yaml for a YAML task model):
 //   node simulate.cjs --config sim.config.json [--tasks T1,T3] [--n 16] [--no-load]    # score tasks
 //   node simulate.cjs --config sim.config.json --hyp H1.json [--n 16]                   # A/B hypothesis
-// Options: --out <dir> (default: a new temp dir), --cache <file>, --workers <n>, --seed <n>.
+// Options: --out <dir> (default: a new temp dir), --cache <file>, --workers <n>, --seed <n> (same seed and a warm
+// cache repeat a run exactly, for any --workers).
 //
 // Needs a simulator backend: TYPESAFE_API_KEY (TypeSafe Jev), or UX_SIM_ENDPOINT + UX_SIM_API_KEY +
 // UX_SIM_MODEL for a compatible endpoint. Without one it exits with code 2 and says how to set one up.
@@ -18,11 +19,15 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { loadPlaywright, loadModel, requireSimBackend } = require('./common.cjs');
+const { loadPlaywright, loadModel, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
 
 const args = process.argv.slice(2);
-const opt = (name, dflt) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : dflt; };
-const flag = (name) => args.includes(`--${name}`);
+const O = options(args);
+const opt = O.str;
+const flag = O.has;
+const N = O.int('n', 16, 1);
+const WORKERS = O.int('workers', 4, 1);
+const SEED = O.int('seed', 42, 0);
 if (!opt('config')) { console.error('Usage: node simulate.cjs --config sim.config.json [--tasks T1,T3] [--hyp H.json] [--n 16] [--out dir]'); process.exit(2); }
 
 const BACKEND = requireSimBackend(); // exits with the not-configured message when there is no backend
@@ -41,8 +46,6 @@ const OBSERVED = observedPath && fs.existsSync(observedPath) ? JSON.parse(fs.rea
 const OUT = path.resolve(opt('out') || fs.mkdtempSync(path.join(os.tmpdir(), 'ux-sim-')));
 fs.mkdirSync(OUT, { recursive: true });
 
-const N = Number(opt('n', 16));
-const WORKERS = Number(opt('workers', 4));
 const MAX_STEPS = 16; // a path longer than this counts as a failure ("too-long")
 const MAX_CHATS = 3; // a user who types into the chat more than this gives up
 const STOP_MIN = 0.3; // a user only considers stopping when the model's stop probability reaches this
@@ -60,16 +63,19 @@ const cache = fs.existsSync(CACHE_F) ? JSON.parse(fs.readFileSync(CACHE_F, 'utf8
 let calls = 0; let dirty = 0;
 const saveCache = () => { if (dirty) { fs.writeFileSync(CACHE_F, JSON.stringify(cache)); dirty = 0; } };
 
-let seed = Number(opt('seed', 42));
-const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
-const sample = (dist) => { const r = rnd(); let acc = 0; for (const [k, v] of dist) { acc += v; if (r <= acc) return k; } return dist[dist.length - 1][0]; };
+// Every walk gets its own generator, seeded from --seed and the walk's identity (case, profile, condition,
+// run index), so a re-run with the same --seed and a warm cache repeats exactly, whatever the worker count.
+const sample = (rnd, dist) => { const r = rnd(); let acc = 0; for (const [k, v] of dist) { acc += v; if (r <= acc) return k; } return dist[dist.length - 1][0]; };
 
 const SEL = 'button, a[href], [role="button"], [role="tab"], input[type="radio"], input[type="checkbox"], summary, select';
 
 // Perception is code, not the model. A "scanner" sees only what is on screen without scrolling (the 14 most
 // prominent page controls, icons as symbols); a "reader" gets every control's accessible name and all page text.
 async function perceive(page, profile) {
-  return page.evaluate(({ profile, SEL, R, HIDE_SEL, ROW, ROW_TITLE }) => {
+  // Each perceived control is tagged with this screen's generation, so act() clicks exactly that element, or
+  // fails with "control gone" if a re-render replaced it, instead of clicking whatever now sits at its index.
+  const gen = crypto.randomBytes(4).toString('hex');
+  const g = await page.evaluate(({ profile, SEL, R, HIDE_SEL, ROW, ROW_TITLE, gen }) => {
     const vh = innerHeight;
     const hidden = (el) => HIDE_SEL && el.closest(HIDE_SEL);
     const within = (el, sel) => { try { return sel && el.closest(sel); } catch { return false; } };
@@ -79,6 +85,7 @@ async function perceive(page, profile) {
     const els = [...document.querySelectorAll(SEL)].filter((el) => !hidden(el));
     const out = []; let below = 0; let above = 0;
     els.forEach((el, idx) => {
+      el.setAttribute('data-ux-sim', `${gen}:${idx}`);
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0 || getComputedStyle(el).visibility === 'hidden') return;
       const reg = regionOf(el);
@@ -128,7 +135,9 @@ async function perceive(page, profile) {
     const chatEl = R.chat ? document.querySelector(R.chat) : null;
     const chat = chatEl ? chatEl.innerText.replace(/\s+/g, ' ').slice(-900) : '';
     return { controls, below, above, text, chat };
-  }, { profile, SEL, R: REGIONS, HIDE_SEL, ROW: CFG.rowSelector || '', ROW_TITLE: CFG.rowTitleSelector || '' });
+  }, { profile, SEL, R: REGIONS, HIDE_SEL, ROW: CFG.rowSelector || '', ROW_TITLE: CFG.rowTitleSelector || '', gen });
+  g.gen = gen;
+  return g;
 }
 
 async function judge(task, g, profile, cond, step) {
@@ -181,24 +190,31 @@ async function act(page, g, a, prompt) {
     await box.fill(prompt, { timeout: 5000 }); await box.press('Enter'); await page.waitForTimeout(SETTLE_MS + 600); return;
   }
   const c = g.controls[Number(a.slice(1))];
-  await page.evaluate(({ idx, SEL, HIDE_SEL }) => {
-    const el = [...document.querySelectorAll(SEL)].filter((e) => !(HIDE_SEL && e.closest(HIDE_SEL)))[idx];
+  await page.evaluate(({ tag }) => {
+    const el = document.querySelector(`[data-ux-sim="${tag}"]`);
     if (!el) throw new Error('control gone');
     if (el.tagName === 'SELECT') { el.selectedIndex = (el.selectedIndex + 1) % el.options.length; el.dispatchEvent(new Event('change', { bubbles: true })); } else el.click();
-  }, { idx: c.idx, SEL, HIDE_SEL });
+  }, { tag: `${g.gen}:${c.idx}` });
   await page.waitForTimeout(SETTLE_MS);
 }
 
 // Evaluates the task model's own success / must_not expressions in the page. `S` is the page's read-only
 // state hook (window[stateHook], default window.__state) when it has one; expressions may also query the DOM.
 // Test harness only: the expressions come from the author's own task model file.
+// An expression that throws is a broken check, not a failed user: the run stops and names it, like verify.cjs.
 async function check(page, task) {
-  return page.evaluate(([s, n, meta, hook]) => {
+  const r = await page.evaluate(([s, n, meta, hook]) => {
     const S = window[hook]; const META = meta; // eslint-disable-line no-unused-vars
-    const ev = (e) => { if (!e) return null; try { return !!eval(e); } catch (x) { return null; } }; // eslint-disable-line no-eval
+    const ev = (e) => { if (!e) return { v: null }; try { return { v: !!eval(e) }; } catch (x) { return { err: String(x && x.message || x) }; } }; // eslint-disable-line no-eval
     return { success: ev(s), harm: ev(n) };
   }, [task.success, task.must_not, MODEL.meta || {}, STATE_HOOK]);
+  for (const [field, key] of [['success', 'success'], ['must_not', 'harm']]) {
+    if (r[key].err) throw new CheckError(`task ${task.id}: ${field} expression threw "${r[key].err}" (${task[field]}). Make it return true or false in every page state.`);
+  }
+  return { success: r.success.v, harm: r.harm.v };
 }
+
+class CheckError extends Error {}
 
 function viewportFor(task, cond) {
   if (cond === 'laptop') return LAPTOP;
@@ -206,7 +222,7 @@ function viewportFor(task, cond) {
   return v ? { width: v[0], height: v[1] } : DESKTOP;
 }
 
-async function walkOne(browser, c, task, profile, cond) {
+async function walkOne(browser, c, task, profile, cond, rnd) {
   const page = await browser.newPage({ viewport: viewportFor(task, cond) });
   try {
     await page.goto(c.url);
@@ -232,15 +248,15 @@ async function walkOne(browser, c, task, profile, cond) {
         const right = J.correct != null ? rnd() < J.correct : facts.every((f) => (g.text + ' ' + g.chat).toLowerCase().includes(f));
         return { end: right ? 'success' : 'wrong-answer', steps: step, trail };
       }
-      const a = sample(Object.entries(J.next).sort((x, y) => y[1] - x[1]));
+      const a = sample(rnd, Object.entries(J.next).sort((x, y) => y[1] - x[1]));
       if (a === '__give_up') return { end: 'give-up', steps: step, trail };
       if (a === '__type_chat' && ++chats > MAX_CHATS) return { end: 'give-up', steps: step, trail };
       trail.push(a.startsWith('__') ? a.slice(2) : g.controls[Number(a.slice(1))].label.slice(0, 40));
       await act(page, g, a, task.prompt);
     }
   } catch (e) {
-    // A backend failure is not a usability result: stop the run rather than score it as a user error.
-    if (/^simulator /.test(e.message)) throw e;
+    // A backend failure or a broken check is not a usability result: stop the run rather than score it.
+    if (e instanceof CheckError || /^simulator /.test(e.message)) throw e;
     return { end: 'error', steps: 0, trail: [String(e.message).slice(0, 80)] };
   } finally { await page.close(); }
 }
@@ -248,9 +264,14 @@ async function walkOne(browser, c, task, profile, cond) {
 async function run(browser, c, profile, cond = 'focused') {
   const task = TASKS[c.task];
   if (!task) throw new Error(`Task ${c.task} is not in the model`);
-  const results = []; let started = 0;
-  const worker = async () => { while (started < N) { started++; results.push(await walkOne(browser, c, task, profile, cond)); } };
-  await Promise.all(Array.from({ length: WORKERS }, worker));
+  const results = new Array(N); let started = 0;
+  const worker = async () => {
+    while (started < N) {
+      const i = started++;
+      results[i] = await walkOne(browser, c, task, profile, cond, rng(seedOf(SEED, c.id, c.url, c.mutate || '', profile, cond, i)));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(WORKERS, N) }, worker));
   saveCache();
   const count = (e) => results.filter((r) => r.end === e).length;
   const ok = results.filter((r) => r.end === 'success');
@@ -268,6 +289,7 @@ async function run(browser, c, profile, cond = 'focused') {
 
 // 90% bootstrap interval for the difference B − A.
 function boot(a, b, key, iters = 2000) {
+  const rnd = rng(seedOf(SEED, 'bootstrap', key, a.length, b.length));
   const mean = (xs) => xs.reduce((s, x) => s + x[key], 0) / xs.length; const ds = [];
   for (let i = 0; i < iters; i++) {
     const ra = a.map(() => a[Math.floor(rnd() * a.length)]); const rb = b.map(() => b[Math.floor(rnd() * b.length)]);
@@ -315,7 +337,7 @@ async function hypothesis(browser, H, hypDir) {
     }
     const only = opt('tasks') ? opt('tasks').split(',') : null;
     const cases = [
-      ...MODEL.tasks.filter((t) => t.status !== 'needs-mock' && t.status !== 'needs-target').map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url) })),
+      ...MODEL.tasks.filter((t) => t.status !== 'needs-target').map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url) })),
       ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url) })),
     ].filter((c) => !only || only.includes(c.id) || only.includes(c.task));
     if (!cases.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }

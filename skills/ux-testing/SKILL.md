@@ -9,7 +9,7 @@ Measure whether a first-time user can complete real tasks in a UI, find out wher
 
 ## Requirements
 
-- **Node 18+ and Playwright with Chromium.** Install in the project with `npm i -D playwright && npx playwright install chromium`, or set `NODE_PATH` to a `node_modules` that has it. The scripts look for `playwright` or `playwright-core` next to the skill, then in the current directory.
+- **Node 18+ and Playwright with Chromium.** Install it in a directory you trust (`npm i -D playwright && npx playwright install chromium`) and run the scripts with `NODE_PATH=<that directory>/node_modules`, or install it next to the skill. The scripts load `playwright` or `playwright-core` only from the skill's own location or `NODE_PATH`, never from the current directory, so a prototype you are testing cannot plant code in them.
 - **Python 3** for `summarize.py` and `score.py`. A YAML task model needs PyYAML (`pip install pyyaml`) in Python and js-yaml (`npm i -D js-yaml`) for the simulator; or write the task model as JSON.
 - **Subagents.** Testers run as separate agents. Use your platform's smallest fast model as the novice proxy and a stronger, mid-sized model as the control. If your agent can only run one model, run all testers on it and say so in the report.
 - **Optional: a simulator backend** for simulated users (see "Simulate hypotheses" below).
@@ -38,15 +38,15 @@ UX_TARGET=path/to/page.html UX_OUT=<scratch dir outside the repository> node $SK
 node $SKILL/scripts/ux.cjs t0 open && node $SKILL/scripts/ux.cjs t0 snapshot | head -40              # smoke test
 ```
 
-- The server prints the output directory and a **verify token** once. Keep the token for `verify.cjs`; never put it in a tester brief.
+- The server prints the output directory. `verify.cjs` needs a **verify token**: best, choose one yourself and start the server with it in its environment (`UX_VERIFY_TOKEN=<48 random hex chars>`), so it is never printed; otherwise the server generates one and prints it once, and any captured server output then holds a copy. Never put it in a tester brief.
 - `UX_OUT` receives `actions.jsonl` and screenshots. Without it the server makes a new temp directory and prints the path. Never point it inside the repository.
 - `UX_PORT` (default 3917) sets the harness port; export the same value for every `ux.cjs` and `verify.cjs` call, including in tester briefs. `UX_VIEWPORT` (default `1440x900`) sets the default window.
 - `UX_HIDE_CSS` hides prototype chrome real users would not see (state switchers, design notes). `UX_SCENARIO_SEL` names a `<select>` that jumps a prototype to a named state, so you can pre-open a session mid-flow with `ux.cjs <session> open <scenario>`.
-- Security: the harness listens on 127.0.0.1 only. Every request needs a per-run token that the server writes to `$TMPDIR/ux-harness-<uid>/<port>.token` (a 0700 directory, removed on exit); `ux.cjs` reads it. Evaluating checks needs the second, verify token, which is never written to disk. Requests with an `Origin` or `Referer` header (anything a browser sends) are rejected, so a web page cannot drive a signed-in session. Typed text is redacted in the log. Stop the server when the run ends.
+- Security: the harness listens on 127.0.0.1 only. Every request needs a per-run token that the server writes to a token file, `$TMPDIR/ux-harness-<uid>/<port>.token` (mode 0600, inside a 0700 per-user directory; the file is removed when the server exits); `ux.cjs` reads it. Evaluating checks needs the second, verify token, which the harness never writes to disk. Requests with an `Origin` or `Referer` header (anything a browser sends) are rejected, so a web page cannot drive a signed-in session. Typed text is redacted in the log. The tokens keep tester agents, which are given only `ux.cjs`, to tester commands; they are not a defence against other programs running as your user. Stop the server when the run ends.
 
 ### 2. Baseline
 
-- For every task launch **2 novice testers** (small model) and **1 control** (stronger model), in parallel and in the background, with the brief from `reference/tester-brief.md` and a unique session id each (`T1-t1`, `T1-t2`, `T1-c1`, …). Add a vision tester per task when the layout or the fold matters.
+- For every task launch **2 novice testers** (small model) and **1 control** (stronger model), in parallel and in the background, with the brief from `reference/tester-brief.md` and a unique session id each (`T1-t1`, `T1-t2`, `T1-c1`, …). Add 1 vision tester per task when the layout or the fold matters. This is the sampling rule in `reference/task-model.md` too.
 - For tasks that start mid-flow, open the session yourself first: `node $SKILL/scripts/ux.cjs <session> open <scenario>`. Add `--viewport 390x844` for a phone or `--viewport 1366x768` for a laptop.
 - When all testers finish, score each session:
   - **Success** from the check: `UX_VERIFY_TOKEN=<token> node $SKILL/scripts/verify.cjs <check.js> <sessions…>`, or from the answer for question tasks. Testers do claim success falsely, especially after a control that only looks like it worked.
@@ -105,8 +105,8 @@ When the results go beyond this session, build the visual report in `reference/v
 - **Timers.** Pages that simulate progress need `wait` calls; tell testers to wait and re-snapshot.
 - **Agents are not people.** They are patient, read text instead of layout, and never see colour. Treat results as a clarity and flow check, and use real users for the final answer.
 - **The fold.** Text testers read the whole accessibility tree, so they find what people would miss below the fold. When only vision testers fail, re-test at 1366×768.
-- **Harness memory.** Restart the harness between batches of about 6 testers; Chromium otherwise crashes ("Target crashed") under memory pressure. Void and re-run those sessions; say how many were voided.
-- **Cost.** A baseline of 6 tasks is 18 tester runs, most on the small model. Review and fixer rounds use the main model. A task-model round of 20 tasks is about 70 runs; screen with the simulator first when you have one.
+- **Harness memory.** Close finished sessions (`ux.cjs <session> close`; at most 32 are open at once) and restart the harness between batches of about 6 testers; Chromium otherwise crashes ("Target crashed") under memory pressure. Void and re-run those sessions; say how many were voided.
+- **Cost.** A baseline of 6 tasks is 18 tester runs (3 per task), plus 1 per task that gets a vision tester, most on the small model. Review and fixer rounds use the main model. A task-model round of 20 tasks is about 70 runs; screen with the simulator first when you have one.
 
 ---
 **Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=ux-testing&utm_listing=github-skills&utm_platform=portable&utm_skill=ux-testing).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=ux-testing&utm_listing=github-skills&utm_platform=portable&utm_skill=ux-testing)

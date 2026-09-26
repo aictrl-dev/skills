@@ -19,9 +19,10 @@ import argparse
 import collections
 import json
 import statistics
+import sys
 
 FREQ = {'daily': 5, 'weekly': 3, 'monthly': 1}
-OPERATOR = ('open', 'eval', 'errors')
+OPERATOR = ('open', 'eval', 'errors', 'close')
 
 ap = argparse.ArgumentParser()
 ap.add_argument('model')
@@ -66,6 +67,13 @@ for tid, sessions in results.items():
     if 'ideal_steps' not in t or 'frequency' not in t or 'criticality' not in t:
         raise SystemExit(f'Task {tid} needs frequency, criticality and ideal_steps in the model')
     ok = sum(valid.values())
+    # A scored session with no logged commands almost always means its id does not match the log (a typo, or a
+    # log from another harness run). Leave it out of the median, which would otherwise read as a zero-step path,
+    # but say so: the median then covers fewer sessions than n.
+    missing = [s for s in valid if not commands[f'{tid}-{s}']]
+    if missing:
+        print(f'warning: {tid}: no logged commands for session(s) {", ".join(missing)}; check the session ids. '
+              f'The median covers {len(valid) - len(missing)} of {len(valid)} sessions.', file=sys.stderr)
     steps = [commands[f'{tid}-{s}'] for s in valid if commands[f'{tid}-{s}']]
     if not steps:
         raise SystemExit(f'No logged commands for {tid} sessions {list(valid)}; check the session ids in the log')
@@ -80,6 +88,9 @@ for tid, sessions in results.items():
         'median_commands': statistics.median(steps), 'ideal_steps': t['ideal_steps'],
         'by_type': ' '.join(f'{k}:{v[0]}/{v[1]}' for k, v in sorted(by_type.items())),
     })
+
+if not rows:
+    raise SystemExit('results.json has no scored sessions (every session is voided, or it is empty); nothing to score.')
 
 total = sum(r['raw_weight'] for r in rows)
 for r in rows:

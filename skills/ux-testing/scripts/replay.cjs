@@ -8,14 +8,17 @@
 //
 // Usage (needs Playwright with Chromium):
 //   node replay.cjs --config replay.config.json --out <dir> [--steps 5]
+// Entries that fail (an unknown session id, a failed prediction) carry an "error" field; the rest are kept.
 // Relative paths in the config resolve against the config's directory.
 // Writes <dir>/replays.json and <dir>/img/*.jpg. See reference/visual-report.md for the config and the page.
 const fs = require('fs');
 const path = require('path');
-const { loadPlaywright, simBackend } = require('./common.cjs');
+const { loadPlaywright, simBackend, options } = require('./common.cjs');
 
 const args = process.argv.slice(2);
-const opt = (name, dflt) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : dflt; };
+const O = options(args);
+const opt = O.str;
+const MAX_STEPS = O.int('steps', 5, 1);
 if (!opt('config') || !opt('out')) { console.error('Usage: node replay.cjs --config replay.config.json --out <dir>'); process.exit(2); }
 
 const { chromium } = loadPlaywright();
@@ -23,7 +26,6 @@ const CONFIG_PATH = path.resolve(opt('config'));
 const CONFIG_DIR = path.dirname(CONFIG_PATH);
 const CFG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const OUT = path.resolve(opt('out'));
-const MAX_STEPS = Number(opt('steps', 5));
 const SIM = simBackend();
 if (SIM.error) console.warn('No simulator backend configured: replaying sessions without first-click predictions. Set TYPESAFE_API_KEY (https://typesafe.ai) or UX_SIM_ENDPOINT + UX_SIM_API_KEY + UX_SIM_MODEL to add them.');
 fs.mkdirSync(path.join(OUT, 'img'), { recursive: true });
@@ -139,20 +141,43 @@ async function firstScreen(browser, exp, arm) {
     console.error(`ERROR: could not start Chromium (${String(e.message).split('\n')[0]}). Run \`npx playwright install chromium\`.`);
     process.exit(3);
   }
+  // One bad session id or one failed prediction must not discard everything else: record the error on that
+  // entry, keep going, and always write what was collected.
   const data = { experiments: [] };
+  let failures = 0;
+  const save = () => fs.writeFileSync(path.join(OUT, 'replays.json'), JSON.stringify(data, null, 1));
   try {
     for (const exp of CFG.experiments) {
       const e = { id: exp.id, title: exp.title, viewport: exp.viewport, task: exp.task, arms: [] };
+      data.experiments.push(e);
       for (const arm of exp.arms) {
         const sessions = [];
-        for (const [sid, outcome] of arm.sessions) sessions.push(await replay(browser, exp, arm, sid, outcome));
-        const prediction = await firstScreen(browser, exp, arm);
+        for (const [sid, outcome] of arm.sessions) {
+          try {
+            sessions.push(await replay(browser, exp, arm, sid, outcome));
+          } catch (err) {
+            failures++;
+            console.warn(`${exp.id} ${arm.arm} ${sid}: ${err.message}`);
+            sessions.push({ session: sid, outcome, steps: [], end: null, error: err.message });
+          }
+        }
+        let prediction;
+        try {
+          prediction = await firstScreen(browser, exp, arm);
+        } catch (err) {
+          failures++;
+          console.warn(`${exp.id} ${arm.arm} first screen: ${err.message}`);
+          prediction = { img: null, probs: null, error: err.message };
+        }
         e.arms.push({ arm: arm.arm, label: arm.label, sessions, prediction });
-        console.log(`${exp.id} ${arm.arm}: ${sessions.map((s) => `${s.session} ${s.steps.length} clicks`).join(', ')}`);
+        console.log(`${exp.id} ${arm.arm}: ${sessions.map((x) => `${x.session} ${x.error ? 'error' : `${x.steps.length} clicks`}`).join(', ')}`);
+        save();
       }
-      data.experiments.push(e);
     }
-  } finally { await browser.close(); }
-  fs.writeFileSync(path.join(OUT, 'replays.json'), JSON.stringify(data, null, 1));
-  console.log(`wrote ${path.join(OUT, 'replays.json')}`);
+  } finally {
+    await browser.close();
+    save();
+  }
+  console.log(`wrote ${path.join(OUT, 'replays.json')}${failures ? ` with ${failures} error(s); see the warnings above` : ''}`);
+  if (failures) process.exitCode = 1;
 })();

@@ -33,11 +33,26 @@ Simulator (`simulate.cjs`, TypeSafe `jev-latest`, key loaded from `.env` without
 |---|---|
 | No backend configured | exit 2 with "Simulator not configured", the TypeSafe key link, the compatible-endpoint variables, "local models are not supported yet" and "continue with agent testers only" |
 | `UX_SIM_ENDPOINT` without model; plain-http non-local endpoint | refused with a clear message (exit 2) |
-| T1, n = 8, with load conditions | success 1.00 in all five conditions, harm 0; 16 model calls, 20 s. The simulator did **not** reproduce the U4 misclick on this fixture |
+| T1, n = 8, with load conditions | success 1.00 in all five runs (scanner and reader, plus the scanner under laptop, interrupt and paraphrase), harm 0; 16 model calls, 20 s. The simulator did **not** reproduce the U4 misclick on this fixture |
 | T2, T4, Q1, n = 8, `--no-load` | T2 0/8 (give-up: icon-only export, U1); T4 0/8 premature-stop for scanner and reader (the stub looks done, U5); Q1 scanner 6/8, reader 8/8; 52 calls |
 
 `replay.cjs` replayed two logged T1 sessions and returned a first-click prediction ("Start review"
 0.98); with the key unset it warned and replayed without predictions.
+
+Re-run after the code-review fixes (same day): the simulator now uses an exact 32-bit generator with one
+stream per simulated user, so the numbers above changed. T1 and T4, n = 8, `--no-load`: T1 scanner 7/8
+success and 1/8 harm (approved REQ-311, U4), reader 8/8; T4 scanner 8/8 premature-stop, reader 7/8
+premature-stop and 1/8 give-up. The same `--seed` gave identical results with `--workers 4` and
+`--workers 1`. Hypothesis H1 (n = 6) ran on both arms with no errors and no clear difference. A typo in a
+`success` expression now stops the run with the task id and expression (exit 3) instead of scoring 0%.
+Also re-checked:
+- harness: open, snapshot, click, `close`, verify;
+- 33 sequential open/close cycles on one harness;
+- rejections: non-string `expr`/`scenario`, bad `UX_VIEWPORT`, short `UX_VERIFY_TOKEN`, Origin header;
+- a stale token file is replaced safely;
+- `score.py` on an all-void results file exits with a message;
+- `replay.cjs` with an unknown session id keeps the other sessions;
+- invalid `--n`/`--seed`/`--steps` are refused.
 
 Verdict: scripts PASS the smoke test; the skill is **not yet eval-graded**. Next: a blind run per
 `evals/ux-testing.eval.md` with fresh agents (2 novice + 1 control per task, vision testers on T1 and
