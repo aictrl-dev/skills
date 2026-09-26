@@ -333,6 +333,9 @@ function boot(a, b, key, iters = 2000) {
 async function hypothesis(browser, H, hypDir) {
   assertGradeable(H.tasks);
   const rows = [];
+  // Written after every row, so a later failure keeps the rows already computed.
+  const file = path.join(OUT, `hyp-${H.id}.json`);
+  const save = (extra) => fs.writeFileSync(file, JSON.stringify({ H, n: N, rows, ...extra }, null, 2));
   const variant = (v, tid) => ({ id: tid, task: tid, url: v && v.url ? fileUrl(v.url, hypDir) : fileUrl(CFG.url), mutate: v && v.mutate });
   const stepsOf = (R) => { const ok = R.raw.filter((r) => r.ok); return ok.length ? +(ok.reduce((t, r) => t + r.steps, 0) / ok.length).toFixed(1) : null; };
   const verdict = (x) => (x.lo > 0 ? 'B higher' : x.hi < 0 ? 'B lower' : 'no clear difference');
@@ -342,10 +345,10 @@ async function hypothesis(browser, H, hypDir) {
       const B = await run(browser, variant(H.b, tid), 'scanner', cond);
       const s = boot(A.raw, B.raw, 'ok'); const h = boot(A.raw, B.raw, 'harm');
       const row = { task: tid, cond, A: A.success, B: B.success, nA: A.n, nB: B.n, errorsA: A.errors, errorsB: B.errors, stepsA: stepsOf(A), stepsB: stepsOf(B), success: { ...s, verdict: verdict(s) }, harmA: A.harm, harmB: B.harm, harm: { ...h, verdict: verdict(h) }, failA: A.topFail, failB: B.topFail };
-      rows.push(row); console.log(JSON.stringify(row));
+      rows.push(row); console.log(JSON.stringify(row)); save();
     }
   }
-  return rows;
+  return { rows, file };
 }
 
 (async () => {
@@ -361,9 +364,7 @@ async function hypothesis(browser, H, hypDir) {
     if (opt('hyp')) {
       const hypPath = path.resolve(opt('hyp'));
       const H = JSON.parse(fs.readFileSync(hypPath, 'utf8'));
-      const rows = await hypothesis(browser, H, path.dirname(hypPath));
-      const file = path.join(OUT, `hyp-${H.id}.json`);
-      fs.writeFileSync(file, JSON.stringify({ H, n: N, rows }, null, 2));
+      const { file } = await hypothesis(browser, H, path.dirname(hypPath));
       console.log(`wrote ${file} · model calls ${calls}`);
       return;
     }

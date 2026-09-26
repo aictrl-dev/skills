@@ -253,6 +253,15 @@ function redactArgs(action, args) {
 // A logging failure (a full disk, the output directory removed mid-round) must not take down the harness and
 // every open session with it: warn on stderr and keep serving.
 let logNeedsNewline = false;
+// True only if a failed write left the log ending without a newline (a zero-byte failure leaves nothing to repair).
+function logEndsMidLine() {
+  try {
+    const size = fs.statSync(LOG).size; if (!size) return false;
+    const fd = fs.openSync(LOG, 'r'); const b = Buffer.alloc(1);
+    try { fs.readSync(fd, b, 0, 1, size - 1); } finally { fs.closeSync(fd); }
+    return b[0] !== 0x0a;
+  } catch { return false; }
+}
 let logWarned = false;
 function logLine(entry) {
   try {
@@ -262,7 +271,7 @@ function logLine(entry) {
     logWarned = false;
     logNeedsNewline = false;
   } catch (e) {
-    logNeedsNewline = true;
+    logNeedsNewline = logEndsMidLine();
     if (!logWarned) console.error(`WARNING: could not write the action log ${LOG} (${e.code || e.message}); actions are not being recorded, but the harness keeps serving.`);
     logWarned = true;
   }

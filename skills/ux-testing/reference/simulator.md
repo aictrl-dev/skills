@@ -81,7 +81,8 @@ The response must be `200` with:
 - Extra fields are ignored. The scripts retry network errors, rate limits (`429`) and server errors (`5xx`)
   up to twice with back-off, fail fast on other statuses, and stop the run on a response that breaks the contract, printing
   only the HTTP status or the contract violation, never the key or the response body. A backend failure that
-  survives the retries is never scored as a user failure: the run stops with exit code 3 and names the task.
+  survives the retries is never scored as a user failure: `simulate.cjs` stops the run with exit code 3 and names
+  the task; `replay.cjs` records the failure on that session or prediction, continues, and exits with code 1.
 
 ## How it works
 
@@ -107,7 +108,8 @@ Each simulated user walks one path:
 `error` is a harness failure (a page crash, a failed navigation, a control replaced mid-click), not a user
 outcome. Error walks are left out of `success`, `harm` and the hypothesis bootstrap; each run reports `n`
 (walks scored) and `errors` (walks left out), and hypothesis rows carry `nA`/`nB` and `errorsA`/`errorsB`. If
-more than 10% of a run's walks end in `error`, the finished run is discarded with exit code 3, and nothing from it is scored.
+more than 10% of a run's walks end in `error`, the finished run is discarded with exit code 3 and nothing from it is scored; in hypothesis mode the rows
+already written to `hyp-<id>.json` are kept.
 
 Load conditions (scanner only), run unless `--no-load`:
 
