@@ -96,7 +96,13 @@ function loadConfig(explicit) {
   if (!fs.existsSync(file)) { if (explicit) fail(`Config not found: ${explicit}`); return { file: null, ignore: [] }; }
   let cfg;
   try { cfg = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { fail(`Config ${file} is not valid JSON: ${e.message}`); }
-  const ignore = cfg && cfg.ignore !== undefined ? cfg.ignore : [];
+  // a mis-shaped root (a bare array of rules, null, a misspelt key) must not silently mean "no rules"
+  if (Array.isArray(cfg) || cfg === null || typeof cfg !== 'object' || !('ignore' in cfg)) {
+    const got = Array.isArray(cfg) ? 'an array' : cfg === null ? 'null' : typeof cfg !== 'object' ? `a ${typeof cfg}`
+      : `an object without "ignore" (keys: ${Object.keys(cfg).join(', ') || 'none'})`;
+    fail(`Config ${file}: expected { "ignore": [...] }, got ${got}`);
+  }
+  const { ignore } = cfg;
   if (!Array.isArray(ignore)) fail(`Config ${file}: "ignore" must be an array`);
   ignore.forEach((r, i) => {
     if (!r || typeof r !== 'object') fail(`Config ${file}: ignore[${i}] must be an object`);
@@ -120,6 +126,13 @@ const kindOf = (f) => (f.severity === 'info' ? 'eyebrow' : 'small');
 const groupLabel = (g) => `${g.size}px × ${g.count} (${g.signature})`;
 function expand(findings, textByGroup) {
   const out = [];
+  // Anchors can repeat (radios sharing a name, with no id or label). The first element keeps the plain anchor
+  // key; a repeat falls back to anchor plus selector (which carries :nth-of-type), so keys stay unique.
+  const seen = new Set();
+  const unique = (base, selector) => {
+    if (!seen.has(base)) { seen.add(base); return base; }
+    return `${base}|${selector}`;
+  };
   for (const f of findings || []) {
     for (const v of f.viewports || [f.viewport]) {
       if (f.check === 'text-size') {
@@ -127,8 +140,8 @@ function expand(findings, textByGroup) {
         for (const g of f.groups) out.push({ k: `${v}|text-size|${kindOf(f)}|${g.size}|${g.signature}`, f, v, part: groupLabel(g) });
         continue;
       }
-      if (f.members) for (const m of f.members) out.push({ k: `${v}|${f.check}|${m.anchor || m.selector}`, f, v, part: m.selector });
-      else out.push({ k: `${v}|${f.check}|${f.anchor || f.selector}`, f, v });
+      if (f.members) for (const m of f.members) out.push({ k: unique(`${v}|${f.check}|${m.anchor || m.selector}`, m.selector), f, v, part: m.selector });
+      else out.push({ k: unique(`${v}|${f.check}|${f.anchor || f.selector}`, f.selector), f, v });
     }
   }
   return out;
@@ -795,6 +808,7 @@ async function measureTarget(browser, target, out, o) {
   if (configErrors.size) result.configErrors = [...configErrors];
   const warnings = configWarnings(o.config.ignore, broad, result.accepted || []);
   if (warnings.length) result.configWarnings = warnings;
+  if (o.hide && !result.hidden.matched) result.warnings = [`--hide "${o.hide}" matched no elements; overlays were not hidden`];
   fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
   return result;
 }
@@ -812,7 +826,15 @@ function configWarnings(rules, broad, accepted) {
 }
 
 const count = (res, s) => res.findings.filter((f) => f.severity === s).length;
-const printWarnings = (res) => (res.configWarnings || []).forEach((w) => console.log(`Warning: ${safe(w)}`));
+// Notes about the run itself, printed per target in single- and multi-target mode alike: config selectors
+// that are not valid CSS, warnings (config rules, --hide) and scope screenshots that could not be taken.
+function printNotes(res) {
+  if (res.configErrors) console.log(`Config selectors that are not valid CSS (never matched): ${res.configErrors.map(safe).join(', ')}`);
+  for (const w of [...(res.configWarnings || []), ...(res.warnings || [])]) console.log(`Warning: ${safe(w)}`);
+  for (const [v, vr] of Object.entries(res.viewports)) {
+    if (vr.scopeScreenshotError) console.log(`  (no ${v}-scope.png: ${safe(vr.scopeScreenshotError)})`);
+  }
+}
 function printResult(res, out) {
   const acc = res.accepted || [];
   const totals = `${count(res, 'error')} errors · ${count(res, 'warn')} warnings · ${count(res, 'info')} info${acc.length ? ` · ${acc.length} accepted` : ''}`;
@@ -827,11 +849,7 @@ function printResult(res, out) {
     console.log('Accepted (project config):');
     for (const f of acc) console.log(`  [${f.severity}] ${vps(f)} ${f.check}: ${safe(f.message)} — ${safe(f.reason)}`);
   }
-  if (res.configErrors) console.log(`Config selectors that are not valid CSS (never matched): ${res.configErrors.map(safe).join(', ')}`);
-  printWarnings(res);
-  for (const [v, vr] of Object.entries(res.viewports)) {
-    if (vr.scopeScreenshotError) console.log(`  (no ${v}-scope.png: ${safe(vr.scopeScreenshotError)})`);
-  }
+  printNotes(res);
 }
 
 // ---------------------------------------------------------------- several targets: slugs and roll-up
@@ -908,7 +926,7 @@ async function run(browser, targets, out, o) {
     if (r.error) { console.log(`${r.target}\n  run failed: ${safe(r.error)}`); continue; }
     const c = r.counts;
     console.log(`${r.target}\n  ${c.error} errors · ${c.warn} warnings · ${c.info} info${c.accepted ? ` · ${c.accepted} accepted` : ''}  →  ${path.join(out, r.measure)}`);
-    printWarnings(runs[i].result);
+    printNotes(runs[i].result);
   }
   console.log(`\nAcross ${runs.length} targets: ${merged.length} distinct findings  →  ${path.join(out, 'summary.json')}`);
   for (const m of merged) {

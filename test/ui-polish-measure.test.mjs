@@ -372,3 +372,47 @@ test('ui-polish: config problems print the message without the usage banner, and
   assert.match(broad.stdout, /Warning: config rule selector "body" accepts an error: tap-target/);
   assert.ok(broad.report.configWarnings.length >= 2);
 });
+
+// ---- review fixes: config root, unique compare keys, --hide and multi-target notes
+
+test('ui-polish: a config root that is not { "ignore": [...] } is a usage error', { skip }, () => {
+  for (const [name, body, got] of [
+    ['array.json', [{ check: 'text-size', reason: 'x' }], /got an array/],
+    ['misspelt.json', { ignores: [{ check: 'text-size', reason: 'x' }] }, /got an object without "ignore" \(keys: ignores\)/],
+  ]) {
+    const file = join(work, name);
+    writeFileSync(file, JSON.stringify(body));
+    const r = measure('config-ignore.html', ['--config', file]);
+    assert.equal(r.status, 2, name);
+    assert.match(r.stderr, /expected \{ "ignore": \[\.\.\.\] \}/);
+    assert.match(r.stderr, got);
+  }
+});
+
+test('ui-polish: --compare keeps members that share an anchor apart', { skip }, () => {
+  const before = measure('compare-radios-before.html', ['--viewports', 'phone']);
+  const [group] = before.report.findings.filter((f) => f.check === 'tap-target');
+  assert.equal(group.count, 2);
+  assert.equal(group.members[0].anchor, group.members[1].anchor, 'the fixture must share an anchor');
+  const after = measure('compare-radios-after.html', ['--viewports', 'phone']);
+  const cmp = spawnSync(process.execPath, [script, '--compare', join(before.out, 'measure.json'), join(after.out, 'measure.json')], { encoding: 'utf8' });
+  assert.match(cmp.stdout, /^Fixed 1 · remaining 0 · new 0/, cmp.stdout);
+  assert.match(cmp.stdout, /Fixed:\n.*tap-target — 2 controls styled/);
+  assert.doesNotMatch(cmp.stdout, /1 of 2/);
+});
+
+test('ui-polish: --hide that matches nothing warns in single- and multi-target runs', { skip }, () => {
+  const one = measure('overlay.html', ['--viewports', 'phone', '--hide', '.nope']);
+  assert.equal(one.status, 0);
+  assert.match(one.stdout, /Warning: --hide "\.nope" matched no elements; overlays were not hidden/);
+  assert.deepEqual(one.report.warnings, ['--hide ".nope" matched no elements; overlays were not hidden']);
+  const many = measure(['overlay.html', 'eyebrow.html'], ['--viewports', 'phone', '--hide', '.nope']);
+  assert.equal((many.stdout.match(/matched no elements/g) || []).length, 2, many.stdout);
+});
+
+test('ui-polish: multi-target runs print invalid config selectors per target', { skip }, () => {
+  const file = join(work, 'invalid-selector.json');
+  writeFileSync(file, JSON.stringify({ ignore: [{ check: 'text-size', selector: 'p[', reason: 'typo on purpose' }] }));
+  const r = measure(['config-ignore.html', 'eyebrow.html'], ['--viewports', 'phone', '--config', file]);
+  assert.equal((r.stdout.match(/Config selectors that are not valid CSS \(never matched\): p\[/g) || []).length, 2, r.stdout);
+});

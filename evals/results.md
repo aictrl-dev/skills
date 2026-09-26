@@ -12,7 +12,7 @@ controls still fired.
 
 | Criterion | Result |
 |---|---|
-| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 32/32 after round 5; the original script fails 12 of the first 14) |
+| N1–N8: each noise fixture quiet for its checks, with the required info / accepted entries | PASS (`test/ui-polish-measure.test.mjs`, 36/36 after round 5; the original script fails 12 of the first 14) |
 | N9: one finding per cause, one small-text finding per viewport with groups, identical findings once across viewports, `--compare` normalises old and new files | PASS (round 2) |
 | Positive controls still fire (bare 20px checkbox error, short label warn, standalone link, 13px body paragraph warn, missing heading warn; round 3 adds a label 10px below or `display: contents`, pager and sort-by link rows, CJK and price-line small text, a site-header-only heading, visible `aria-hidden` content, `inset(50% 0 0 0)` text, a number added only in hidden copy, and a partial compare with a new error) | PASS |
 | Measured seeds M1–M9 still reported on `height-weight-step.html` | PASS (round 2: 9 errors, 13 warnings, most now shown once for both viewports; `--compare` against the original run: fixed 0, new 0) |
@@ -79,8 +79,8 @@ empty band above the lead form's submit button (and one on the home page), and t
 token on all four pages. The consent-sentence policy link is not reported, because it sits inline in
 a sentence, which WCAG 2.5.8 exempts.
 
-Repository checks (round 5): `npm test` 60 tests (28 pass and 32 skip without Playwright, as in CI;
-60/60 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills and the
+Repository checks (round 5): `npm test` 64 tests (28 pass and 36 skip without Playwright, as in CI;
+64/64 with Playwright and Chromium on `NODE_PATH`); `npm run validate` validated 16 skills and the
 plugin; `CHECKSUMS.sha256` regenerated in byte order.
 
 Verdict: PASS for the noise criteria. The blind fresh-agent re-run of the whole skill that the
