@@ -75,8 +75,10 @@ When a change is a bet about layout, prominence, wording or the fold ("moving St
 The simulator needs a fast **System One** model that returns probabilities over choices: TypeSafe's Jev (`TYPESAFE_API_KEY`), or a compatible endpoint (`UX_SIM_ENDPOINT`, `UX_SIM_API_KEY`, `UX_SIM_MODEL`) that follows the contract in `reference/simulator.md`. Load a key from a `.env` file without printing it:
 
 ```bash
-set -a; eval "$(grep '^TYPESAFE_API_KEY=' .env)"; set +a
+export TYPESAFE_API_KEY="$(sed -n 's/^TYPESAFE_API_KEY=//p' .env | head -n 1 | tr -d '\r' | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
 ```
+
+This reads the value as data: nothing in `.env` is executed, surrounding quotes are removed, and only this one variable is exported.
 
 If `simulate.cjs` exits with "Simulator not configured", tell the user: the simulator is optional; they can get a TypeSafe API key at https://typesafe.ai or configure a compatible System One endpoint; local models are not supported yet. Then continue with agent testers only. Never ask the user to paste a key into the chat, and never echo, log or write one.
 

@@ -48,7 +48,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const MAX_STEPS = 16; // a path longer than this counts as a failure ("too-long")
 const MAX_CHATS = 3; // a user who types into the chat more than this gives up
-const MAX_ERROR_SHARE = 0.1; // a run whose walks end in harness errors more often than this stops, unscored
+const MAX_ERROR_SHARE = 0.1; // a run whose walks end in harness errors more often than this (and more than once) stops, unscored
 const STOP_MIN = 0.3; // a user only considers stopping when the model's stop probability reaches this
 const SETTLE_MS = 1100;
 const LAPTOP = { width: 1366, height: 768 };
@@ -296,10 +296,11 @@ async function run(browser, c, profile, cond = 'focused') {
   await Promise.all(Array.from({ length: Math.min(WORKERS, N) }, worker));
   saveCache();
   // Walks that ended in a harness error say nothing about the user: they are left out of success, harm and the
-  // bootstrap, and counted in `errors`. Too many of them and the run is not trustworthy, so it stops.
+  // bootstrap, and counted in `errors`. Too many of them and the run is not trustworthy, so it stops. One error
+  // is tolerated at any N (so a small smoke run survives one transient failure), unless no walk was scored.
   const errors = results.filter((r) => r.end === 'error');
-  if (errors.length > N * MAX_ERROR_SHARE) {
-    throw new RunError(`task ${task.id} (${profile}, ${cond}): ${errors.length} of ${N} walks failed from harness errors (more than ${MAX_ERROR_SHARE * 100}%), e.g. "${errors[0].trail[0]}". Nothing from this run is scored; fix the page or the config and run again.`);
+  if (errors.length === N || errors.length > Math.max(1, N * MAX_ERROR_SHARE)) {
+    throw new RunError(`task ${task.id} (${profile}, ${cond}): ${errors.length} of ${N} walks failed from harness errors (the limit is one, or ${MAX_ERROR_SHARE * 100}% of the walks), e.g. "${errors[0].trail[0]}". Nothing from this run is scored; fix the page or the config and run again.`);
   }
   const scored = results.filter((r) => r.end !== 'error');
   const count = (e) => scored.filter((r) => r.end === e).length;

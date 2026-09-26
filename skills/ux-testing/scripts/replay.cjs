@@ -46,7 +46,9 @@ async function find(page, e) {
     const r = await resolveTarget(page, e.clicked);
     if (r && r.loc) return r.loc;
   }
-  return locateLegacy(page, e.clicked || target);
+  // An unnamed click would match every control (an empty pattern), so it is reported as missing instead.
+  const name = (e.clicked || target).trim();
+  return name ? locateLegacy(page, name) : null;
 }
 
 async function open(browser, url, viewport) {
@@ -56,11 +58,6 @@ async function open(browser, url, viewport) {
   if (CFG.hideCss) await page.addStyleTag({ content: CFG.hideCss });
   await page.waitForTimeout(600);
   return page;
-}
-
-async function hasChat(browser, exp, arm) {
-  const page = await open(browser, arm.url, exp.viewport);
-  try { return (await page.locator(`${REGIONS.chat} textarea`).count()) > 0; } finally { await page.close(); }
 }
 
 const box = (b) => b && { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) };
@@ -131,7 +128,9 @@ async function firstScreen(browser, exp, arm) {
         const r = n.parentElement.getBoundingClientRect(); if (r.height === 0 || r.top > vh) continue;
         text += s + ' | ';
       }
-      return { out, text };
+      // A chat box inside the chat region (each selector in a list checked on its own).
+      let chat = false; try { chat = [...document.querySelectorAll(R.chat)].some((el) => el.querySelector('textarea')); } catch { /* invalid selector: no chat */ }
+      return { out, text, chat };
     }, { HIDE_SEL, R: REGIONS });
   } finally {
     await page.close().catch(() => {});
@@ -139,11 +138,16 @@ async function firstScreen(browser, exp, arm) {
   if (SIM.error) return { img, probs: null };
   const criteria = {}; g.out.forEach((c, i) => { criteria['c' + i] = `"${c.label}" (${c.region})`; });
   criteria.__scroll = 'Scroll down to see more';
-  if (await hasChat(browser, exp, arm)) criteria.__chat = 'Type into the chat box';
+  if (g.chat) criteria.__chat = 'Type into the chat box';
   const state = { user: 'A busy first-time user of this web app. They glance at the screen and act on the first control that seems to lead to their goal; they do not read everything.', task: exp.task, screen: { readable_now: g.text } };
   const questions = { next: { type: 'choice', instructions: 'Which one thing would this user do next to make progress on the `task`, judging only from what they can see on the `screen`?', criteria } };
   let j;
-  try { j = await SIM.ask(state, questions); } catch (e) { throw new Error(`${e.message} for ${exp.id} ${arm.arm}`); }
+  try {
+    j = await SIM.ask(state, questions);
+  } catch (e) {
+    // The screenshot is already saved: keep it on the failed entry.
+    const err = new Error(`${e.message} for ${exp.id} ${arm.arm}`); err.img = img; throw err;
+  }
   const probs = Object.entries(j.answers.next.probabilities).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => {
     if (k.startsWith('__')) return { label: k === '__scroll' ? 'Scroll down' : 'Type in chat', p: +v.toFixed(2) };
     const c = g.out[Number(k.slice(1))];
@@ -186,7 +190,7 @@ async function firstScreen(browser, exp, arm) {
         } catch (err) {
           failures++;
           console.warn(`${exp.id} ${arm.arm} first screen: ${err.message}`);
-          prediction = { img: null, probs: null, error: err.message };
+          prediction = { img: err.img || null, probs: null, error: err.message };
         }
         e.arms.push({ arm: arm.arm, label: arm.label, sessions, prediction });
         console.log(`${exp.id} ${arm.arm}: ${sessions.map((x) => `${x.session} ${x.error ? 'error' : `${x.steps.length} clicks`}`).join(', ')}`);

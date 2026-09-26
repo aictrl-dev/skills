@@ -27,8 +27,10 @@ endpoint must be `https` (plain `http` is accepted only for `localhost`). Load a
 without echoing it:
 
 ```bash
-set -a; eval "$(grep '^TYPESAFE_API_KEY=' .env)"; set +a
+export TYPESAFE_API_KEY="$(sed -n 's/^TYPESAFE_API_KEY=//p' .env | head -n 1 | tr -d '\r' | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
 ```
+
+This reads the value as data: nothing in `.env` is executed, surrounding quotes are removed, and only this one variable is exported.
 
 Do not paste keys into chat, commit them, or put them in a tester brief. The answer cache
 (`.sim-cache.json`) stores screen text and probabilities only.
@@ -108,7 +110,7 @@ Each simulated user walks one path:
 `error` is a harness failure (a page crash, a failed navigation, a control replaced mid-click), not a user
 outcome. Error walks are left out of `success`, `harm` and the hypothesis bootstrap; each run reports `n`
 (walks scored) and `errors` (walks left out), and hypothesis rows carry `nA`/`nB` and `errorsA`/`errorsB`. If
-more than 10% of a run's walks end in `error`, the finished run is discarded with exit code 3 and nothing from it is scored; in hypothesis mode the rows
+more than one walk and more than 10% of a run's walks end in `error` (or every walk does), the finished run is discarded with exit code 3 and nothing from it is scored; in hypothesis mode the rows
 already written to `hyp-<id>.json` are kept.
 
 Load conditions (scanner only), run unless `--no-load`:
