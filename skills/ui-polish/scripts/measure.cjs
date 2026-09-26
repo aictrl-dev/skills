@@ -58,6 +58,7 @@ const TH = {
 // Checks each profile skips. "form" is the default and runs everything.
 const PROFILES = { form: [], content: ['type-scale', 'action-distance', 'action-below-fold', 'dead-space'] };
 const VALUE_FLAGS = ['--out', '--scope', '--viewports', '--primary', '--hide', '--profile', '--config'];
+const BOOL_FLAGS = ['--js', '--offline', '--assets-only'];
 
 // Page text is untrusted: strip control characters (ANSI/OSC escapes) before printing it to a terminal.
 const safe = (s) => String(s).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
@@ -65,7 +66,16 @@ const safe = (s) => String(s).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
 class UsageError extends Error {}
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('Usage: node measure.cjs <file-or-url> [<file-or-url> …] [--out dir] [--scope selector] [--viewports phone,desktop] [--primary selector] [--js] [--offline | --assets-only] [--hide selectors] [--profile form|content] [--config file]\n       node measure.cjs --compare before.json after.json');
+  console.error([
+    'Usage: node measure.cjs <file-or-url> [<file-or-url> …] [--out dir] [--scope selector] [--viewports phone,desktop]',
+    '         [--primary selector] [--js] [--offline | --assets-only] [--hide selectors] [--profile form|content] [--config file]',
+    '       node measure.cjs --compare before.json after.json',
+  ].join('\n'));
+  process.exit(2);
+}
+// A usage error that needs no banner: the message says what to change.
+function fail(msg) {
+  console.error(msg);
   process.exit(2);
 }
 
@@ -80,63 +90,101 @@ function loadPlaywright() {
 // ---------------------------------------------------------------- project config (accepted decisions)
 function loadConfig(explicit) {
   const file = path.resolve(explicit || 'ui-polish.config.json');
-  if (!fs.existsSync(file)) { if (explicit) usage(`Config not found: ${explicit}`); return { file: null, ignore: [] }; }
+  if (!fs.existsSync(file)) { if (explicit) fail(`Config not found: ${explicit}`); return { file: null, ignore: [] }; }
   let cfg;
-  try { cfg = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { usage(`Config ${file} is not valid JSON: ${e.message}`); }
+  try { cfg = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { fail(`Config ${file} is not valid JSON: ${e.message}`); }
   const ignore = cfg && cfg.ignore !== undefined ? cfg.ignore : [];
-  if (!Array.isArray(ignore)) usage(`Config ${file}: "ignore" must be an array`);
+  if (!Array.isArray(ignore)) fail(`Config ${file}: "ignore" must be an array`);
   ignore.forEach((r, i) => {
-    if (!r || typeof r !== 'object') usage(`Config ${file}: ignore[${i}] must be an object`);
-    for (const k of ['check', 'selector']) if (r[k] !== undefined && typeof r[k] !== 'string') usage(`Config ${file}: ignore[${i}].${k} must be a string`);
-    if (!r.check && !r.selector) usage(`Config ${file}: ignore[${i}] needs a "check", a "selector" or both`);
-    if (typeof r.reason !== 'string' || !r.reason.trim()) usage(`Config ${file}: ignore[${i}] needs a "reason"; an accepted finding must say why`);
+    if (!r || typeof r !== 'object') fail(`Config ${file}: ignore[${i}] must be an object`);
+    for (const k of ['check', 'selector']) {
+      if (r[k] !== undefined && typeof r[k] !== 'string') fail(`Config ${file}: ignore[${i}].${k} must be a string`);
+    }
+    if (!r.check && !r.selector) fail(`Config ${file}: ignore[${i}] needs a "check", a "selector" or both`);
+    if (typeof r.reason !== 'string' || !r.reason.trim()) {
+      fail(`Config ${file}: ignore[${i}] needs a "reason"; an accepted finding must say why`);
+    }
   });
   return { file, ignore: ignore.map((r) => ({ check: r.check || null, selector: r.selector || null, reason: r.reason.trim() })) };
 }
 
 // ---------------------------------------------------------------- compare mode
-// A finding stands for one or more (viewport, element) pairs. Both files are expanded to those pairs, so a
-// finding merged across viewports, or a group of fields, matches the separate findings of an older file.
-// Small text is one finding per viewport in every version, keyed by viewport and kind.
-function expand(findings) {
+// A finding stands for one or more (viewport, part) pairs, where a part is a member element of a grouped
+// finding or a style group of the small-text finding. Both files are expanded to those pairs before
+// matching, so merging viewports or grouping elements is never reported as a fix, and older files (one
+// finding per viewport and element, one small-text count) still line up.
+const kindOf = (f) => (f.severity === 'info' ? 'eyebrow' : 'small');
+const groupLabel = (g) => `${g.size}px × ${g.count} (${g.signature})`;
+function expand(findings, textByGroup) {
   const out = [];
   for (const f of findings || []) {
     for (const v of f.viewports || [f.viewport]) {
-      if (f.check === 'text-size') { out.push({ k: `${v}|text-size|${f.severity === 'info' ? 'eyebrow' : 'small'}`, f, v }); continue; }
-      for (const m of f.members || [f]) out.push({ k: `${v}|${f.check}|${m.anchor || m.selector}`, f, v });
+      if (f.check === 'text-size') {
+        if (!textByGroup) { out.push({ k: `${v}|text-size|${kindOf(f)}`, f, v }); continue; }
+        for (const g of f.groups) out.push({ k: `${v}|text-size|${kindOf(f)}|${g.size}|${g.signature}`, f, v, part: groupLabel(g) });
+        continue;
+      }
+      if (f.members) for (const m of f.members) out.push({ k: `${v}|${f.check}|${m.anchor || m.selector}`, f, v, part: m.selector });
+      else out.push({ k: `${v}|${f.check}|${f.anchor || f.selector}`, f, v });
     }
   }
   return out;
 }
+// One line per finding, however many viewports and parts it covers, so a merged finding counts once. When
+// only some of a finding's parts are in the list, the line names them ("2 of 3: …").
+function collate(entries) {
+  const byFinding = new Map();
+  for (const e of entries) {
+    const item = byFinding.get(e.f) || { f: e.f, viewports: [], parts: [] };
+    if (!item.viewports.includes(e.v)) item.viewports.push(e.v);
+    if (e.part && !item.parts.includes(e.part)) item.parts.push(e.part);
+    byFinding.set(e.f, item);
+  }
+  return [...byFinding.values()];
+}
+function describe(item) {
+  const { f } = item;
+  const all = f.check === 'text-size' ? (f.groups || []).length : (f.members || []).length;
+  const head = `  [${f.severity}] ${item.viewports.join('+')} ${f.check} — `;
+  if (!item.parts.length || item.parts.length >= all) return `${head}${safe(f.message)}${f.selector && !f.members ? `  (${safe(f.selector)})` : ''}`;
+  const shown = item.parts.slice(0, 5).map(safe).join(', ') + (item.parts.length > 5 ? ', …' : '');
+  return `${head}${item.parts.length} of ${all} ${f.check === 'text-size' ? 'groups' : 'elements'}: ${shown}`;
+}
 function compare(beforeFile, afterFile) {
-  const a = JSON.parse(fs.readFileSync(beforeFile, 'utf8'));
-  const b = JSON.parse(fs.readFileSync(afterFile, 'utf8'));
+  const read = (file) => {
+    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return fail(`Cannot read ${file}: ${e.message}`); }
+  };
+  const a = read(beforeFile); const b = read(afterFile);
+  // Small text is matched per style group when both files have groups, else per viewport and kind.
+  const textFindings = (j) => [...(j.findings || []), ...(j.accepted || [])].filter((f) => f.check === 'text-size');
+  const textByGroup = [a, b].every((j) => textFindings(j).every((f) => Array.isArray(f.groups)));
   // Key on a stable anchor (id, name, aria-label, placeholder) when the element has one, so inserting a
   // sibling during a fix does not shift nth-of-type indexes and turn an unchanged finding into a "new" one.
-  const byKey = (list) => new Map(expand(list).map((e) => [e.k, e]));
+  const byKey = (list) => new Map(expand(list, textByGroup).map((e) => [e.k, e]));
   const before = byKey(a.findings); const after = byKey(b.findings);
   // Findings the project config accepted are neither fixed nor remaining; list them on their own.
   const acceptedAfter = byKey(b.accepted);
-  // one line per finding and viewport, however many elements it groups
-  const once = (list) => { const seen = new Set(); return list.filter((e) => { const id = `${e.v}\u0000${e.f.check}\u0000${e.f.selector}\u0000${e.f.message}`; if (seen.has(id)) return false; seen.add(id); return true; }); };
-  const fixed = once([...before.values()].filter((e) => !after.has(e.k) && !acceptedAfter.has(e.k)));
-  const remaining = once([...after.values()].filter((e) => before.has(e.k)));
-  const added = once([...after.values()].filter((e) => !before.has(e.k)));
-  const accepted = once([...acceptedAfter.values()]);
+  const fixed = collate([...before.values()].filter((e) => !after.has(e.k) && !acceptedAfter.has(e.k)));
+  const remaining = collate([...after.values()].filter((e) => before.has(e.k)));
+  const added = collate([...after.values()].filter((e) => !before.has(e.k)));
+  const accepted = collate([...acceptedAfter.values()]);
   // New copy: anything visible after that was not visible before. A digit outside [brackets] is a number
   // the original screen never stated, which the skill forbids unless it is a placeholder for the owner.
   const oldCopy = new Set(a.copy || []);
   const newCopy = (b.copy || []).filter((t) => !oldCopy.has(t));
   const unbracketed = newCopy.filter((t) => /\d/.test(t.replace(/\[[^\]]*\]/g, '')));
-  const line = (e) => `  [${e.f.severity}] ${e.v} ${e.f.check} — ${safe(e.f.message)}`;
-  console.log(`Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}${accepted.length ? ` · accepted ${accepted.length}` : ''}`);
-  if (fixed.length) console.log('Fixed:\n' + fixed.map(line).join('\n'));
-  if (remaining.length) console.log('Remaining:\n' + remaining.map(line).join('\n'));
-  if (added.length) console.log('New (regressions):\n' + added.map(line).join('\n'));
-  if (accepted.length) console.log('Accepted (project config):\n' + accepted.map((e) => `${line(e)} — ${safe(e.f.reason)}`).join('\n'));
+  const counts = `Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}`;
+  console.log(`${counts}${accepted.length ? ` · accepted ${accepted.length}` : ''}`);
+  if (fixed.length) console.log('Fixed:\n' + fixed.map(describe).join('\n'));
+  if (remaining.length) console.log('Remaining:\n' + remaining.map(describe).join('\n'));
+  if (added.length) console.log('New (regressions):\n' + added.map(describe).join('\n'));
+  if (accepted.length) console.log('Accepted (project config):\n' + accepted.map((it) => `${describe(it)} — ${safe(it.f.reason)}`).join('\n'));
   if (newCopy.length) console.log('New copy for the owner to review:\n' + newCopy.map((t) => `  "${safe(t)}"`).join('\n'));
-  if (unbracketed.length) console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${safe(t)}"`).join('\n'));
-  process.exit(unbracketed.length || added.some((e) => e.f.severity === 'error') || remaining.some((e) => e.f.severity === 'error') ? 1 : 0);
+  if (unbracketed.length) {
+    console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${safe(t)}"`).join('\n'));
+  }
+  const errors = [...added, ...remaining].some((it) => it.f.severity === 'error');
+  process.exit(unbracketed.length || errors ? 1 : 0);
 }
 
 // ---------------------------------------------------------------- in-page measurement
@@ -149,14 +197,16 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   const findings = []; const accepted = []; const configErrors = [];
   const skip = new Set(skipChecks || []);
   const rules = ignore || [];
+  // a rule whose selector matches the scope root (or body/html) accepts every finding of its check here
+  const broadRules = rules.map((r, i) => (r.selector && matches(scope, r.selector) ? i : -1)).filter((i) => i >= 0);
 
   // ---- findings and accepted decisions
-  const matches = (el, s) => {
+  function matches(el, s) {
     try { return !!(el && el.nodeType === 1 && el.closest(s)); } catch {
       if (!configErrors.includes(s)) configErrors.push(s);
       return false;
     }
-  };
+  }
   // An accepted decision matches a finding on its check and on its element (or an ancestor of it).
   const ruleFor = (check, el) => rules.find((r) => (!r.check || r.check === check) && (!r.selector || matches(el, r.selector))) || null;
   const add = (check, severity, el, message, measured, expected, extra = {}) => {
@@ -640,7 +690,7 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   checkPrimaryAction();
   const copy = captureCopy();
   const rowSummary = rows.map((r) => r.items.map((it) => ({ x: it.x, w: it.w })));
-  return { viewport: { width: vw, height: vh }, scope: scopeUsed, fieldCount: fields.length, rows: rowSummary, copy, findings, accepted, configErrors };
+  return { viewport: { width: vw, height: vh }, scope: scopeUsed, fieldCount: fields.length, rows: rowSummary, copy, findings, accepted, configErrors, broadRules };
 }
 
 // Hides overlays (cookie banners, chat launchers) with an injected style. Runs inside the page.
@@ -674,7 +724,7 @@ async function measureTarget(browser, target, out, o) {
   const result = { target, measuredAt: new Date().toISOString(), thresholds: TH, profile: o.profile, viewports: {}, findings: [] };
   if (o.hide) result.hidden = { selectors: o.hide, matched: 0 };
   if (o.config.file) result.config = o.config.file;
-  const accepted = []; const configErrors = new Set();
+  const accepted = []; const configErrors = new Set(); const broad = new Set();
   for (const v of o.viewports) {
     const ctx = await browser.newContext({ viewport: VIEWPORTS[v], javaScriptEnabled: o.js, deviceScaleFactor: 1 });
     try {
@@ -694,7 +744,9 @@ async function measureTarget(browser, target, out, o) {
         if (h.error) throw new UsageError(`--hide "${o.hide}" is not a valid selector list: ${h.error}`);
         result.hidden.matched = Math.max(result.hidden.matched, h.matched);
       }
-      const r = await page.evaluate(measureInPage, { scopeSel: o.scope, primarySel: o.primary, TH, skipChecks: PROFILES[o.profile], ignore: o.config.ignore });
+      const r = await page.evaluate(measureInPage, {
+        scopeSel: o.scope, primarySel: o.primary, TH, skipChecks: PROFILES[o.profile], ignore: o.config.ignore,
+      });
       await page.screenshot({ path: path.join(out, `${v}.png`) });
       // The viewport shot shows only the first screen; also capture the whole scope element.
       const vr = { fieldCount: r.fieldCount, rows: r.rows, scope: r.scope };
@@ -707,33 +759,60 @@ async function measureTarget(browser, target, out, o) {
       for (const f of r.findings) result.findings.push({ viewport: v, ...f });
       for (const f of r.accepted) accepted.push({ viewport: v, ...f });
       r.configErrors.forEach((s) => configErrors.add(s));
+      r.broadRules.forEach((i) => broad.add(i));
     } finally { await ctx.close(); }
   }
   result.findings = mergeViewports(result.findings);
   if (o.config.ignore.length) result.accepted = mergeViewports(accepted);
   if (configErrors.size) result.configErrors = [...configErrors];
+  const warnings = configWarnings(o.config.ignore, broad, result.accepted || []);
+  if (warnings.length) result.configWarnings = warnings;
   fs.writeFileSync(path.join(out, 'measure.json'), JSON.stringify(result, null, 2));
   return result;
 }
 
+// Accepting is allowed, but an accepted error or a rule that covers the whole scope deserves a second look.
+function configWarnings(rules, broad, accepted) {
+  const name = (r) => [r.check && `check "${r.check}"`, r.selector && `selector "${r.selector}"`].filter(Boolean).join(', ');
+  const out = [...broad].map((i) => `config rule ${name(rules[i])} matches the scope root or body/html, so it accepts every `
+    + `${rules[i].check ? `${rules[i].check} ` : ''}finding on the page`);
+  for (const f of accepted.filter((x) => x.severity === 'error')) {
+    const rule = rules.find((r) => r.check === f.rule.check && r.selector === f.rule.selector);
+    out.push(`config rule ${name(rule || f.rule)} accepts an error: ${f.check} — ${f.message}`);
+  }
+  return [...new Set(out)];
+}
+
 const count = (res, s) => res.findings.filter((f) => f.severity === s).length;
+const printWarnings = (res) => (res.configWarnings || []).forEach((w) => console.log(`Warning: ${safe(w)}`));
 function printResult(res, out) {
   const acc = res.accepted || [];
-  console.log(`${res.target}\n${count(res, 'error')} errors · ${count(res, 'warn')} warnings · ${count(res, 'info')} info${acc.length ? ` · ${acc.length} accepted` : ''}  →  ${path.join(out, 'measure.json')}`);
+  const totals = `${count(res, 'error')} errors · ${count(res, 'warn')} warnings · ${count(res, 'info')} info${acc.length ? ` · ${acc.length} accepted` : ''}`;
+  console.log(`${res.target}\n${totals}  →  ${path.join(out, 'measure.json')}`);
   const vps = (f) => (f.viewports || [f.viewport]).join('+');
-  for (const f of res.findings) console.log(`  [${f.severity}] ${vps(f)} ${f.check}: ${safe(f.message)}${f.selector ? `  (${safe(f.selector)})` : ''}${f.examples && f.examples.length > 1 ? `  also ${f.examples.slice(1).map(safe).join(', ')}` : ''}`);
+  for (const f of res.findings) {
+    const where = f.selector ? `  (${safe(f.selector)})` : '';
+    const also = f.examples && f.examples.length > 1 ? `  also ${f.examples.slice(1).map(safe).join(', ')}` : '';
+    console.log(`  [${f.severity}] ${vps(f)} ${f.check}: ${safe(f.message)}${where}${also}`);
+  }
   if (acc.length) {
     console.log('Accepted (project config):');
     for (const f of acc) console.log(`  [${f.severity}] ${vps(f)} ${f.check}: ${safe(f.message)} — ${safe(f.reason)}`);
   }
   if (res.configErrors) console.log(`Config selectors that are not valid CSS (never matched): ${res.configErrors.map(safe).join(', ')}`);
-  for (const [v, vr] of Object.entries(res.viewports)) if (vr.scopeScreenshotError) console.log(`  (no ${v}-scope.png: ${safe(vr.scopeScreenshotError)})`);
+  printWarnings(res);
+  for (const [v, vr] of Object.entries(res.viewports)) {
+    if (vr.scopeScreenshotError) console.log(`  (no ${v}-scope.png: ${safe(vr.scopeScreenshotError)})`);
+  }
 }
 
 // ---------------------------------------------------------------- several targets: slugs and roll-up
 function slugFor(target, taken) {
   let s;
-  if (/^https?:\/\//.test(target)) { const u = new URL(target); s = (u.pathname + u.search).replace(/^\/+|\/+$/g, '') || 'index'; } else s = path.basename(target).replace(/\.[^.]+$/, '');
+  if (/^https?:\/\//.test(target)) {
+    const u = new URL(target);
+    s = (u.pathname + u.search).replace(/^\/+|\/+$/g, '') || 'index';
+  } else s = path.basename(target).replace(/\.[^.]+$/, '');
   s = s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|-+$/g, '').slice(0, 80) || 'page';
   let slug = s; for (let i = 2; taken.has(slug); i++) slug = `${s}-${i}`;
   taken.add(slug);
@@ -750,11 +829,16 @@ function rollUp(runs) {
     for (const f of run.result ? run.result.findings : []) {
       // small text merges per style group, so one token used on every page is one line
       const parts = f.check === 'text-size' && f.groups
-        ? f.groups.map((g) => ({ sig: `${g.size}px ${g.signature}${g.eyebrow ? ' eyebrow' : ''}`, message: `${g.size}px × ${g.count} text run${g.count === 1 ? '' : 's'} (${g.signature})${g.eyebrow ? ' in eyebrow labels' : ` below ${TH.textPx}px`}` }))
+        ? f.groups.map((g) => ({
+          sig: `${g.size}px ${g.signature}${g.eyebrow ? ' eyebrow' : ''}`,
+          message: `${g.size}px × ${g.count} text run${g.count === 1 ? '' : 's'} (${g.signature})${g.eyebrow ? ' in eyebrow labels' : ` below ${TH.textPx}px`}`,
+        }))
         : [{ sig: signature(f), message: f.message }];
       for (const part of parts) {
         const k = `${f.check}|${part.sig}|${template(part.message)}`;
-        const m = merged.get(k) || { check: f.check, severity: f.severity, signature: part.sig, template: template(part.message), example: part.message, pages: [], viewports: [], count: 0 };
+        const m = merged.get(k) || {
+          check: f.check, severity: f.severity, signature: part.sig, template: template(part.message), example: part.message, pages: [], viewports: [], count: 0,
+        };
         if (RANK[f.severity] > RANK[m.severity]) m.severity = f.severity;
         if (!m.pages.includes(run.slug)) m.pages.push(run.slug);
         for (const v of f.viewports || [f.viewport]) if (!m.viewports.includes(v)) m.viewports.push(v);
@@ -785,17 +869,25 @@ async function run(browser, targets, out, o) {
     measuredAt: new Date().toISOString(), profile: o.profile,
     targets: runs.map((r) => ({
       target: r.target, slug: r.slug, measure: r.result ? `${r.slug}/measure.json` : null, error: r.error,
-      counts: r.result ? { error: count(r.result, 'error'), warn: count(r.result, 'warn'), info: count(r.result, 'info'), accepted: (r.result.accepted || []).length } : null,
+      counts: r.result ? {
+        error: count(r.result, 'error'), warn: count(r.result, 'warn'), info: count(r.result, 'info'), accepted: (r.result.accepted || []).length,
+      } : null,
     })),
     merged,
   };
   fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2));
-  for (const r of summary.targets) {
+  for (const [i, r] of summary.targets.entries()) {
     if (r.error) { console.log(`${r.target}\n  run failed: ${safe(r.error)}`); continue; }
-    console.log(`${r.target}\n  ${r.counts.error} errors · ${r.counts.warn} warnings · ${r.counts.info} info${r.counts.accepted ? ` · ${r.counts.accepted} accepted` : ''}  →  ${path.join(out, r.measure)}`);
+    const c = r.counts;
+    console.log(`${r.target}\n  ${c.error} errors · ${c.warn} warnings · ${c.info} info${c.accepted ? ` · ${c.accepted} accepted` : ''}  →  ${path.join(out, r.measure)}`);
+    printWarnings(runs[i].result);
   }
   console.log(`\nAcross ${runs.length} targets: ${merged.length} distinct findings  →  ${path.join(out, 'summary.json')}`);
-  for (const m of merged) console.log(`  [${m.severity}] ${m.check}: ${safe(m.example)}${m.signature ? `  (${safe(m.signature)})` : ''} — ${m.pages.length} page${m.pages.length === 1 ? '' : 's'}: ${m.pages.map(safe).join(', ')}`);
+  for (const m of merged) {
+    const pages = `${m.pages.length} page${m.pages.length === 1 ? '' : 's'}: ${m.pages.map(safe).join(', ')}`;
+    console.log(`  [${m.severity}] ${m.check}: ${safe(m.example)}${m.signature ? `  (${safe(m.signature)})` : ''} — ${pages}`);
+  }
+  // a target that failed to load (3) outranks an error finding on another target (1)
   if (runs.some((r) => r.error)) return 3;
   return runs.some((r) => count(r.result, 'error')) ? 1 : 0;
 }
@@ -804,7 +896,16 @@ async function run(browser, targets, out, o) {
 (async () => {
   const args = process.argv.slice(2);
   if (args[0] === '--compare') { if (args.length < 3) usage('Missing files to compare'); return compare(args[1], args[2]); }
-  const targets = args.filter((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(args[i - 1]));
+  const targets = [];
+  for (let i = 0; i < args.length; i++) {
+    if (VALUE_FLAGS.includes(args[i])) { i++; continue; }
+    if (BOOL_FLAGS.includes(args[i])) continue;
+    if (args[i].startsWith('--')) {
+      const near = [...VALUE_FLAGS, ...BOOL_FLAGS].find((f) => f.startsWith(args[i]) || args[i].startsWith(f));
+      fail(`Unknown option ${args[i]}${near ? ` (did you mean ${near}?)` : ''}. Options: ${[...VALUE_FLAGS, ...BOOL_FLAGS].join(' ')}`);
+    }
+    targets.push(args[i]);
+  }
   if (!targets.length) usage('Missing <file-or-url>');
   const opt = (n, d) => {
     const i = args.indexOf(`--${n}`); if (i < 0) return d;

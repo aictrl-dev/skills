@@ -301,3 +301,47 @@ test('ui-polish: a finding identical on phone and desktop is reported once', { s
   const cmp = spawnSync(process.execPath, [script, '--compare', old, join(r.out, 'measure.json')], { encoding: 'utf8' });
   assert.match(cmp.stdout, /^Fixed 0 · remaining \d+ · new 0/, cmp.stdout);
 });
+
+// ---- command line, compare accounting, exit codes
+
+test('ui-polish: an unknown option is a usage error, not a target', { skip }, () => {
+  const r = measure('checkbox-label.html', ['--viewport', 'phone']);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /Unknown option --viewport \(did you mean --viewports\?\)/);
+  assert.equal(r.report, null);
+});
+
+test('ui-polish: --compare names the fixed members of a group and fails on a new error', { skip }, () => {
+  const before = measure('compare-fix-before.html', ['--viewports', 'phone']);
+  const after = measure('compare-fix-after.html', ['--viewports', 'phone']);
+  const cmp = spawnSync(process.execPath, [script, '--compare', join(before.out, 'measure.json'), join(after.out, 'measure.json')], { encoding: 'utf8' });
+  assert.equal(cmp.status, 1, cmp.stdout);
+  const [, fixed, remaining, added] = cmp.stdout.match(/^Fixed (\d+) · remaining (\d+) · new (\d+)/).map(Number);
+  assert.ok(fixed >= 1 && added >= 1 && remaining >= 1, cmp.stdout);
+  assert.match(cmp.stdout, /Fixed:\n.*tap-target — 2 of 3 elements: [^\n]*second[^\n]*third/);
+  assert.match(cmp.stdout, /New \(regressions\):[\s\S]*\[error\] phone tap-target[\s\S]*text-size — 1 text run below 14px: 12px × 1 \(\.fine\)/);
+  assert.doesNotMatch(cmp.stdout.split('Remaining:')[1].split('New')[0], /3 controls/, 'the whole group is not repeated under Remaining');
+});
+
+test('ui-polish: several targets exit 1 on an error finding and 3 when a target fails to load', { skip }, () => {
+  assert.equal(measure(['controls-bare-checkbox.html', 'controls-small-body.html'], ['--viewports', 'phone']).status, 1);
+  const failed = measure(['controls-bare-checkbox.html', 'no-such-page.html'], ['--viewports', 'phone']);
+  assert.equal(failed.status, 3, 'a failed target outranks an error finding');
+  assert.match(failed.stdout, /run failed/);
+});
+
+test('ui-polish: config problems print the message without the usage banner, and broad rules warn', { skip }, () => {
+  const bad = join(work, 'bad.json');
+  writeFileSync(bad, '{bad');
+  const r = measure('config-ignore.html', ['--config', bad]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /is not valid JSON/);
+  assert.doesNotMatch(r.stderr, /Usage:/);
+  const all = join(work, 'all.json');
+  writeFileSync(all, JSON.stringify({ ignore: [{ selector: 'body', reason: 'testing a broad rule' }] }));
+  const broad = measure('controls-bare-checkbox.html', ['--viewports', 'phone', '--config', all]);
+  assert.equal(broad.status, 0, 'accepted findings do not fail the run');
+  assert.match(broad.stdout, /Warning: config rule selector "body" matches the scope root or body\/html/);
+  assert.match(broad.stdout, /Warning: config rule selector "body" accepts an error: tap-target/);
+  assert.ok(broad.report.configWarnings.length >= 2);
+});
