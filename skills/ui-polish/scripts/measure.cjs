@@ -223,16 +223,31 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   const minSide = (b) => Math.min(b.r - b.l, b.b - b.t);
 
   // ---- visually hidden: in the DOM for assistive tech or bots, but not on screen
+  // aria-hidden does not count: it hides content from assistive tech, not from the eye.
   // Each ancestor's own contribution is computed once (clipped away, or a zero-size clipping box).
   const ownClip = new Map(); const clipUp = new Map(); const zeroUp = new Map();
+  const px = (v, whole) => (v === 'auto' ? null : v.endsWith('%') ? (parseFloat(v) / 100) * whole : parseFloat(v) || 0);
+  // clip: rect(top, right, bottom, left) that leaves no area
+  function rectClipsAll(clip, er) {
+    const m = clip.match(/^rect\(([^)]*)\)$/); if (!m) return false;
+    const [t, r, b, l] = m[1].split(/[\s,]+/).filter(Boolean);
+    const top = px(t, er.height) ?? 0; const left = px(l, er.width) ?? 0;
+    const right = px(r, er.width) ?? er.width; const bottom = px(b, er.height) ?? er.height;
+    return bottom <= top || right <= left;
+  }
+  // clip-path: inset() that removes the whole box, e.g. inset(50%); inset(50% 0 0 0) still shows half
+  function insetClipsAll(clipPath, er) {
+    const m = clipPath.match(/inset\(([^)]*)\)/); if (!m) return false;
+    const v = m[1].split(/\s+round\s+/)[0].trim().split(/\s+/);
+    const [t, r = t, b = t, l = r] = v;
+    return px(t, er.height) + px(b, er.height) >= er.height || px(l, er.width) + px(r, er.width) >= er.width;
+  }
   function clippedAway(e) {
     if (!ownClip.has(e)) {
       const cs = getComputedStyle(e); const er = e.getBoundingClientRect();
-      const tiny = er.width <= 1 && er.height <= 1;
-      const clipZero = /^rect\(\s*0(px)?[\s,]+0(px)?[\s,]+0(px)?[\s,]+0(px)?\s*\)$/.test(cs.clip);
-      const insetHalf = /inset\(\s*50%/.test(cs.clipPath);
-      // sr-only / visually-hidden: clipped to nothing, or clipped and at most 1px
-      ownClip.set(e, clipZero || insetHalf || (tiny && (/^rect\(/.test(cs.clip) || cs.clipPath !== 'none')));
+      // sr-only / visually-hidden: clipped to nothing, or 1px or less and clipped
+      const tiny = er.width <= 1 && er.height <= 1 && (cs.clip !== 'auto' || cs.clipPath !== 'none' || /hidden|clip/.test(cs.overflow));
+      ownClip.set(e, tiny || rectClipsAll(cs.clip, er) || insetClipsAll(cs.clipPath, er));
     }
     return ownClip.get(e);
   }
@@ -250,12 +265,9 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
   function isVisuallyHidden(el) {
     if (!el || el.nodeType !== 1) return false;
     if (hiddenCache.has(el)) return hiddenCache.get(el);
-    let hidden = !!el.closest('[aria-hidden="true"]');
-    if (!hidden) {
-      const r = el.getBoundingClientRect();
-      // entirely left of or above the page, or right of a page that cannot scroll that far
-      hidden = r.right <= 0 || r.bottom + scrollY <= 0 || r.left >= Math.max(vw, document.documentElement.scrollWidth);
-    }
+    const r = el.getBoundingClientRect();
+    // entirely left of or above the page, or right of a page that cannot scroll that far
+    let hidden = r.right <= 0 || r.bottom + scrollY <= 0 || r.left >= Math.max(vw, document.documentElement.scrollWidth);
     if (!hidden) hidden = upward(clipUp, clippedAway, el);
     // a tabindex="-1" control inside a zero-size clipping wrapper: the usual honeypot
     if (!hidden && el.getAttribute('tabindex') === '-1') hidden = upward(zeroUp, zeroClipBox, el.parentElement);
@@ -561,15 +573,16 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
       Math.round(maxGap), `<= ${Math.round(TH.deadSpaceVh * vh)}px`);
   }
 
-  // ---- visible copy, for the compare step's new-copy review
+  // ---- copy, for the compare step's new-copy review
+  // Everything a person or a screen reader gets, including sr-only and aria-hidden text: a number in hidden
+  // copy is still a claim, so it must reach the invented-number gate.
   function captureCopy() {
     const copy = []; const tw = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
     while (tw.nextNode()) {
       const t = tw.currentNode.textContent.replace(/\s+/g, ' ').trim(); const el = tw.currentNode.parentElement;
-      if (t && el && shown(el) && !copy.includes(t)) copy.push(t);
+      if (t && el && visible(el) && !copy.includes(t)) copy.push(t);
     }
     for (const el of scope.querySelectorAll('[placeholder], [aria-label]')) {
-      if (isVisuallyHidden(el)) continue;
       for (const a of ['placeholder', 'aria-label']) { const v = (el.getAttribute(a) || '').trim(); if (v && !copy.includes(v)) copy.push(v); }
     }
     return copy;

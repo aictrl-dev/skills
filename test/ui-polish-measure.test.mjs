@@ -54,9 +54,6 @@ test('ui-polish: honeypots, sr-only and off-screen text are not measured', { ski
   const r = measure('honeypot.html', ['--viewports', 'phone']);
   assert.equal(r.status, 0, r.stderr);
   assertQuiet(r.report, ['tap-target', 'text-size', 'contrast', 'input-font-size', 'accessible-name']);
-  for (const hidden of ['Required fields are marked with an asterisk', 'Off-screen note for robots', 'Website', 'Skip to the form']) {
-    assert.ok(!r.report.copy.includes(hidden), `copy should not include hidden text "${hidden}"`);
-  }
 });
 
 test('ui-polish: a link inside a sentence is an inline target wherever the sentence sits', { skip }, () => {
@@ -137,6 +134,27 @@ test('ui-polish: --hide removes overlays before measuring', { skip }, () => {
 });
 
 // ---- positive controls: genuine defects still fire
+
+test('ui-polish: aria-hidden content that is on screen is still measured', { skip }, () => {
+  const r = measure('aria-hidden-visible.html', ['--viewports', 'phone']);
+  assert.equal(r.status, 1);
+  for (const check of ['contrast', 'text-size', 'tap-target']) assert.ok(loud(r.report, check).length, `${check}:\n${detail(r.report.findings)}`);
+  assert.equal(loud(r.report, 'tap-target')[0].severity, 'error');
+});
+
+test('ui-polish: text clipped only by half (inset(50% 0 0 0)) is still measured', { skip }, () => {
+  const r = measure('clip-partial.html', ['--viewports', 'phone']);
+  assert.ok(loud(r.report, 'text-size').length && loud(r.report, 'contrast').length, detail(r.report.findings));
+});
+
+test('ui-polish: a number added only in sr-only or aria-hidden copy fails --compare', { skip }, () => {
+  const before = measure('copy-before.html', ['--viewports', 'phone']);
+  const after = measure('copy-after-hidden-number.html', ['--viewports', 'phone']);
+  assert.ok(after.report.copy.includes('Trusted by 12,000 teams') && after.report.copy.includes('Rated 4.9 out of 5'), after.report.copy.join(' | '));
+  const cmp = spawnSync(process.execPath, [script, '--compare', join(before.out, 'measure.json'), join(after.out, 'measure.json')], { encoding: 'utf8' });
+  assert.equal(cmp.status, 1, cmp.stdout);
+  assert.match(cmp.stdout, /invented-number[\s\S]*12,000[\s\S]*4\.9/);
+});
 
 test('ui-polish: a bare 20px checkbox, a short label row and a standalone link still fail', { skip }, () => {
   const r = measure('controls-bare-checkbox.html', ['--viewports', 'phone']);

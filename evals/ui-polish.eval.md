@@ -34,7 +34,7 @@ Judged (visible only to the rubric):
 | # | Fixture | Run with | Must not warn or error on | Must report |
 |---|---|---|---|---|
 | N1 | `checkbox-label.html` | | `tap-target` (20px checkbox and radio in 44px label rows) | |
-| N2 | `honeypot.html` | | `tap-target`, `text-size`, `contrast`, `input-font-size`, `accessible-name` (off-screen, `aria-hidden`, `tabindex="-1"` honeypots, sr-only text) | hidden text absent from `copy` |
+| N2 | `honeypot.html` | | `tap-target`, `text-size`, `contrast`, `input-font-size`, `accessible-name` (off-screen and `tabindex="-1"` honeypots, sr-only text); hidden text still counts as copy for `--compare` | |
 | N3 | `inline-link.html` | | `tap-target` (links inside a sentence in a `label` and a `span`) | |
 | N4 | `eyebrow.html` | | `text-size` | the uppercase labels as `info` |
 | N5 | `scoped-heading.html` | `--scope "#signup"`, `--scope "#prefs"` | `heading` | `info` "Heading is outside the scope" |
