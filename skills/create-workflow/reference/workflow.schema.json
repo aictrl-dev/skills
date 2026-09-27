@@ -4,97 +4,1023 @@
   "title": "aictrl Workflow (v2)",
   "description": "Declarative YAML/JSON workflow definition. V2 adds the portable inline task node: a node can define a pinned skill, prompt, parameters, and outputs in the file instead of relying on a pre-provisioned template. Existing template, workflow, loop, wait, manual, and user-input nodes remain supported. Layer 1 validates structure; layer 2 validates node inputs against referenced-template or in-file task parameters.",
   "type": "object",
-  "required": ["schemaVersion", "name", "nodes"],
+  "required": [
+    "schemaVersion",
+    "name",
+    "nodes"
+  ],
   "additionalProperties": false,
   "properties": {
-    "schemaVersion": { "const": "aictrl/workflow/v2" },
-    "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "kebab-case; unique within org" },
-    "label": { "type": "string" },
-    "description": { "type": "string" },
-    "category": { "type": "string" },
-    "icon": { "type": "string", "description": "Lucide icon name" },
-    "failureStrategy": { "enum": ["fail-fast", "continue-on-error"], "default": "fail-fast" },
-    "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } },
-    "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
-    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
-    "qualityGates": { "type": "array", "items": { "$ref": "#/$defs/qualityGate" } },
+    "schemaVersion": {
+      "const": "aictrl/workflow/v2"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "kebab-case; unique within org"
+    },
+    "label": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Lucide icon name"
+    },
+    "failureStrategy": {
+      "enum": [
+        "fail-fast",
+        "continue-on-error"
+      ],
+      "default": "fail-fast"
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Workflow-level execution defaults, applied to task and template nodes that omit their own value. Model references are resolved against the organization's model connections when the file is applied.",
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Default model for task/template nodes in this workflow that omit a per-node `model`. A portable model reference string, e.g. \"anthropic/claude-sonnet-5\"."
+        }
+      }
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/parameter"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "qualityGates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/qualityGate"
+      }
+    },
     "triggers": {
       "type": "array",
-      "maxItems": 1,
-      "description": "File-declared event triggers. Each trigger fires the workflow automatically when the event fires. Supports type:label (#3508) and type:comment (#3509); at most one trigger per workflow.",
-      "items": { "$ref": "../v1/workflow.schema.json#/$defs/fileTrigger" }
+      "maxItems": 10,
+      "description": "File-declared event triggers. Each trigger fires the workflow automatically when its event occurs. Supported types are label, comment, pr-ready, pr-opened and chat-message; up to 10 triggers per workflow.",
+      "items": {
+        "$ref": "../v1/workflow.schema.json#/$defs/fileTrigger"
+      }
     }
   },
   "$defs": {
-    "parameter": { "$ref": "../v1/workflow.schema.json#/$defs/parameter" },
+    "parameter": {
+      "$ref": "../v1/workflow.schema.json#/$defs/parameter"
+    },
     "node": {
       "type": "object",
-      "required": ["id", "type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-        "label": { "type": "string" },
-        "type": { "enum": ["template", "workflow", "loop", "wait", "manual", "user-input", "task"] },
-        "template": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable template ref: the template's org-unique kebab `name` (e.g. \"inline-code-review\"). Resolved org-scoped to a templateId at load; layer-2 MUST confirm an active template with this name exists — see README." },
-        "templateVersion": { "type": "string" },
-        "workflow": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "Portable composite-workflow ref: the workflow's org-unique kebab `name` (e.g. \"release-pipeline\"). Resolved org-scoped at load." },
-        "workflowVersion": { "type": "string" },
-        "skill": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(@[a-z0-9]+([.-][a-z0-9]+)*)?$", "description": "task: pinned skill ref — portable kebab `name` or `name@version` (the inline task's one external dependency). Version segments are separated by single `.`/`-` with no leading/trailing separator (so `code-review@1.` / `@1-` / `@1..2` are rejected). A `@version` pin makes the file reproducible; a bare `name` resolves to the org's active version at apply (a warning is logged). Skill resolution is org-scoped at apply-time — a file can never pull another tenant's skill (the tenancy boundary is enforced by the loader at runtime, not by this schema)." },
-        "taskType": { "enum": ["code-review", "general"], "description": "task: task category and executor tool boundary. The enum expands only through released schema versions." },
-        "prompt": { "type": "string", "maxLength": 16384, "description": "task: in-file system prompt — per-node parameterisation layered over the referenced skill (the skill is the procedure; the prompt is the per-node config)." },
-        "outputs": { "type": "object", "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }, "additionalProperties": { "enum": ["string", "number", "boolean", "json"] }, "description": "task: declared output field name -> type. Declaring outputs in-file makes them referenceable by downstream `extract`/CEL with no DB round-trip (removes the #3296/#3425 friction)." },
-        "inputs": { "type": "object", "additionalProperties": { "$ref": "#/$defs/inputMapping" } },
-        "outputKey": { "type": "string" },
-        "when": { "type": "string", "maxLength": 1024, "description": "CEL boolean expr; node is skipped when false" },
-        "retry": { "$ref": "#/$defs/retry" },
-        "maxIterations": { "type": "integer", "minimum": 1, "maximum": 25, "description": "loop: hard per-loop iteration cap (required for type=loop)" },
-        "until": { "type": "string", "maxLength": 1024, "description": "loop: CEL exit condition, evaluated after each pass (do-while). Mutually exclusive with `while`." },
-        "while": { "type": "string", "maxLength": 1024, "description": "loop: CEL continue condition, evaluated before each pass. Mutually exclusive with `until`." },
-        "onMaxIterations": { "enum": ["fail", "continue", "warn"], "default": "fail" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "template",
+            "loop",
+            "user-input",
+            "task"
+          ],
+          "description": "wait, manual and composite workflow nodes are not supported. For a human step use a user-input node or a manual quality gate (qualityGates); a later node can read the gate's approval receipt with { from: gate, afterWave }."
+        },
+        "template": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Portable template ref: the template's org-unique kebab `name` (e.g. \"inline-code-review\"). Resolved org-scoped to a templateId at load; layer-2 MUST confirm an active template with this name exists — see README."
+        },
+        "templateVersion": {
+          "type": "string"
+        },
+        "workflow": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Portable composite-workflow ref: the workflow's org-unique kebab `name` (e.g. \"release-pipeline\"). Resolved org-scoped at load."
+        },
+        "workflowVersion": {
+          "type": "string"
+        },
+        "skill": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(@[a-z0-9]+([.-][a-z0-9]+)*)?$",
+          "description": "task: pinned skill ref — portable kebab `name` or `name@version` (the inline task's one external dependency). Version segments are separated by single `.`/`-` with no leading/trailing separator (so `code-review@1.` / `@1-` / `@1..2` are rejected). A `@version` pin makes the file reproducible; a bare `name` resolves to the organization's active version when the file is applied. Skills resolve only within the file's own organization."
+        },
+        "taskType": {
+          "enum": [
+            "code-review",
+            "general"
+          ],
+          "description": "task: task category and executor tool boundary. The enum expands only through released schema versions."
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 16384,
+          "description": "task: in-file system prompt — per-node parameterisation layered over the referenced skill (the skill is the procedure; the prompt is the per-node config)."
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "task/template: model for this node. A portable model reference string, e.g. \"anthropic/claude-sonnet-5\". Allowed only on task and template nodes; resolved against the organization's model connections when the file is applied."
+        },
+        "outputs": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "json"
+            ]
+          },
+          "description": "task: declared output field name -> type. Declared outputs can be referenced by downstream `extract` and CEL conditions."
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/inputMapping"
+          }
+        },
+        "outputKey": {
+          "type": "string"
+        },
+        "when": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "CEL boolean expr; node is skipped when false"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "maxIterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 25,
+          "description": "loop: hard per-loop iteration cap (required for type=loop)"
+        },
+        "until": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "loop: CEL exit condition, evaluated after each pass (do-while). Mutually exclusive with `while`."
+        },
+        "while": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "loop: CEL continue condition, evaluated before each pass. Mutually exclusive with `until`."
+        },
+        "onMaxIterations": {
+          "enum": [
+            "fail",
+            "continue",
+            "warn"
+          ],
+          "default": "fail"
+        },
         "body": {
           "type": "object",
-          "required": ["nodes"],
+          "required": [
+            "nodes"
+          ],
           "additionalProperties": false,
           "description": "Loop body subgraph. Per-loop cap is `maxIterations` (<=25); max nesting depth is 3. WORST CASE at the depth cap is the product of nested maxIterations (e.g. 25^3 = 15,625 leaf executions). A NORMATIVE global iteration budget (product of all nested maxIterations on any path <= 1000) is enforced at load by validateDag; runs exceeding it are rejected.",
           "properties": {
-            "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
-            "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+            "nodes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/node"
+              }
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/edge"
+              }
+            }
           }
         },
-        "signalSource": { "type": "string", "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$", "description": "wait: opaque signal identifier matched by pure in-memory lookup. Charset forbids ':' and '/', so it can never be a URL/host the platform fetches (no SSRF)." },
-        "timeoutMinutes": { "type": "integer", "minimum": 1 },
-        "checklistItems": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "manual: items to complete" },
-        "assignee": { "type": "string" },
-        "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" }, "description": "user-input: form fields; task: the inline task's declared parameters (layer-2 validates the node's `inputs` against these, exactly as a template's parameter schema is used for `template` nodes)." }
+        "signalSource": {
+          "type": "string",
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$",
+          "description": "wait: opaque signal identifier matched by pure in-memory lookup. Charset forbids ':' and '/', so it can never be a URL/host the platform fetches (no SSRF)."
+        },
+        "timeoutMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "task: maximum executor runtime in minutes (1–60)."
+        },
+        "checklistItems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "manual: items to complete"
+        },
+        "assignee": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          },
+          "description": "user-input: form fields; task: the inline task's declared parameters (layer-2 validates the node's `inputs` against these, exactly as a template's parameter schema is used for `template` nodes)."
+        }
       },
       "allOf": [
-        { "if": { "properties": { "type": { "const": "template" } }, "required": ["type"] },
-          "then": { "required": ["template"], "not": { "anyOf": [
-            { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
-        { "if": { "properties": { "type": { "const": "workflow" } }, "required": ["type"] },
-          "then": { "required": ["workflow"], "not": { "anyOf": [
-            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
-        { "if": { "properties": { "type": { "const": "loop" } }, "required": ["type"] },
-          "then": { "required": ["maxIterations", "body"], "not": { "anyOf": [
-            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] }, { "required": ["until", "while"] } ] } } },
-        { "if": { "properties": { "type": { "const": "wait" } }, "required": ["type"] },
-          "then": { "required": ["signalSource"], "not": { "anyOf": [
-            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
-        { "if": { "properties": { "type": { "const": "manual" } }, "required": ["type"] },
-          "then": { "required": ["checklistItems"], "not": { "anyOf": [
-            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["parameters"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
-        { "if": { "properties": { "type": { "const": "user-input" } }, "required": ["type"] },
-          "then": { "required": ["parameters"], "not": { "anyOf": [
-            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["timeoutMinutes"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] }, { "required": ["skill"] }, { "required": ["taskType"] }, { "required": ["prompt"] }, { "required": ["outputs"] } ] } } },
-        { "if": { "properties": { "type": { "const": "task" } }, "required": ["type"] },
-          "then": { "required": ["skill"], "properties": { "timeoutMinutes": { "maximum": 60 } }, "not": { "anyOf": [
-            { "required": ["template"] }, { "required": ["templateVersion"] }, { "required": ["workflow"] }, { "required": ["workflowVersion"] }, { "required": ["maxIterations"] }, { "required": ["until"] }, { "required": ["while"] }, { "required": ["onMaxIterations"] }, { "required": ["body"] }, { "required": ["signalSource"] }, { "required": ["checklistItems"] }, { "required": ["assignee"] } ] } } }
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "template"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "template"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "workflow"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflowVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "maxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "while"
+                  ]
+                },
+                {
+                  "required": [
+                    "onMaxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "body"
+                  ]
+                },
+                {
+                  "required": [
+                    "signalSource"
+                  ]
+                },
+                {
+                  "required": [
+                    "timeoutMinutes"
+                  ]
+                },
+                {
+                  "required": [
+                    "checklistItems"
+                  ]
+                },
+                {
+                  "required": [
+                    "assignee"
+                  ]
+                },
+                {
+                  "required": [
+                    "parameters"
+                  ]
+                },
+                {
+                  "required": [
+                    "skill"
+                  ]
+                },
+                {
+                  "required": [
+                    "taskType"
+                  ]
+                },
+                {
+                  "required": [
+                    "prompt"
+                  ]
+                },
+                {
+                  "required": [
+                    "outputs"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "workflow"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "workflow"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "template"
+                  ]
+                },
+                {
+                  "required": [
+                    "templateVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "maxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "while"
+                  ]
+                },
+                {
+                  "required": [
+                    "onMaxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "body"
+                  ]
+                },
+                {
+                  "required": [
+                    "signalSource"
+                  ]
+                },
+                {
+                  "required": [
+                    "timeoutMinutes"
+                  ]
+                },
+                {
+                  "required": [
+                    "checklistItems"
+                  ]
+                },
+                {
+                  "required": [
+                    "assignee"
+                  ]
+                },
+                {
+                  "required": [
+                    "parameters"
+                  ]
+                },
+                {
+                  "required": [
+                    "skill"
+                  ]
+                },
+                {
+                  "required": [
+                    "taskType"
+                  ]
+                },
+                {
+                  "required": [
+                    "prompt"
+                  ]
+                },
+                {
+                  "required": [
+                    "outputs"
+                  ]
+                },
+                {
+                  "required": [
+                    "model"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "loop"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "maxIterations",
+              "body"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "template"
+                  ]
+                },
+                {
+                  "required": [
+                    "templateVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflow"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflowVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "signalSource"
+                  ]
+                },
+                {
+                  "required": [
+                    "timeoutMinutes"
+                  ]
+                },
+                {
+                  "required": [
+                    "checklistItems"
+                  ]
+                },
+                {
+                  "required": [
+                    "assignee"
+                  ]
+                },
+                {
+                  "required": [
+                    "parameters"
+                  ]
+                },
+                {
+                  "required": [
+                    "skill"
+                  ]
+                },
+                {
+                  "required": [
+                    "taskType"
+                  ]
+                },
+                {
+                  "required": [
+                    "prompt"
+                  ]
+                },
+                {
+                  "required": [
+                    "outputs"
+                  ]
+                },
+                {
+                  "required": [
+                    "model"
+                  ]
+                },
+                {
+                  "required": [
+                    "until",
+                    "while"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "wait"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "signalSource"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "template"
+                  ]
+                },
+                {
+                  "required": [
+                    "templateVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflow"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflowVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "maxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "while"
+                  ]
+                },
+                {
+                  "required": [
+                    "onMaxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "body"
+                  ]
+                },
+                {
+                  "required": [
+                    "checklistItems"
+                  ]
+                },
+                {
+                  "required": [
+                    "assignee"
+                  ]
+                },
+                {
+                  "required": [
+                    "parameters"
+                  ]
+                },
+                {
+                  "required": [
+                    "skill"
+                  ]
+                },
+                {
+                  "required": [
+                    "taskType"
+                  ]
+                },
+                {
+                  "required": [
+                    "prompt"
+                  ]
+                },
+                {
+                  "required": [
+                    "outputs"
+                  ]
+                },
+                {
+                  "required": [
+                    "model"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "manual"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "checklistItems"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "template"
+                  ]
+                },
+                {
+                  "required": [
+                    "templateVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflow"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflowVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "maxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "while"
+                  ]
+                },
+                {
+                  "required": [
+                    "onMaxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "body"
+                  ]
+                },
+                {
+                  "required": [
+                    "signalSource"
+                  ]
+                },
+                {
+                  "required": [
+                    "timeoutMinutes"
+                  ]
+                },
+                {
+                  "required": [
+                    "parameters"
+                  ]
+                },
+                {
+                  "required": [
+                    "skill"
+                  ]
+                },
+                {
+                  "required": [
+                    "taskType"
+                  ]
+                },
+                {
+                  "required": [
+                    "prompt"
+                  ]
+                },
+                {
+                  "required": [
+                    "outputs"
+                  ]
+                },
+                {
+                  "required": [
+                    "model"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "user-input"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "parameters"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "template"
+                  ]
+                },
+                {
+                  "required": [
+                    "templateVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflow"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflowVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "maxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "while"
+                  ]
+                },
+                {
+                  "required": [
+                    "onMaxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "body"
+                  ]
+                },
+                {
+                  "required": [
+                    "signalSource"
+                  ]
+                },
+                {
+                  "required": [
+                    "timeoutMinutes"
+                  ]
+                },
+                {
+                  "required": [
+                    "checklistItems"
+                  ]
+                },
+                {
+                  "required": [
+                    "assignee"
+                  ]
+                },
+                {
+                  "required": [
+                    "skill"
+                  ]
+                },
+                {
+                  "required": [
+                    "taskType"
+                  ]
+                },
+                {
+                  "required": [
+                    "prompt"
+                  ]
+                },
+                {
+                  "required": [
+                    "outputs"
+                  ]
+                },
+                {
+                  "required": [
+                    "model"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "task"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "skill"
+            ],
+            "properties": {
+              "timeoutMinutes": {
+                "maximum": 60
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "template"
+                  ]
+                },
+                {
+                  "required": [
+                    "templateVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflow"
+                  ]
+                },
+                {
+                  "required": [
+                    "workflowVersion"
+                  ]
+                },
+                {
+                  "required": [
+                    "maxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "until"
+                  ]
+                },
+                {
+                  "required": [
+                    "while"
+                  ]
+                },
+                {
+                  "required": [
+                    "onMaxIterations"
+                  ]
+                },
+                {
+                  "required": [
+                    "body"
+                  ]
+                },
+                {
+                  "required": [
+                    "signalSource"
+                  ]
+                },
+                {
+                  "required": [
+                    "checklistItems"
+                  ]
+                },
+                {
+                  "required": [
+                    "assignee"
+                  ]
+                }
+              ]
+            }
+          }
+        }
       ]
     },
-    "inputMapping": { "$ref": "../v1/workflow.schema.json#/$defs/inputMapping" },
-    "extract": { "$ref": "../v1/workflow.schema.json#/$defs/extract" },
-    "edge": { "$ref": "../v1/workflow.schema.json#/$defs/edge" },
-    "qualityGate": { "$ref": "../v1/workflow.schema.json#/$defs/qualityGate" },
-    "retry": { "$ref": "../v1/workflow.schema.json#/$defs/retry" }
+    "inputMapping": {
+      "oneOf": [
+        {
+          "$ref": "../v1/workflow.schema.json#/$defs/inputMapping"
+        },
+        {
+          "type": "object",
+          "required": [
+            "from",
+            "afterWave"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "const": "gate"
+            },
+            "afterWave": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The wave the manual quality gate follows (matches qualityGates[].afterWave)."
+            },
+            "gateIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The gate's position among qualityGates with the same afterWave; required only when that wave has more than one gate."
+            }
+          },
+          "description": "Approval receipt of an upstream manual quality gate: decision, approver, channel, decidedAt, revision, note, approvedOutputs (a sha256 per covered output) and digest. Available only after the gate is approved; the consuming node must run in a later wave."
+        }
+      ]
+    },
+    "extract": {
+      "$ref": "../v1/workflow.schema.json#/$defs/extract"
+    },
+    "edge": {
+      "$ref": "../v1/workflow.schema.json#/$defs/edge"
+    },
+    "qualityGate": {
+      "$ref": "../v1/workflow.schema.json#/$defs/qualityGate"
+    },
+    "retry": {
+      "$ref": "../v1/workflow.schema.json#/$defs/retry"
+    }
   }
 }

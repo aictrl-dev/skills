@@ -53,4 +53,5 @@ When the public workflow schema changes:
 
 | Bundle | Source | Source commit | Released | Normalized SHA-256 |
 |---|---|---|---|---|
-| `reference/v1/workflow.schema.json` | `aictrl-dev/aictrl/schemas/workflow/v1/workflow.schema.json` | `33a0ff6cfe6dab4aafcb00449d8d00954452a81b` | 2026-09-23 | `1be3d6efe94817ac36d40fe9f40762ebafc7cdbe6dec95e51900fcad192a142c` |
+| `reference/workflow.schema.json` | `aictrl-dev/aictrl/schemas/workflow/v2/workflow.schema.json` | `9030c3397d5e36338707617e9e96bde7e0f2ab67` | 2026-09-27 | `36ececff2123ee3dec44e2d167d7e67d36b0cf07396c7169ec985aa4684aefda` |
+| `reference/v1/workflow.schema.json` | `aictrl-dev/aictrl/schemas/workflow/v1/workflow.schema.json` | `9030c3397d5e36338707617e9e96bde7e0f2ab67` | 2026-09-27 | `202df36dd25d4cd8a6258da62696969266c19ca7c95fe14398c78b3b214ec2d7` |

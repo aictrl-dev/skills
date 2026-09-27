@@ -31,7 +31,7 @@ parameters: [...]                   # optional; workflow-level inputs (see Param
 nodes: [...]                        # required; at least one node
 edges: [...]                        # optional; ordering (see Edges)
 qualityGates: [...]                 # optional; manual or auto checkpoints
-triggers: [...]                     # optional; at most one file-declared event trigger
+triggers: [...]                     # optional; up to 10 file-declared event triggers
 ```
 
 **No system fields** in the authored file: no `id` (org-level UUID), `version`,
@@ -74,12 +74,17 @@ Parameter schema:
 `options` is **required** for `select`/`multi-select` (min 1 item) and
 **forbidden** on every other type. Both directions are enforced by the schema.
 
-## Node types (7 total)
+## Node types (4 total)
 
 Every node must have `id` (kebab-case) and `type`. Each type has a required field
 and a set of forbidden fields (per-type **field exclusivity**, enforced by the
 schema's `allOf` block). Supplying a field that belongs to another node type is a
-layer-1 error.
+schema error.
+
+`wait`, `manual` and composite `workflow` node types are **not supported** and are
+rejected by the schema. For a human step use a `user-input` node or a manual
+quality gate; a later node can read the gate's approval receipt (see
+[Approval receipts](#approval-receipts)).
 
 ### `task` — define portable skill-backed work inline
 
@@ -118,20 +123,6 @@ the selected skill, not as a way to relax workflow policy or tool boundaries.
 ```
 
 Forbidden on `template`: `workflow`, `workflowVersion`, `maxIterations`, `until`,
-`while`, `onMaxIterations`, `body`, `signalSource`, `timeoutMinutes`,
-`checklistItems`, `assignee`, `parameters`.
-
-### `workflow` — invoke a composite workflow
-```yaml
-- id: run-pipeline
-  type: workflow
-  workflow: release-pipeline      # required; portable kebab name of another workflow
-  workflowVersion: "2"            # optional
-  inputs: { ... }
-  when: "..."
-```
-
-Forbidden on `workflow`: `template`, `templateVersion`, `maxIterations`, `until`,
 `while`, `onMaxIterations`, `body`, `signalSource`, `timeoutMinutes`,
 `checklistItems`, `assignee`, `parameters`.
 
@@ -174,39 +165,6 @@ Forbidden on `loop`: `template`, `templateVersion`, `workflow`, `workflowVersion
 Supplying both `until` and `while` together is also forbidden (exactly one or
 neither).
 
-### `wait` — pause until an external signal
-```yaml
-- id: await-ci
-  type: wait
-  signalSource: ci-completed       # required; opaque signal identifier
-  timeoutMinutes: 60               # optional; max wait time
-  when: "..."
-```
-
-`signalSource` charset: `[A-Za-z0-9][A-Za-z0-9._-]{0,255}`. No colons or slashes,
-so it can never be a URL/host the platform fetches (SSRF prevention).
-
-Forbidden on `wait`: `template`, `templateVersion`, `workflow`, `workflowVersion`,
-`maxIterations`, `until`, `while`, `onMaxIterations`, `body`, `checklistItems`,
-`assignee`, `parameters`.
-
-### `manual` — human checklist gate
-```yaml
-- id: qa-sign-off
-  type: manual
-  checklistItems:
-    - "Smoke test passed"
-    - "Changelog updated"
-  assignee: alice                  # optional
-  when: "..."
-```
-
-`checklistItems` requires at least one item.
-
-Forbidden on `manual`: `template`, `templateVersion`, `workflow`,
-`workflowVersion`, `maxIterations`, `until`, `while`, `onMaxIterations`, `body`,
-`signalSource`, `timeoutMinutes`, `parameters`.
-
 ### `user-input` — collect form input at run time
 ```yaml
 - id: collect-params
@@ -225,8 +183,10 @@ Forbidden on `user-input`: `template`, `templateVersion`, `workflow`,
 
 ## Input mappings
 
-Every node `inputs` entry maps a parameter name to one of three mapping kinds
-(the schema's `inputMapping` `oneOf` — exactly one shape per entry):
+Every node `inputs` entry maps a parameter name to one of four mapping kinds
+(the schema's `inputMapping` `oneOf` — exactly one shape per entry): a static
+value, a workflow parameter, an upstream node output, or a manual gate's
+approval receipt (see [Approval receipts](#approval-receipts)).
 
 ### Static value
 ```yaml
@@ -355,9 +315,50 @@ qualityGates:
 
 `condition` is **required** when `type: auto` and is a CEL boolean.
 
+### Approval receipts
+
+Every decision on a manual gate records an approval receipt. A node that runs
+**after** the gate can take it as an input with `{ from: gate, afterWave: N }`
+(add `gateIndex` only when that wave has more than one gate):
+
+```yaml
+nodes:
+  - id: preflight
+    type: task
+    skill: spec-review@1.0.0
+    prompt: "Read-only preflight. Report the baseline commit SHA as `revision`."
+    outputs: { ready: boolean, revision: string }
+  - id: execute
+    type: task
+    skill: implement-code-change@1.0.0
+    prompt: "Proceed only if the receipt's revision and digest match what you will change."
+    parameters:
+      - { name: approval-receipt, type: json, required: true }
+    inputs:
+      approval-receipt: { from: gate, afterWave: 1 }
+edges:
+  - { from: preflight, to: execute }
+qualityGates:
+  - afterWave: 1
+    type: manual
+    description: Approve the preflight before any change is made.
+```
+
+The receipt contains `decision`, `approver` (id, display name, email, org role),
+`channel` (`ui`, `api` or `mcp`), `decidedAt`, `revision`, `note`,
+`approvedOutputs` (per upstream node: status, execution id, and the sha256 of its
+output) and `digest` (sha256 over `approvedOutputs`).
+
+`revision` is the 40-character `revision` output of the latest node before the
+gate; declare a `revision: string` output on that node to bind the gate to a
+commit. When deciding through MCP, pass the `expectedRevision` and
+`approvalDigest` shown by `get_workflow_run` as `expected_revision` and
+`expected_digest` to `approve_workflow_step`; a decision made on a stale view is
+refused.
+
 ## Triggers (optional)
 
-A workflow may declare at most **one** file trigger. Five trigger types are supported:
+A workflow may declare up to **10** file triggers. Five trigger types are supported:
 `label`, `comment`, `pr-ready`, `pr-opened`, and `chat-message`.
 
 ```yaml
@@ -434,7 +435,7 @@ triggers:
 
 ## Portable references
 
-Use the **kebab name** (`name` field of the template or workflow), not an internal
+Use the **kebab name** (`name` field of the template), not an internal
 UUID. The loader resolves the name to a UUID, org-scoped, at apply time. An unknown
 or archived reference **fails the apply** (fail-closed, supply-chain safety).
 
@@ -475,8 +476,8 @@ definitive gate for those.
 The following are rejected:
 
 - **Nested loops beyond depth 3** — rejected by DAG validation.
-- **A `pause` node type** — not in the schema (use `wait` for a signal or `manual`
-  for a human gate).
+- **`wait`, `manual`, composite `workflow` or `pause` node types** — not in the
+  schema. For a human step use a `user-input` node or a manual quality gate.
 - **`regex` and `template` extract methods** — deferred until a linear-time
   matcher and a non-evaluating template grammar land; only `full` and `json-path`
   are supported.
@@ -493,14 +494,12 @@ Before submitting a workflow file for apply:
 - [ ] Every `task` node has a version-pinned `skill` when resolvable, `taskType`,
       `prompt`, typed `parameters`, and declared `outputs` used downstream
 - [ ] Every `loop` node has `maxIterations` and `body`; `until` and `while` are mutually exclusive
-- [ ] Every `wait` node has `signalSource` (no colons or slashes)
-- [ ] Every `manual` node has at least one `checklistItems` entry
 - [ ] Every `user-input` node has `parameters`
 - [ ] CEL expressions are boolean; no string/number results
 - [ ] `select`/`multi-select` parameters have `options`; other types must NOT have `options`
-- [ ] Input mappings use `{ value: ... }`, `{ from: input, name: ... }`, or `{ from: node, node: ... }`
+- [ ] Input mappings use `{ value: ... }`, `{ from: input, name: ... }`, `{ from: node, node: ... }`, or `{ from: gate, afterWave: ... }`
 - [ ] No `regex` or `template` extract methods
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
-- [ ] Portable refs (kebab names) for `template:` and `workflow:`
+- [ ] Portable refs (kebab names) for `template:`
 - [ ] **`node validate.mjs <file>` exits 0** (layer-1 schema + static DAG checks)
-- [ ] At most one entry in `triggers:`; each matches one of the five trigger shapes
+- [ ] At most 10 entries in `triggers:`; each matches one of the five trigger shapes
