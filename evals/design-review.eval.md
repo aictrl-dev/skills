@@ -17,6 +17,8 @@ In a fresh Claude Code session inside this repo:
 
 Run: `/design-review evals/fixtures/multi-screen-app.html`
 
+The recorded run (evals/results.md, 2026-09-25) followed `skills/design-review/SKILL.md` and `reference/rubric.md` directly. The run through the installed plugin, with this command in a fresh session, is still pending.
+
 Pass criteria (all must hold):
 - [ ] Output recognises the input as multi-screen and applies the cross-screen lens (X1–X4) after the per-screen dimensions.
 - [ ] Includes a concept inventory table (concept → labels used → places).
