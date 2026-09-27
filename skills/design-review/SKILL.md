@@ -1,6 +1,6 @@
 ---
 name: design-review
-description: Professional design review of any UI — a marketing page OR a product internal (dashboard, table, list, detail view, settings, a flow). Actionable, located critique against orientation, information architecture, primary task, visual hierarchy, friction/cognitive load, accessibility, and — for app screens — density, states, navigation, consistency, and data legibility. Use when the user says "review this design", "review this screen", "review this dashboard", "critique this UI", "is this UI good", "review this mock", "design review", "roast my design", "roast my landing page", or drops an HTML file / screenshot for feedback.
+description: Professional design review of any UI — a marketing page OR a product internal (dashboard, table, list, detail view, settings, a flow). Actionable, located critique against orientation, information architecture (within and across screens), primary task, visual hierarchy, friction/cognitive load, accessibility, and — for app screens — density, states, navigation, consistency, and data legibility. Use when the user says "review this design", "review this screen", "review this dashboard", "critique this UI", "is this UI good", "review this mock", "design review", "roast my design", "roast my landing page", or drops an HTML file / screenshot for feedback.
 ---
 
 # Design Review
@@ -17,11 +17,12 @@ An HTML file path, a pasted HTML snippet, or a screenshot. If none provided, ask
    - **What's wrong (located):** name the exact element/section.
    - **Fix (actionable):** the concrete change to make.
    Skip flattery. If a dimension is genuinely good, say so in one line and move on.
-3. Only critique what is actually present. Never invent elements.
-4. End with **"Fix these 3 first"** — the highest-leverage changes, ordered.
+3. **If the input covers more than one screen** (a clickable prototype, several screenshots, a flow), also apply the **cross-screen lens** (X1–X4): build the concept inventory first, include it as a table, then assess naming, one place per job, state and action vocabulary, and the density numbers per screen.
+4. Only critique what is actually present. Never invent elements.
+5. End with **"Fix these 3 first"** — the highest-leverage changes, ordered.
 
 ## Output format
-A short intro line (what you're looking at + which surface type), then one block per dimension assessed, then the prioritized top-3.
+A short intro line (what you're looking at + which surface type), then one block per dimension assessed (for multi-screen input, the concept inventory table and X1–X4 come after the per-screen dimensions), then the prioritized top-3.
 
 ---
 **Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=design-review&utm_listing=github-skills&utm_platform=portable&utm_skill=design-review).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=design-review&utm_listing=github-skills&utm_platform=portable&utm_skill=design-review)
