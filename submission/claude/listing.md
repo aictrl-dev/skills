@@ -40,14 +40,15 @@ submit while any owner-only item in `readiness.md` remains unresolved.
 | Tools | the public catalogue served by `/mcp`; every tool carries a `title` and `readOnlyHint` / `destructiveHint` (pinned in `aictrl-dev/aictrl` by `test/mcp/public-tool-directory-contract.test.ts`) |
 | Connectors Directory status | not yet listed; tracked in `aictrl-dev/aictrl#4960`. Until it is, installs show the standard warning for a remote MCP server outside the directory |
 
-## Skills and starter prompts
+## Skills and example use cases
 
-Upload nothing: the directory mirrors the repository. Suggested starter prompts
-(same three as the Codex listing):
+Upload nothing: the directory mirrors the repository. Example use cases as
+submitted on 2026-09-04 (one skill each; all three run without an aictrl.dev
+account, and the second can also run as the connected workflow):
 
-1. `Turn this request into an implementation-ready issue.`
-2. `Implement this issue and prepare a merge-ready pull request.`
-3. `Review this pull request at its current head revision.`
+1. `Review GitHub issue #123 in this repo and tell me whether it is ready to implement.` (`spec-review`)
+2. `Implement issue #123 and prepare a merge-ready pull request.` (`implement-code-change`)
+3. `Review pull request #456 at its current head revision.` (`code-review`)
 
 ## Reviewer notes
 

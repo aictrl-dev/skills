@@ -18,11 +18,11 @@ the plugin submission only; the connector submission is tracked in
 
 ## Submission form (Console, `platform.claude.com/plugins/submit`)
 
-- [ ] Submitter signed in with a Developer, Admin or Owner role on the Console organization.
-- [ ] Consent to be contacted and to the Software Directory Terms given by the release owner.
-- [ ] Plugin information entered from `listing.md`.
-- [ ] Submission details entered from `listing.md`; GitHub link `https://github.com/aictrl-dev/skills`.
-- [ ] Submission acknowledged; status tracked in the Console.
+- [x] Submitter signed in with a Developer, Admin or Owner role on the Console organization (Admin, 2026-09-04).
+- [x] Consent to be contacted and to the Software Directory Terms given by the release owner (2026-09-04).
+- [x] Plugin information entered from `listing.md` (2026-09-04).
+- [x] Submission details entered from `listing.md`; GitHub link `https://github.com/aictrl-dev/skills`; license MIT; the three example use cases listed in `listing.md` (2026-09-04).
+- [x] Submitted on 2026-09-04 from repository head `61195bf0f`; submission acknowledged by the Console and tracked there. Review outcome: pending.
 
 ## After listing
 

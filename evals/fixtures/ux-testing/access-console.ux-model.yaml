@@ -1,0 +1,91 @@
+# Task model for the ux-testing eval fixture (access-console.html).
+# Weights and frequencies are drafts, as they would be for a real product until its owner confirms them.
+meta:
+  target: access-console.html
+  state_hook: __state          # checks read window.__state as S
+
+roles:
+  approver:
+    name: Access approver
+    description: Keeps access requests and reviews moving for the teams they own.
+    objectives: [O1 Keep access reviews on schedule, O2 Remove access nobody should have]
+  requester:
+    name: Employee
+    description: Asks for the access they need and manages their own notifications.
+    objectives: [O3 Get access to a system without back-and-forth]
+
+tasks:
+  - id: T1
+    role: approver
+    objective: O1
+    prompt: The Payments team's quarterly access review is due. Get that review started.
+    paraphrase: kick off the payments access review
+    start: { mode: cold }
+    frequency: monthly
+    criticality: 3
+    ideal_steps: 3
+    success: S.reviews.find(r => r.team === 'Payments').status === 'in_progress'
+    must_not: S.requests.find(r => r.id === 'REQ-311').status === 'approved'
+    status: ready
+
+  - id: T2
+    role: approver
+    objective: O1
+    prompt: Download a CSV file of this week's access requests.
+    paraphrase: get the requests out as a spreadsheet
+    start: { mode: cold }
+    frequency: weekly
+    criticality: 1
+    ideal_steps: 3
+    success: S.exports.length > 0
+    status: ready
+
+  - id: T3
+    role: requester
+    objective: O3
+    prompt: You need to read data in the billing-replica database for a report. Ask for that access.
+    paraphrase: get read access to billing replica
+    start: { mode: cold, viewport: [1366, 768] }
+    frequency: weekly
+    criticality: 2
+    ideal_steps: 10
+    success: S.requests.some(r => r.mine && r.resource === 'billing-replica' && r.level === 'read')
+    must_not: S.requests.some(r => r.mine && r.level === 'admin')
+    status: ready
+
+  - id: T4
+    role: approver
+    objective: O2
+    prompt: Jordan Lee moved teams and should no longer have access to the production database. Remove it.
+    paraphrase: take away jordan's prod access
+    start: { mode: cold }
+    frequency: monthly
+    criticality: 3
+    ideal_steps: 3
+    success: "!S.grants.some(g => g.user === 'Jordan Lee' && g.resource === 'prod-db')"
+    must_not: S.requests.find(r => r.id === 'REQ-311').status === 'approved'
+    status: ready
+
+  - id: T5
+    role: requester
+    objective: O3
+    prompt: You get too many emails from this app. Change it so you get one summary email a week.
+    paraphrase: fewer emails, weekly
+    start: { mode: cold }
+    frequency: monthly
+    criticality: 1
+    ideal_steps: 5
+    success: S.settings.digest === 'weekly'
+    status: ready
+
+  - id: Q1                        # a question task: no success check, graded on the answer
+    role: approver
+    objective: O1
+    prompt: Which pending access request has been waiting the longest, and who asked for it?
+    paraphrase: whose request is oldest
+    start: { mode: cold }
+    frequency: weekly
+    criticality: 1
+    ideal_steps: 2
+    answer: [REQ-298, Sam Okafor]
+    status: ready
