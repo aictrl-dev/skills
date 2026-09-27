@@ -78,6 +78,9 @@ Parameter schema:
 
 ## Node types (4 total)
 
+v1 files support only `template`, `loop` and `user-input`; the `task` node,
+`model`, `defaults` and gate-receipt input mappings are v2-only.
+
 Every node must have `id` (kebab-case) and `type`. Each type has a required field
 and a set of forbidden fields (per-type **field exclusivity**, enforced by the
 schema's `allOf` block). Supplying a field that belongs to another node type is a
@@ -88,7 +91,7 @@ rejected by the schema. For a human step use a `user-input` node or a manual
 quality gate; a later node can read the gate's approval receipt (see
 [Approval receipts](#approval-receipts)).
 
-### `task` — define portable skill-backed work inline
+### `task` — define portable skill-backed work inline (v2)
 
 ```yaml
 - id: review
@@ -129,7 +132,6 @@ Forbidden on `task`: `template`, `templateVersion`, `workflow`, `workflowVersion
   model: anthropic/claude-sonnet-5  # optional (v2); overrides defaults.model
   inputs: { ... }                # optional; mapped to the template's parameters
   when: "..."                    # optional; CEL skip condition
-  retry: { ... }                 # optional; retry policy
   outputKey: my-output           # optional; override artifact key
 ```
 
@@ -203,8 +205,10 @@ files. To update an existing file:
 
 - **`manual` node** → remove the node and add a manual quality gate after the
   wave it followed (`qualityGates: [{ afterWave: N, type: manual }]`). Move its
-  checklist into the gate's `description`. A later node can read the decision
-  with `{ from: gate, afterWave: N }` (see [Approval receipts](#approval-receipts)).
+  checklist into the gate's `description`. In a v2 file, a later node can read
+  the decision with `{ from: gate, afterWave: N }` (see
+  [Approval receipts](#approval-receipts)); v1 files have no gate mapping, so
+  migrate the file to `schemaVersion: aictrl/workflow/v2` to consume receipts.
 - **`wait` node** → there is no signal-wait node. For input a person provides at
   run time use a `user-input` node; to react to an external event, start the
   workflow from a trigger instead.
@@ -215,8 +219,8 @@ files. To update an existing file:
 
 Every node `inputs` entry maps a parameter name to one of four mapping kinds
 (the schema's `inputMapping` `oneOf` — exactly one shape per entry): a static
-value, a workflow parameter, an upstream node output, or a manual gate's
-approval receipt (see [Approval receipts](#approval-receipts)).
+value, a workflow parameter, an upstream node output, or (v2 only) a manual
+gate's approval receipt (see [Approval receipts](#approval-receipts)).
 
 ### Static value
 ```yaml
@@ -540,7 +544,7 @@ Before submitting a workflow file for apply:
 - [ ] Every `user-input` node has `parameters`
 - [ ] CEL expressions are boolean; no string/number results
 - [ ] `select`/`multi-select` parameters have `options`; other types must NOT have `options`
-- [ ] Input mappings use `{ value: ... }`, `{ from: input, name: ... }`, `{ from: node, node: ... }`, or `{ from: gate, afterWave: ... }`
+- [ ] Input mappings use `{ value: ... }`, `{ from: input, name: ... }`, `{ from: node, node: ... }`, or (v2) `{ from: gate, afterWave: ... }`
 - [ ] No `regex` or `template` extract methods
 - [ ] `model` only on `task`/`template` nodes (or `defaults.model`); no `retry` with `maxRetries` above 0
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
