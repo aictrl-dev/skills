@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aictrl.dev/schemas/workflow/v2/workflow.schema.json",
   "title": "aictrl Workflow (v2)",
-  "description": "Declarative YAML/JSON workflow definition. V2 adds the portable inline task node: a node can define a pinned skill, prompt, parameters, and outputs in the file instead of relying on a pre-provisioned template. Existing template, workflow, loop, wait, manual, and user-input nodes remain supported. Layer 1 validates structure; layer 2 validates node inputs against referenced-template or in-file task parameters.",
+  "description": "Declarative YAML/JSON workflow definition. V2 adds the portable inline task node: a node can define a pinned skill, prompt, parameters, and outputs in the file instead of relying on a pre-provisioned template. Template, loop, and user-input nodes remain supported; wait, manual, and composite workflow nodes are not (use user-input nodes or manual qualityGates). Layer 1 validates structure; layer 2 validates node inputs against referenced-template or in-file task parameters.",
   "type": "object",
   "required": [
     "schemaVersion",
@@ -125,10 +125,11 @@
         "workflow": {
           "type": "string",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-          "description": "Portable composite-workflow ref: the workflow's org-unique kebab `name` (e.g. \"release-pipeline\"). Resolved org-scoped at load."
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "workflowVersion": {
-          "type": "string"
+          "type": "string",
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "skill": {
           "type": "string",
@@ -236,7 +237,7 @@
           "type": "string",
           "maxLength": 256,
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$",
-          "description": "wait: opaque signal identifier matched by pure in-memory lookup. Charset forbids ':' and '/', so it can never be a URL/host the platform fetches (no SSRF)."
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "timeoutMinutes": {
           "type": "integer",
@@ -249,10 +250,11 @@
             "type": "string"
           },
           "minItems": 1,
-          "description": "manual: items to complete"
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "assignee": {
-          "type": "string"
+          "type": "string",
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "parameters": {
           "type": "array",

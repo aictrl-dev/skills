@@ -210,10 +210,11 @@
         "workflow": {
           "type": "string",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-          "description": "Portable composite-workflow ref: the workflow's org-unique kebab `name` (e.g. \"release-pipeline\"). Resolved org-scoped at load."
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "workflowVersion": {
-          "type": "string"
+          "type": "string",
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "inputs": {
           "type": "object",
@@ -283,11 +284,12 @@
           "type": "string",
           "maxLength": 256,
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$",
-          "description": "wait: opaque signal identifier matched by pure in-memory lookup. Charset forbids ':' and '/', so it can never be a URL/host the platform fetches (no SSRF)."
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "timeoutMinutes": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "checklistItems": {
           "type": "array",
@@ -295,10 +297,11 @@
             "type": "string"
           },
           "minItems": 1,
-          "description": "manual: items to complete"
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "assignee": {
-          "type": "string"
+          "type": "string",
+          "description": "Not used by any supported node type; rejected on every node. (It belonged to the unsupported wait, manual or composite workflow node types.)"
         },
         "parameters": {
           "type": "array",

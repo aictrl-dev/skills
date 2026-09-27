@@ -27,6 +27,8 @@ description: What this workflow does # optional
 category: code-quality              # optional; UI grouping
 icon: code                          # optional; Lucide icon name
 failureStrategy: fail-fast          # optional; 'fail-fast' (default) | 'continue-on-error'
+defaults:                           # optional (v2); workflow-level execution defaults
+  model: anthropic/claude-sonnet-5  # optional; for task/template nodes without their own `model`
 parameters: [...]                   # optional; workflow-level inputs (see Parameter types)
 nodes: [...]                        # required; at least one node
 edges: [...]                        # optional; ordering (see Edges)
@@ -94,6 +96,7 @@ quality gate; a later node can read the gate's approval receipt (see
   skill: code-review@1.0.0       # required; pin when a version is resolvable
   taskType: code-review          # required; executor tool boundary
   prompt: Review the current pull request head and return structured findings.
+  model: anthropic/claude-sonnet-5  # optional; overrides defaults.model for this node
   timeoutMinutes: 10             # optional; executor runtime, integer 1-60
   parameters:
     - { name: pull-request, type: pull-request, required: true }
@@ -101,7 +104,6 @@ quality gate; a later node can read the gate's approval receipt (see
     pull-request: { from: input, name: pull-request }
   outputs:
     findings: json
-  retry: { maxAttempts: 2, backoffSeconds: 5 }
 ```
 
 Inline task nodes make the task configuration portable in the workflow file.
@@ -109,6 +111,14 @@ Their `inputs` are checked against the in-file `parameters`; their declared
 `outputs` may be mapped by downstream nodes. Treat `prompt` as instructions for
 the selected skill, not as a way to relax workflow policy or tool boundaries.
 `timeoutMinutes` is an optional hard executor bound from 1 to 60 minutes.
+`model` is an optional portable model reference (for example
+`anthropic/claude-sonnet-5`); it is resolved against the organization's model
+connections when the file is applied. A node without `model` uses
+`defaults.model`, then the organization default.
+
+Forbidden on `task`: `template`, `templateVersion`, `workflow`, `workflowVersion`,
+`maxIterations`, `until`, `while`, `onMaxIterations`, `body`, `signalSource`,
+`checklistItems`, `assignee`.
 
 ### `template` — run a task template
 ```yaml
@@ -116,6 +126,7 @@ the selected skill, not as a way to relax workflow policy or tool boundaries.
   type: template
   template: inline-code-review   # required; portable kebab name (not a UUID)
   templateVersion: "1.4.0"       # optional; pin a specific version
+  model: anthropic/claude-sonnet-5  # optional (v2); overrides defaults.model
   inputs: { ... }                # optional; mapped to the template's parameters
   when: "..."                    # optional; CEL skip condition
   retry: { ... }                 # optional; retry policy
@@ -124,7 +135,9 @@ the selected skill, not as a way to relax workflow policy or tool boundaries.
 
 Forbidden on `template`: `workflow`, `workflowVersion`, `maxIterations`, `until`,
 `while`, `onMaxIterations`, `body`, `signalSource`, `timeoutMinutes`,
-`checklistItems`, `assignee`, `parameters`.
+`checklistItems`, `assignee`, `parameters`, and the task-only fields `skill`,
+`taskType`, `prompt` and `outputs`. Type-specific fields it permits:
+`templateVersion` and (v2) `model`.
 
 ### `loop` — repeat a body subgraph
 ```yaml
@@ -161,7 +174,8 @@ and resolves loop-body node refs exactly like any other node. Use
 - `iteration` is the current pass number (1-indexed).
 
 Forbidden on `loop`: `template`, `templateVersion`, `workflow`, `workflowVersion`,
-`signalSource`, `timeoutMinutes`, `checklistItems`, `assignee`, `parameters`.
+`signalSource`, `timeoutMinutes`, `checklistItems`, `assignee`, `parameters`,
+`skill`, `taskType`, `prompt`, `outputs` and `model`.
 Supplying both `until` and `while` together is also forbidden (exactly one or
 neither).
 
@@ -179,7 +193,23 @@ neither).
 
 Forbidden on `user-input`: `template`, `templateVersion`, `workflow`,
 `workflowVersion`, `maxIterations`, `until`, `while`, `onMaxIterations`, `body`,
-`signalSource`, `timeoutMinutes`, `checklistItems`, `assignee`.
+`signalSource`, `timeoutMinutes`, `checklistItems`, `assignee`, `skill`,
+`taskType`, `prompt`, `outputs` and `model`.
+
+### Replacing unsupported node types
+
+`wait`, `manual` and composite `workflow` nodes are rejected in both v1 and v2
+files. To update an existing file:
+
+- **`manual` node** → remove the node and add a manual quality gate after the
+  wave it followed (`qualityGates: [{ afterWave: N, type: manual }]`). Move its
+  checklist into the gate's `description`. A later node can read the decision
+  with `{ from: gate, afterWave: N }` (see [Approval receipts](#approval-receipts)).
+- **`wait` node** → there is no signal-wait node. For input a person provides at
+  run time use a `user-input` node; to react to an external event, start the
+  workflow from a trigger instead.
+- **`workflow` (composite) node** → inline the called workflow's steps as `task`
+  or `template` nodes, or run it as its own workflow with its own trigger.
 
 ## Input mappings
 
@@ -286,6 +316,10 @@ retry:
   maxBackoffMs: 30000      # optional; cap on exponential backoff
 ```
 
+Each node is attempted once. A retry policy with `maxRetries` above 0 passes
+the schema but is rejected when the file is applied; use `maxRetries: 0` (or omit
+`retry`).
+
 ## Edges (ordering)
 
 Edges declare execution order; **data flow lives in node `inputs`, not in edges.**
@@ -326,16 +360,25 @@ nodes:
   - id: preflight
     type: task
     skill: spec-review@1.0.0
+    taskType: general
     prompt: "Read-only preflight. Report the baseline commit SHA as `revision`."
+    parameters:
+      - { name: repository, type: repository, required: true }
+    inputs:
+      repository: { from: input, name: repository }
     outputs: { ready: boolean, revision: string }
   - id: execute
     type: task
     skill: implement-code-change@1.0.0
+    taskType: general
     prompt: "Proceed only if the receipt's revision and digest match what you will change."
     parameters:
+      - { name: repository, type: repository, required: true }
       - { name: approval-receipt, type: json, required: true }
     inputs:
+      repository: { from: input, name: repository }
       approval-receipt: { from: gate, afterWave: 1 }
+    outputs: { changed: boolean }
 edges:
   - { from: preflight, to: execute }
 qualityGates:
@@ -499,6 +542,7 @@ Before submitting a workflow file for apply:
 - [ ] `select`/`multi-select` parameters have `options`; other types must NOT have `options`
 - [ ] Input mappings use `{ value: ... }`, `{ from: input, name: ... }`, `{ from: node, node: ... }`, or `{ from: gate, afterWave: ... }`
 - [ ] No `regex` or `template` extract methods
+- [ ] `model` only on `task`/`template` nodes (or `defaults.model`); no `retry` with `maxRetries` above 0
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
 - [ ] Portable refs (kebab names) for `template:`
 - [ ] **`node validate.mjs <file>` exits 0** (layer-1 schema + static DAG checks)
