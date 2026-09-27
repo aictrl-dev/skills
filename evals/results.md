@@ -98,7 +98,7 @@ Round 6 (code-review fixes, no change to any finding on the fixtures or the site
 Repository checks (round 6): `npm test` 73 tests (37 pass and 36 skip without Playwright: the usage,
 config and hand-written `--compare` tests now run without a browser; 73/73 with Playwright and Chromium
 on `NODE_PATH`). The six new behaviour tests fail on the round-5 script. `npm run validate` validated
-17 skills and the plugin; `CHECKSUMS.sha256` regenerated.
+17 skills and the plugin; `CHECKSUMS.sha256` regenerated in byte order (`LC_ALL=C`).
 
 Verdict: PASS for the noise criteria. The blind fresh-agent re-run of the whole skill that the
 2026-09-25 entry requires is still outstanding; this entry does not replace it.
