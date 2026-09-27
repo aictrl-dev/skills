@@ -62,6 +62,7 @@ or `/execute-workflow`.
 | [recording-product-demo](skills/recording-product-demo/SKILL.md) | Point it at a repo with a web UI — it boots the app, preps demo data/auth, records a narrated time-locked Playwright demo synced to an ElevenLabs voiceover, and builds a publish kit (MP4 + captions + embed). | `/recording-product-demo` |
 | [explain-change](skills/explain-change/SKILL.md) | PR, commit range, or design document → a grounded technical explainer of the design, difficult trade-offs, and real rollout state. | `/explain-change` |
 | [ui-polish](skills/ui-polish/SKILL.md) | Point it at a screen — it renders phone and desktop, measures what screenshots hide (column alignment, field widths, labels, tap targets, contrast, dead space), fixes the source and re-measures until the checks pass. | `/ui-polish` |
+| [ux-testing](skills/ux-testing/SKILL.md) | Point it at a page or prototype and a few tasks — AI testers act as first-time users through the accessibility tree or screenshots, success is verified from page state (not the tester's claim), then a design-review and fix loop re-tests into a before/after scorecard. Optional simulated users screen layout hypotheses. | `/ux-testing path/to/page.html` |
 
 ### design-review in action
 
@@ -78,6 +79,14 @@ Actionability — BROKEN
 ```
 
 Every critique names the element. Every fix is concrete. No generic "improve clarity."
+
+### ux-testing in action
+
+On an internal work-queue design, novice agent testers asked to start the most important ready work
+approved a security review instead (v5: 2 of 2). After the fix loop moved the ready work above the
+approvals, 3 of 3 started the right issue. Simulated users reproduced the same trap (72% clicked
+Approve), and checks against page state caught a tester who reported success after creating nothing. Write-up:
+[AI usability testing on a backlog design](https://aictrl.dev/blog/ai-usability-testing-backlog-design).
 
 ## Why these exist
 

@@ -44,6 +44,7 @@ export const EXPECTED_SKILLS = Object.freeze([
   'root-cause-analysis',
   'spec-review',
   'ui-polish',
+  'ux-testing',
 ]);
 
 export function listSkillNames(root = ROOT) {
