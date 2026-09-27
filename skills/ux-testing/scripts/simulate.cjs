@@ -45,6 +45,9 @@ const fileUrl = (p, base = CONFIG_DIR) => (/^(https?|file):/.test(p) ? p : `file
 let CFG_SETUP;
 try { CFG_SETUP = loadSetup(CFG.setup, CONFIG_DIR); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
 const setupOf = (v, base) => (v && 'setup' in v ? loadSetup(v.setup, base) : CFG_SETUP);
+// A bad setup module anywhere (config, variant or hypothesis arm) is a config error: report it and exit 2
+// before a browser starts, the same way as the config's own setup.
+const configError = (fn) => { try { return fn(); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); } };
 const MODEL = loadModel(path.resolve(CONFIG_DIR, CFG.model));
 const TASKS = Object.fromEntries(MODEL.tasks.map((t) => [t.id, t]));
 // The page's state hook: named by the config or the model, else window.__state, falling back to window.__mock
@@ -354,14 +357,12 @@ function boot(a, b, key, iters = 2000) {
   return { delta: +(mean(b) - mean(a)).toFixed(2), lo: +ds[Math.floor(iters * 0.05)].toFixed(2), hi: +ds[Math.floor(iters * 0.95)].toFixed(2) };
 }
 
-async function hypothesis(browser, H, hypDir) {
+async function hypothesis(browser, H, hypDir, setups) {
   assertGradeable(H.tasks);
   const rows = [];
   // Written after every row, so a later failure keeps the rows already computed.
   const file = path.join(OUT, `hyp-${H.id}.json`);
   const save = (extra) => fs.writeFileSync(file, JSON.stringify({ H, n: N, rows, ...extra }, null, 2));
-  // Both arms' setup modules load before either arm runs, so a bad path in B does not surface after A's walks.
-  const setups = { a: setupOf(H.a, hypDir), b: setupOf(H.b, hypDir) };
   const variant = (v, arm, tid) => ({ id: tid, task: tid, url: v && v.url ? fileUrl(v.url, hypDir) : fileUrl(CFG.url), mutate: v && v.mutate, setup: setups[arm] });
   const stepsOf = (R) => { const ok = R.raw.filter((r) => r.ok); return ok.length ? +(ok.reduce((t, r) => t + r.steps, 0) / ok.length).toFixed(1) : null; };
   const verdict = (x) => (x.lo > 0 ? 'B higher' : x.hi < 0 ? 'B lower' : 'no clear difference');
@@ -377,6 +378,18 @@ async function hypothesis(browser, H, hypDir) {
   return { rows, file };
 }
 
+// Resolve every setup module the run needs before a browser starts. Only the selected cases load theirs, so
+// --tasks can still skip a variant whose setup is broken.
+const HYP = opt('hyp') ? configError(() => { const hypPath = path.resolve(opt('hyp')); return { H: JSON.parse(fs.readFileSync(hypPath, 'utf8')), dir: path.dirname(hypPath) }; }) : null;
+const HYP_SETUPS = HYP ? configError(() => ({ a: setupOf(HYP.H.a, HYP.dir), b: setupOf(HYP.H.b, HYP.dir) })) : null;
+const ONLY = opt('tasks') ? opt('tasks').split(',') : null;
+const CASES = HYP ? [] : [
+  ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url), setup: CFG_SETUP })),
+  ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url), _setupSrc: v })),
+].filter((c) => !ONLY || ONLY.includes(c.id) || ONLY.includes(c.task));
+// Variants load their setup only once selected, so --tasks can skip a variant whose setup is broken.
+for (const c of CASES) if (c._setupSrc) { const v = c._setupSrc; delete c._setupSrc; c.setup = configError(() => setupOf(v, CONFIG_DIR)); }
+
 (async () => {
   console.log(`simulator: ${BACKEND.label} · output ${OUT} · cache ${CACHE_F}`);
   let browser;
@@ -387,19 +400,13 @@ async function hypothesis(browser, H, hypDir) {
     process.exit(3);
   }
   try {
-    if (opt('hyp')) {
-      const hypPath = path.resolve(opt('hyp'));
-      const H = JSON.parse(fs.readFileSync(hypPath, 'utf8'));
-      const { file } = await hypothesis(browser, H, path.dirname(hypPath));
+    if (HYP) {
+      const { file } = await hypothesis(browser, HYP.H, HYP.dir, HYP_SETUPS);
       console.log(`wrote ${file} · model calls ${calls}`);
       return;
     }
-    const only = opt('tasks') ? opt('tasks').split(',') : null;
-    const cases = [
-      ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url), setup: CFG_SETUP })),
-      ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url), setup: setupOf(v, CONFIG_DIR) })),
-    ].filter((c) => !only || only.includes(c.id) || only.includes(c.task));
-    if (!cases.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }
+    if (!CASES.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }
+    const cases = CASES;
     assertGradeable(cases.map((c) => c.task));
     const rows = [];
     for (const c of cases) {

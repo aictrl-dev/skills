@@ -170,6 +170,7 @@ sign in from `setup`:
 ```js
 // sign-in.cjs: runs once per simulated user, after page.goto(url).
 module.exports = async (page, context) => {
+  if (!process.env.UX_TEST_PASSWORD) throw new Error('UX_TEST_PASSWORD is not set');
   const target = page.url(); // the config's or the arm's url
   await page.goto(new URL('/login', target).href);
   await page.fill('#email', 'ux-tester@example.test');
