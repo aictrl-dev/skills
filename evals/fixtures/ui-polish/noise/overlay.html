@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page with a cookie banner</title>
+<!-- --hide: a fixed cookie banner with a small button and small text; hidden, it produces no findings. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input[type="text"], input[type="email"] { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+button { min-height: 48px; padding: 0 24px; font-size: 16px; }
+.cookie-banner { position: fixed; left: 12px; right: 12px; bottom: 12px; padding: 12px; background: #fff; border: 1px solid #ccc; font-size: 12px; }
+.cookie-banner button { min-height: 28px; font-size: 12px; padding: 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Welcome</h1>
+  <p>This page has a banner that covers the bottom of the screen.</p>
+  <div class="cookie-banner" role="region" aria-label="Cookie consent">We use cookies to count visits. <button type="button">OK</button></div>
+</main>
+</body>
+</html>

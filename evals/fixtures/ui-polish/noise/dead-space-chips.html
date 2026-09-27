@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Form with a card of chips above the action</title>
+<!-- False positive: a bordered card of chip-style <span> badges fills the space above the submit button. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+.card { border: 1px solid #d0d5dd; border-radius: 8px; padding: 16px; margin: 16px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-block; padding: 6px 12px; border-radius: 999px; background: #eef2f7; font-size: 14px; }
+button { min-height: 48px; width: 100%; font-size: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pick your topics</h1>
+  <form>
+    <label for="team">Team name</label>
+    <input id="team" type="text" name="team">
+    <div class="card">
+        <span class="chip">Onboarding</span>
+        <span class="chip">Safety</span>
+        <span class="chip">Compliance</span>
+        <span class="chip">Sales</span>
+        <span class="chip">Support</span>
+        <span class="chip">Leadership</span>
+        <span class="chip">Security</span>
+        <span class="chip">Privacy</span>
+        <span class="chip">Finance</span>
+        <span class="chip">Operations</span>
+        <span class="chip">Hiring</span>
+        <span class="chip">Culture</span>
+        <span class="chip">Tools</span>
+        <span class="chip">Reporting</span>
+        <span class="chip">Quality</span>
+        <span class="chip">Training</span>
+        <span class="chip">Wellbeing</span>
+        <span class="chip">Product</span>
+        <span class="chip">Design</span>
+        <span class="chip">Marketing</span>
+        <span class="chip">Legal</span>
+        <span class="chip">Facilities</span>
+        <span class="chip">Travel</span>
+        <span class="chip">Expenses</span>
+        <span class="chip">Procurement</span>
+        <span class="chip">Customer</span>
+        <span class="chip">Partners</span>
+        <span class="chip">Research</span>
+        <span class="chip">Analytics</span>
+        <span class="chip">Engineering</span>
+    </div>
+    <button type="submit">Continue</button>
+  </form>
+</main>
+</body>
+</html>

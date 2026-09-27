@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heading directly above a form</title>
+<!-- False positive with --scope "#f": the page heading sits directly above the form, both children of
+     main; the link in the site header is not a heading. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+button { min-height: 48px; width: 100%; font-size: 16px; }
+</style>
+</head>
+<body>
+<header><a href="#home">Example Co</a></header>
+<main>
+  <h1>Create your account</h1>
+  <form id="f">
+    <label for="email">Email</label>
+    <input id="email" type="email" name="email">
+    <button type="submit">Continue</button>
+  </form>
+</main>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkbox with a separate label</title>
+<!-- False positive: the common form-check layout, a 20px checkbox and a 44px label[for] side by side in a
+     flex row with an 8px gap. The label is the target. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+.fc { display: flex; align-items: center; gap: 8px; }
+.fc input { width: 20px; height: 20px; margin: 0; }
+.fc label { min-height: 44px; display: flex; align-items: center; flex: 1; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sign in</h1>
+  <form>
+    <div class="fc"><input type="checkbox" id="remember" name="remember"><label for="remember">Keep me signed in</label></div>
+  </form>
+</main>
+</body>
+</html>

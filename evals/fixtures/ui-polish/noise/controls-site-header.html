@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Positive control: only a site-header heading</title>
+<!-- Must still warn with --scope "#signup": the only heading before the form is the site name in the
+     page header, which does not introduce the form. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+button { min-height: 48px; padding: 0 24px; font-size: 16px; }
+</style>
+</head>
+<body>
+<header><h1>Example Co</h1><nav><a href="#home">Home</a></nav></header>
+<main>
+  <form id="signup">
+    <label for="email">Email</label>
+    <input id="email" type="email" name="email">
+    <button type="submit">Continue</button>
+  </form>
+</main>
+</body>
+</html>

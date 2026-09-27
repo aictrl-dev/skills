@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Positive control: labels that do not enlarge the target</title>
+<!-- Must still fire: a 20px checkbox whose label sits 10px below it (a gap is not tappable), and a
+     20px checkbox inside a display: contents label (the label has no box). -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+.col { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.col input, .flat input { width: 20px; height: 20px; margin: 0; }
+.col label { font-size: 14px; line-height: 20px; width: 300px; }
+.flat label { display: contents; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Preferences</h1>
+  <div class="col"><input type="checkbox" id="stacked" name="stacked"><label for="stacked">A label below the checkbox, 20px tall</label></div>
+  <div class="flat"><label><input type="checkbox" name="contents"> An option whose label has no box of its own</label></div>
+</main>
+</body>
+</html>

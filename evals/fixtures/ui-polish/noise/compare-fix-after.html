@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare pair, after</title>
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+.tick { width: 20px; height: 20px; margin: 0 12px 0 0; }
+.tick.big { width: 44px; height: 44px; }
+.tiny { width: 20px; height: 20px; padding: 0; min-height: 0; }
+.fine { font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Filters</h1>
+  <input class="tick" type="checkbox" name="first" aria-label="First">
+  <input class="tick big" type="checkbox" name="second" aria-label="Second">
+  <input class="tick big" type="checkbox" name="third" aria-label="Third">
+  <p>Pick any that apply.</p>
+  <button class="tiny" type="button" aria-label="Clear">×</button>
+  <p class="fine">Filters apply as you choose them.</p>
+</main>
+</body>
+</html>

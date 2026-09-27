@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeated causes</title>
+<!-- Consolidation: two fields with the same 15px text, two identically styled 20px checkboxes, and small
+     text in two styles plus an eyebrow label. Each cause is one finding per viewport, with its members. -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+.field { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 15px; }
+.tick { width: 20px; height: 20px; margin: 0; }
+.note { font-size: 13px; }
+.caption { font-size: 12px; }
+.eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #7a3410; }
+button { min-height: 48px; padding: 0 24px; font-size: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Get started</p>
+  <h1>Your details</h1>
+  <form>
+    <label for="first">First name</label>
+    <input class="field" id="first" type="text" name="first">
+    <label for="last">Last name</label>
+    <input class="field" id="last" type="text" name="last">
+    <div><input class="tick" type="checkbox" name="news" aria-label="News"> <input class="tick" type="checkbox" name="offers" aria-label="Offers"></div>
+    <p class="note">We only use your name to address you.</p>
+    <p class="note">You can change it later in your settings.</p>
+    <p class="caption">Fields are saved as you type.</p>
+    <button type="submit">Continue</button>
+  </form>
+</main>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forms introduced by a heading outside them</title>
+<!-- False positive: with --scope on a form, the heading that introduces it sits just outside the scope
+     (#signup), or labels it through aria-labelledby from further away (#prefs). -->
+<style>
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; background: #fff; }
+main { padding: 24px; }
+input[type="text"], input[type="email"] { display: block; width: 100%; box-sizing: border-box; height: 48px; font-size: 16px; }
+button { min-height: 48px; padding: 0 24px; font-size: 16px; }
+.spacer { height: 1100px; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h2>Join the newsletter</h2>
+    <p>One short email a month.</p>
+    <form id="signup">
+      <label for="signup-email">Email</label>
+      <input id="signup-email" type="email" name="email">
+      <button type="submit">Subscribe</button>
+    </form>
+  </section>
+  <div class="spacer"></div>
+  <h2 id="prefs-title">Email preferences</h2>
+  <div class="spacer"></div>
+  <form id="prefs" aria-labelledby="prefs-title">
+    <label for="prefs-name">Name</label>
+    <input id="prefs-name" type="text" name="name">
+    <button type="submit">Save</button>
+  </form>
+</main>
+</body>
+</html>
