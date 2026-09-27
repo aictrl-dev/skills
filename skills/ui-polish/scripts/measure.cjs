@@ -27,7 +27,7 @@
  * Elements that share a cause are one finding with a count, example selectors and every member: fields with
  * the same small font size, controls with the same style and tap size, and small text (one finding per
  * viewport, broken down into style groups; eyebrow labels in their own info finding).
- * A finding identical on phone and desktop is written once, with "viewports": ["phone", "desktop"]; for merged
+ * A finding identical on phone and desktop (message and values) is written once, with "viewports": ["phone", "desktop"]; for merged
  * findings "viewports" is authoritative and "viewport" is only the first of them.
  * --compare expands grouped and merged findings to (viewport, element or style group) pairs before matching.
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
@@ -60,6 +60,11 @@ const TH = {
 };
 // Checks each profile skips. "form" is the default and runs everything.
 const PROFILES = { form: [], content: ['type-scale', 'action-distance', 'action-below-fold', 'dead-space'] };
+// Every check a measure run can report; a config rule naming anything else could never match.
+const CHECKS = [
+  'column-alignment', 'equal-widths', 'field-fill', 'accessible-name', 'label-after-field', 'tap-target', 'input-font-size',
+  'text-size', 'contrast', 'type-scale', 'overflow', 'heading', 'action-distance', 'action-below-fold', 'dead-space',
+];
 const VALUE_FLAGS = ['--out', '--scope', '--viewports', '--primary', '--hide', '--profile', '--config'];
 const BOOL_FLAGS = ['--js', '--offline', '--assets-only'];
 
@@ -95,7 +100,7 @@ function loadConfig(explicit) {
   const file = path.resolve(explicit || 'ui-polish.config.json');
   if (!fs.existsSync(file)) { if (explicit) fail(`Config not found: ${explicit}`); return { file: null, ignore: [] }; }
   let cfg;
-  try { cfg = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { fail(`Config ${file} is not valid JSON: ${e.message}`); }
+  try { cfg = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { fail(`Config ${file} is not valid JSON: ${safe(e.message)}`); }
   // a mis-shaped root (a bare array of rules, null, a misspelt key) must not silently mean "no rules"
   if (Array.isArray(cfg) || cfg === null || typeof cfg !== 'object' || !('ignore' in cfg)) {
     const got = Array.isArray(cfg) ? 'an array' : cfg === null ? 'null' : typeof cfg !== 'object' ? `a ${typeof cfg}`
@@ -110,6 +115,10 @@ function loadConfig(explicit) {
       if (r[k] !== undefined && typeof r[k] !== 'string') fail(`Config ${file}: ignore[${i}].${k} must be a string`);
     }
     if (!r.check && !r.selector) fail(`Config ${file}: ignore[${i}] needs a "check", a "selector" or both`);
+    // a misspelt check ("textsize", "tap_target") would match nothing and silently accept nothing
+    if (r.check && !CHECKS.includes(r.check)) {
+      fail(`Config ${file}: ignore[${i}].check "${safe(r.check)}" is not a check this tool reports (use one of: ${CHECKS.join(', ')})`);
+    }
     if (typeof r.reason !== 'string' || !r.reason.trim()) {
       fail(`Config ${file}: ignore[${i}] needs a "reason"; an accepted finding must say why`);
     }
@@ -136,7 +145,9 @@ function expand(findings, textByGroup) {
   for (const f of findings || []) {
     for (const v of f.viewports || [f.viewport]) {
       if (f.check === 'text-size') {
-        if (!textByGroup) { out.push({ k: `${v}|text-size|${kindOf(f)}`, f, v }); continue; }
+        // Against a file from before groups, small text is one key per viewport: older files lumped eyebrow
+        // labels into the warning, so matching per kind would pair an unchanged page as fixed plus new.
+        if (!textByGroup) { out.push({ k: `${v}|text-size`, f, v }); continue; }
         for (const g of f.groups) out.push({ k: `${v}|text-size|${kindOf(f)}|${g.size}|${g.signature}`, f, v, part: groupLabel(g) });
         continue;
       }
@@ -168,7 +179,7 @@ function describe(item) {
 }
 function compare(beforeFile, afterFile) {
   const read = (file) => {
-    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return fail(`Cannot read ${file}: ${e.message}`); }
+    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return fail(`Cannot read ${file}: ${safe(e.message)}`); }
   };
   const a = read(beforeFile); const b = read(afterFile);
   // Small text is matched per style group when both files have groups, else per viewport and kind.
@@ -176,13 +187,21 @@ function compare(beforeFile, afterFile) {
   const textByGroup = [a, b].every((j) => textFindings(j).every((f) => Array.isArray(f.groups)));
   // Key on a stable anchor (id, name, aria-label, placeholder) when the element has one, so inserting a
   // sibling during a fix does not shift nth-of-type indexes and turn an unchanged finding into a "new" one.
-  const byKey = (list) => new Map(expand(list, textByGroup).map((e) => [e.k, e]));
+  // A key can repeat only for small text against an older file (warning and eyebrow info share the key);
+  // the more severe finding stands for it.
+  const byKey = (list) => {
+    const m = new Map();
+    for (const e of expand(list, textByGroup)) { const p = m.get(e.k); if (!p || RANK[e.f.severity] > RANK[p.f.severity]) m.set(e.k, e); }
+    return m;
+  };
   const before = byKey(a.findings); const after = byKey(b.findings);
   // Findings the project config accepted are neither fixed nor remaining; list them on their own.
-  const acceptedAfter = byKey(b.accepted);
+  const acceptedBefore = byKey(a.accepted); const acceptedAfter = byKey(b.accepted);
   const fixed = collate([...before.values()].filter((e) => !after.has(e.k) && !acceptedAfter.has(e.k)));
   const remaining = collate([...after.values()].filter((e) => before.has(e.k)));
-  const added = collate([...after.values()].filter((e) => !before.has(e.k)));
+  // Accepted before and reported now: the config changed, not the page, so it is not a regression.
+  const unaccepted = collate([...after.values()].filter((e) => !before.has(e.k) && acceptedBefore.has(e.k)));
+  const added = collate([...after.values()].filter((e) => !before.has(e.k) && !acceptedBefore.has(e.k)));
   const accepted = collate([...acceptedAfter.values()]);
   // New copy: anything visible after that was not visible before. A digit outside [brackets] is a number
   // the original screen never stated, which the skill forbids unless it is a placeholder for the owner.
@@ -190,16 +209,17 @@ function compare(beforeFile, afterFile) {
   const newCopy = (b.copy || []).filter((t) => !oldCopy.has(t));
   const unbracketed = newCopy.filter((t) => /\d/.test(t.replace(/\[[^\]]*\]/g, '')));
   const counts = `Fixed ${fixed.length} · remaining ${remaining.length} · new ${added.length}`;
-  console.log(`${counts}${accepted.length ? ` · accepted ${accepted.length}` : ''}`);
+  console.log(`${counts}${accepted.length ? ` · accepted ${accepted.length}` : ''}${unaccepted.length ? ` · no longer accepted ${unaccepted.length}` : ''}`);
   if (fixed.length) console.log('Fixed:\n' + fixed.map(describe).join('\n'));
   if (remaining.length) console.log('Remaining:\n' + remaining.map(describe).join('\n'));
   if (added.length) console.log('New (regressions):\n' + added.map(describe).join('\n'));
+  if (unaccepted.length) console.log('No longer accepted (project config changed, page did not):\n' + unaccepted.map(describe).join('\n'));
   if (accepted.length) console.log('Accepted (project config):\n' + accepted.map((it) => `${describe(it)} — ${safe(it.f.reason)}`).join('\n'));
   if (newCopy.length) console.log('New copy for the owner to review:\n' + newCopy.map((t) => `  "${safe(t)}"`).join('\n'));
   if (unbracketed.length) {
     console.log('[error] invented-number: new copy contains numbers outside [brackets]:\n' + unbracketed.map((t) => `  "${safe(t)}"`).join('\n'));
   }
-  const errors = [...added, ...remaining].some((it) => it.f.severity === 'error');
+  const errors = [...added, ...remaining, ...unaccepted].some((it) => it.f.severity === 'error');
   process.exit(unbracketed.length || errors ? 1 : 0);
 }
 
@@ -265,7 +285,7 @@ function measureInPage({ scopeSel, primarySel, TH, skipChecks, ignore }) {
     for (let e = el; e && e.nodeType === 1 && parts.length < 4; e = e.parentElement) {
       let s = e.tagName.toLowerCase();
       if (e.id) { parts.unshift(`#${CSS.escape(e.id)}`); break; }
-      const nm = e.getAttribute('name'); if (nm) s += `[name="${nm}"]`;
+      const nm = e.getAttribute('name'); if (nm) s += `[name="${CSS.escape(nm)}"]`;
       const parent = e.parentElement;
       const same = parent ? [...parent.children].filter((c) => c.tagName === e.tagName) : [];
       if (same.length > 1) s += `:nth-of-type(${same.indexOf(e) + 1})`;
@@ -745,12 +765,14 @@ function hideInPage(selectors) {
 }
 
 // ---------------------------------------------------------------- one target
-// A finding with the same check, severity, element and message on several viewports is reported once, with
-// every viewport in "viewports"; "viewport" stays the first of them for older readers.
+// A finding with the same check, severity, element, message, measured and expected value on several viewports
+// is reported once, with every viewport in "viewports"; "viewport" stays the first of them for older readers.
+// Measured and expected are part of the key because some messages carry no number (action-below-fold): a
+// merged record must hold values that are true on every viewport it lists.
 function mergeViewports(list) {
   const out = []; const seen = new Map();
   for (const f of list) {
-    const k = JSON.stringify([f.check, f.severity, f.selector, f.message]);
+    const k = JSON.stringify([f.check, f.severity, f.selector, f.message, f.measured, f.expected]);
     const m = seen.get(k);
     if (m) { if (!m.viewports.includes(f.viewport)) m.viewports.push(f.viewport); continue; }
     const { viewport, ...rest } = f;

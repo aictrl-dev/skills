@@ -8,7 +8,8 @@ import test, { after } from 'node:test';
 import { ROOT } from '../scripts/public-catalog.mjs';
 
 // measure.cjs drives a real browser. It needs Playwright with Chromium, which this package does not depend
-// on; point NODE_PATH at a node_modules that has it. Without it the tests skip instead of failing.
+// on; point NODE_PATH at a node_modules that has it. Without it the browser tests skip instead of failing;
+// tests of argument and config validation and of --compare on hand-written files need no browser and always run.
 const script = join(ROOT, 'skills/ui-polish/scripts/measure.cjs');
 const fixtures = join(ROOT, 'evals/fixtures/ui-polish/noise');
 
@@ -29,8 +30,10 @@ after(() => rmSync(work, { recursive: true, force: true }));
 let runs = 0;
 
 function measure(targets, args = [], { cwd = ROOT } = {}) {
+  return measurePaths((Array.isArray(targets) ? targets : [targets]).map((t) => join(fixtures, t)), args, { cwd });
+}
+function measurePaths(files, args = [], { cwd = ROOT } = {}) {
   const out = join(work, `run-${++runs}`);
-  const files = (Array.isArray(targets) ? targets : [targets]).map((t) => join(fixtures, t));
   const result = spawnSync(process.execPath, [script, ...files, '--offline', '--out', out, ...args], { cwd, encoding: 'utf8', timeout: 120000 });
   const file = join(out, 'measure.json');
   return { ...result, out, report: existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null };
@@ -105,7 +108,12 @@ test('ui-polish: --profile content skips the form-step checks', { skip }, () => 
   assert.equal(content.status, 0, content.stderr);
   assert.equal(content.report.profile, 'content');
   assert.deepEqual(content.report.findings.filter((f) => formSteps.includes(f.check)), []);
-  assert.equal(measure('content-page.html', ['--profile', 'article']).status, 2);
+});
+
+test('ui-polish: an unknown --profile is a usage error (no browser needed)', () => {
+  const r = measure('content-page.html', ['--profile', 'article']);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /Unknown profile "article" \(use form, content\)/);
 });
 
 test('ui-polish: a finding accepted in the project config moves to accepted with its reason', { skip }, () => {
@@ -131,10 +139,14 @@ test('ui-polish: a finding accepted in the project config moves to accepted with
   const cmp = spawnSync(process.execPath, [script, '--compare', join(plain.out, 'measure.json'), join(r.out, 'measure.json')], { encoding: 'utf8' });
   assert.equal(cmp.status, 0, cmp.stdout);
   assert.match(cmp.stdout, /^Fixed 0 · remaining 0 · new 0 · accepted 1/);
+});
 
-  // a rule without a reason is a usage error
+test('ui-polish: a config rule without a reason is a usage error (no browser needed)', () => {
+  const config = join(work, 'no-reason.json');
   writeFileSync(config, JSON.stringify({ ignore: [{ check: 'text-size', selector: '.fine-print' }] }));
-  assert.equal(measure('config-ignore.html', ['--config', config]).status, 2);
+  const r = measure('config-ignore.html', ['--config', config]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /ignore\[0\] needs a "reason"/);
 });
 
 test('ui-polish: --hide removes overlays before measuring', { skip }, () => {
@@ -331,7 +343,7 @@ test('ui-polish: a finding identical on phone and desktop is reported once', { s
 
 // ---- command line, compare accounting, exit codes
 
-test('ui-polish: an unknown option is a usage error, not a target', { skip }, () => {
+test('ui-polish: an unknown option is a usage error, not a target (no browser needed)', () => {
   const r = measure('checkbox-label.html', ['--viewport', 'phone']);
   assert.equal(r.status, 2);
   assert.match(r.stderr, /Unknown option --viewport \(did you mean --viewports\?\)/);
@@ -343,11 +355,15 @@ test('ui-polish: --compare names the fixed members of a group and fails on a new
   const after = measure('compare-fix-after.html', ['--viewports', 'phone']);
   const cmp = spawnSync(process.execPath, [script, '--compare', join(before.out, 'measure.json'), join(after.out, 'measure.json')], { encoding: 'utf8' });
   assert.equal(cmp.status, 1, cmp.stdout);
-  const [, fixed, remaining, added] = cmp.stdout.match(/^Fixed (\d+) · remaining (\d+) · new (\d+)/).map(Number);
+  const counts = cmp.stdout.match(/^Fixed (\d+) · remaining (\d+) · new (\d+)/);
+  assert.ok(counts, `compare header not found:\n${cmp.stdout}`);
+  const [, fixed, remaining, added] = counts.map(Number);
   assert.ok(fixed >= 1 && added >= 1 && remaining >= 1, cmp.stdout);
   assert.match(cmp.stdout, /Fixed:\n.*tap-target — 2 of 3 elements: [^\n]*second[^\n]*third/);
   assert.match(cmp.stdout, /New \(regressions\):[\s\S]*\[error\] phone tap-target[\s\S]*text-size — 1 text run below 14px: 12px × 1 \(\.fine\)/);
-  assert.doesNotMatch(cmp.stdout.split('Remaining:')[1].split('New')[0], /3 controls/, 'the whole group is not repeated under Remaining');
+  const section = cmp.stdout.match(/Remaining:\n([\s\S]*?)\nNew/);
+  assert.ok(section, `Remaining and New sections not found:\n${cmp.stdout}`);
+  assert.doesNotMatch(section[1], /3 controls/, 'the whole group is not repeated under Remaining');
 });
 
 test('ui-polish: several targets exit 1 on an error finding and 3 when a target fails to load', { skip }, () => {
@@ -357,13 +373,16 @@ test('ui-polish: several targets exit 1 on an error finding and 3 when a target 
   assert.match(failed.stdout, /run failed/);
 });
 
-test('ui-polish: config problems print the message without the usage banner, and broad rules warn', { skip }, () => {
+test('ui-polish: config problems print the message without the usage banner (no browser needed)', () => {
   const bad = join(work, 'bad.json');
   writeFileSync(bad, '{bad');
   const r = measure('config-ignore.html', ['--config', bad]);
   assert.equal(r.status, 2);
   assert.match(r.stderr, /is not valid JSON/);
   assert.doesNotMatch(r.stderr, /Usage:/);
+});
+
+test('ui-polish: broad config rules warn', { skip }, () => {
   const all = join(work, 'all.json');
   writeFileSync(all, JSON.stringify({ ignore: [{ selector: 'body', reason: 'testing a broad rule' }] }));
   const broad = measure('controls-bare-checkbox.html', ['--viewports', 'phone', '--config', all]);
@@ -375,7 +394,7 @@ test('ui-polish: config problems print the message without the usage banner, and
 
 // ---- review fixes: config root, unique compare keys, --hide and multi-target notes
 
-test('ui-polish: a config root that is not { "ignore": [...] } is a usage error', { skip }, () => {
+test('ui-polish: a config root that is not { "ignore": [...] } is a usage error (no browser needed)', () => {
   for (const [name, body, got] of [
     ['array.json', [{ check: 'text-size', reason: 'x' }], /got an array/],
     ['misspelt.json', { ignores: [{ check: 'text-size', reason: 'x' }] }, /got an object without "ignore" \(keys: ignores\)/],
@@ -415,4 +434,101 @@ test('ui-polish: multi-target runs print invalid config selectors per target', {
   writeFileSync(file, JSON.stringify({ ignore: [{ check: 'text-size', selector: 'p[', reason: 'typo on purpose' }] }));
   const r = measure(['config-ignore.html', 'eyebrow.html'], ['--viewports', 'phone', '--config', file]);
   assert.equal((r.stdout.match(/Config selectors that are not valid CSS \(never matched\): p\[/g) || []).length, 2, r.stdout);
+});
+
+// ---- review round 6: compare buckets, old-format eyebrows, check names, escaping, viewport merge
+
+function compareFiles(before, after) {
+  const a = join(work, `cmp-${++runs}-before.json`); const b = join(work, `cmp-${runs}-after.json`);
+  writeFileSync(a, JSON.stringify(before)); writeFileSync(b, JSON.stringify(after));
+  return spawnSync(process.execPath, [script, '--compare', a, b], { encoding: 'utf8' });
+}
+const finding = (over) => ({ viewport: 'phone', viewports: ['phone'], check: 'tap-target', severity: 'error', selector: 'main > a', anchor: 'a:text("Help")', message: 'Target is 20×18px', ...over });
+
+test('ui-polish: --compare lists a finding whose acceptance was removed as no longer accepted, not new (no browser needed)', () => {
+  const kept = finding({});
+  const fresh = finding({ check: 'contrast', selector: 'main > p', anchor: '', message: 'Text "x" has contrast 3.1:1' });
+  const cmp = compareFiles(
+    { findings: [], accepted: [{ ...kept, reason: 'owner decision', rule: { check: 'tap-target', selector: 'main > a' } }] },
+    { findings: [kept, fresh] },
+  );
+  assert.match(cmp.stdout, /^Fixed 0 · remaining 0 · new 1 · no longer accepted 1$/m, cmp.stdout);
+  const newSection = cmp.stdout.match(/New \(regressions\):\n([\s\S]*?)(\n[A-Z]|$)/);
+  assert.ok(newSection, cmp.stdout);
+  assert.match(newSection[1], /contrast/);
+  assert.doesNotMatch(newSection[1], /tap-target/, 'the page did not regress; the config changed');
+  assert.match(cmp.stdout, /No longer accepted \(project config changed, page did not\):\n.*\[error\] phone tap-target/);
+  assert.equal(cmp.status, 1, 'an error that is no longer accepted still gates the fix loop');
+
+  // a warning that stops being accepted does not fail the run on its own
+  const warn = finding({ severity: 'warn', message: 'Target is 36×36px' });
+  const quiet = compareFiles({ findings: [], accepted: [{ ...warn, reason: 'r' }] }, { findings: [warn] });
+  assert.match(quiet.stdout, /^Fixed 0 · remaining 0 · new 0 · no longer accepted 1$/m, quiet.stdout);
+  assert.equal(quiet.status, 0, quiet.stdout);
+});
+
+test('ui-polish: --compare against a file from before groups does not report eyebrow labels as new (no browser needed)', () => {
+  const old = { findings: [finding({ check: 'text-size', severity: 'warn', selector: 'main > p', anchor: '', message: '4 text runs are smaller than 14px' })] };
+  const group = (size, signature, eyebrow) => ({ size, signature, count: 2, examples: ['main > span'], ...(eyebrow ? { eyebrow: true } : {}) });
+  const eyebrowOnly = finding({ check: 'text-size', severity: 'info', selector: 'main > span', anchor: '', message: '2 eyebrow text runs below 14px', groups: [group(12, 'span', true)] });
+  const cmp = compareFiles(old, { findings: [eyebrowOnly] });
+  assert.match(cmp.stdout, /^Fixed 0 · remaining 1 · new 0/, cmp.stdout);
+  assert.equal(cmp.status, 0, cmp.stdout);
+
+  // with both a warning and eyebrow info after, the warning stands for the viewport
+  const warn = finding({ check: 'text-size', severity: 'warn', selector: 'main > p', anchor: '', message: '2 text runs below 14px: 13px × 2 (p)', groups: [group(13, 'p', false)] });
+  const both = compareFiles(old, { findings: [warn, eyebrowOnly] });
+  assert.match(both.stdout, /^Fixed 0 · remaining 1 · new 0/, both.stdout);
+  assert.match(both.stdout, /Remaining:\n.*\[warn\] phone text-size/, both.stdout);
+});
+
+test('ui-polish: a config rule naming a check the tool does not report is a usage error (no browser needed)', () => {
+  const file = join(work, 'typo-check.json');
+  writeFileSync(file, JSON.stringify({ ignore: [{ check: 'textsize', selector: '.fine-print', reason: 'typo on purpose' }] }));
+  const r = measure('config-ignore.html', ['--config', file]);
+  assert.equal(r.status, 2, r.stderr);
+  const m = r.stderr.match(/ignore\[0\]\.check "textsize" is not a check this tool reports \(use one of: ([^)]*)\)/);
+  assert.ok(m, r.stderr);
+  // the list in the message is exactly the checks the in-page code can emit
+  const source = readFileSync(script, 'utf8');
+  const emitted = new Set([...source.matchAll(/\b(?:add|emitGroup)\('([a-z-]+)'/g)].map((x) => x[1]));
+  assert.deepEqual(m[1].split(', ').sort(), [...emitted].sort());
+});
+
+test('ui-polish: engine error messages are printed without control characters (no browser needed)', () => {
+  const file = join(work, 'escape.json');
+  writeFileSync(file, '{"a": \u001b]0;title\u0007}');
+  const r = measure('config-ignore.html', ['--config', file]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /is not valid JSON/);
+  assert.doesNotMatch(r.stderr, /[\u001b\u0007]/, 'ESC and BEL from the file must not reach the terminal');
+  const cmp = spawnSync(process.execPath, [script, '--compare', file, file], { encoding: 'utf8' });
+  assert.equal(cmp.status, 2);
+  assert.match(cmp.stderr, /Cannot read/);
+  assert.doesNotMatch(cmp.stderr, /[\u001b\u0007]/);
+});
+
+test('ui-polish: a name attribute is escaped in selectors, so the selector matches its element', { skip }, () => {
+  const page = join(work, 'odd-name.html');
+  writeFileSync(page, '<!doctype html><html><body><main><h1>Odd</h1><p><input type="checkbox" name=\'a"]b\\c\' style="width:20px;height:20px" aria-label="Agree"></p></main></body></html>');
+  const r = measurePaths([page], ['--viewports', 'phone']);
+  const [tap] = r.report.findings.filter((f) => f.check === 'tap-target');
+  assert.ok(tap, detail(r.report.findings));
+  assert.match(tap.selector, /input\[name="a\\"\\]b\\\\c"\]/, tap.selector);
+  // the reported selector is valid CSS that finds the element: a rule using it accepts the finding
+  const config = join(work, 'odd-name-config.json');
+  writeFileSync(config, JSON.stringify({ ignore: [{ check: 'tap-target', selector: tap.selector, reason: 'round-trip' }] }));
+  const again = measurePaths([page], ['--viewports', 'phone', '--config', config]);
+  assert.equal(again.report.configErrors, undefined, JSON.stringify(again.report.configErrors));
+  assert.equal(again.report.accepted.filter((f) => f.check === 'tap-target').length, 1, again.stdout);
+});
+
+test('ui-polish: findings whose values differ by viewport are not merged', { skip }, () => {
+  const r = measure('controls-dead-space.html');
+  const fold = r.report.findings.filter((f) => f.check === 'action-below-fold');
+  assert.equal(fold.length, 2, detail(fold));
+  for (const f of fold) {
+    assert.deepEqual(f.viewports, [f.viewport]);
+    assert.equal(f.expected, `<= ${{ phone: 844, desktop: 900 }[f.viewport]}px`, `${f.viewport}: ${f.expected}`);
+  }
 });
