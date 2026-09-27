@@ -192,24 +192,27 @@ function loadSetup(file, base) {
   return { file: f, run: fn };
 }
 
-// Reads a JSON file for a run's configuration. A parse error names the file; a read error already does.
+// Reads a JSON file for a run's configuration. Every error names the file: some read errors (EISDIR) do not.
 function readJson(f) {
-  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { throw new Error(e.code ? e.message : `${f}: ${e.message}`); }
+  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { throw new Error(String(e.message).includes(f) ? e.message : `${f}: ${e.message}`); }
 }
 
-// A setup module signs in to a test account, so the text of its errors can carry a password, a token or a
-// signed URL. Mask the values of credential-like keys, bearer tokens and URL credentials before printing it.
+// A setup module signs in to a test account, and a config can hold a signed URL, so error text can carry a
+// password, a token or a signature. Mask the values of credential-like keys (any key containing password,
+// secret, token, api key, credential or signature; or exactly auth, authorization, session, sid, cookie, sig
+// or pwd, so author= and oauth_callback= survive), bearer tokens and URL credentials before printing it.
+const SECRET_VALUE = new RegExp(String.raw`(\b(?:[\w-]*(?:password|passwd|secret|token|api[_-]?key|apikey|credential|signature)[\w-]*|(?:x-)?(?:auth|authorization|session|session[_-]?id|sessid|sid|cookie|set-cookie|sig|pwd))["']?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,&;)}\]]+)`, 'gi');
 function redactSecrets(text) {
   return String(text)
     .replace(/\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 <redacted>')
-    .replace(/(\b[\w-]*(?:password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|auth|session|cookie|credential)[\w-]*["']?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,&;)}\]]+)/gi, '$1<redacted>')
+    .replace(SECRET_VALUE, '$1<redacted>')
     .replace(/(\/\/)[^/\s:@]+:[^/\s@]+@/g, '$1<redacted>@');
 }
 
 // Runs fn and returns its result; anything it throws is a config error: print it and exit 2, before a browser
 // starts or an output directory is written. Wraps loadSetup and the reads of the files a run is configured by.
 function exitOnConfigError(fn) {
-  try { return fn(); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
+  try { return fn(); } catch (e) { console.error(`ERROR: ${redactSecrets(e.message)}`); process.exit(2); }
 }
 
 // ---------------------------------------------------------------- options and randomness

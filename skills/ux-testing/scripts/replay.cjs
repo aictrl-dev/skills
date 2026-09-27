@@ -69,7 +69,8 @@ async function find(page, e) {
 
 async function open(browser, arm, viewport) {
   const page = await browser.newPage({ viewport });
-  await page.goto(fileUrl(arm.url));
+  // The arm's url comes from the config and can carry credentials or a signed query: mask them in the error.
+  try { await page.goto(fileUrl(arm.url)); } catch (e) { throw new Error(redactSecrets(String(e && e.message || e).split('\n')[0])); }
   const setup = setupFor(arm);
   if (setup) {
     try { await setup.run(page, page.context()); } catch (e) {

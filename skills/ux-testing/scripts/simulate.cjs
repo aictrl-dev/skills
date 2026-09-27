@@ -17,8 +17,8 @@
 // Keys are read from the environment only and never logged or written.
 //
 // Exit codes: 0 the run finished. 2 a usage or config error, found before a browser starts: a bad option, no
-// simulator backend, an unreadable config, task model or --hyp file, or a setup module that is missing or does
-// not export a function (also 2: no task matches --tasks). 3 the run started and stopped: Chromium would not
+// simulator backend, an unreadable config, task model, --hyp or observed file, or a setup module that is missing
+// or does not export a function (also 2: no task matches --tasks). 3 the run started and stopped: Chromium would not
 // start, a setup module threw, a check expression threw, the backend failed, a task cannot be graded, or too
 // many walks ended in harness errors. A stopped run is not scored; hypothesis rows already written are kept.
 // See reference/simulator.md for the config, the request/response contract, conditions and limits.

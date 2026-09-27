@@ -149,7 +149,7 @@ one where the screen looks done before it is: check for a stub that pretends to 
   (relative to its file), which replaces the config's; `"setup": null` turns it off. A missing module, or one
   that does not export a function, exits 2 before a browser starts. A setup that throws during a walk stops
   the run at once with exit 3, naming the module and the first line of its error, with the values of
-  password-, token- and key-like fields, bearer tokens and URL credentials masked. It is not a user outcome or a
+  password-, token-, key- and signature-like fields, bearer tokens and URL credentials masked (config errors too). It is not a user outcome or a
   harness error.
   See "A real app behind sign-in" below for an example.
 - `stateHook` names the page's read-only state object (or `meta.state_hook` in the task model; without either,
@@ -208,7 +208,7 @@ Exit codes:
 
 - `0`: the run finished.
 - `2`: a usage or config error, found before a browser starts: a bad option, no simulator backend, an
-  unreadable config, task model or `--hyp` file, or a `setup` module that is missing or does not export a
+  unreadable config, task model, `--hyp` or observed file, or a `setup` module that is missing or does not export a
   function. Also `2` when no task matches `--tasks`.
 - `3`: the run started and stopped: Chromium would not start, a `setup` module threw, a check expression
   threw, the backend failed, a task cannot be graded, or too many walks ended in `error`. Nothing from the
