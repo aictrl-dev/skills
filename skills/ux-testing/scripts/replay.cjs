@@ -13,7 +13,7 @@
 // Writes <dir>/replays.json and <dir>/img/*.jpg. See reference/visual-report.md for the config and the page.
 const fs = require('fs');
 const path = require('path');
-const { loadPlaywright, loadSetup, exitOnConfigError, simBackend, options, resolveTarget, locateLegacy } = require('./common.cjs');
+const { loadPlaywright, loadSetup, exitOnConfigError, readJson, redactSecrets, simBackend, options, resolveTarget, locateLegacy } = require('./common.cjs');
 
 const args = process.argv.slice(2);
 const O = options(args);
@@ -24,7 +24,7 @@ if (!opt('config') || !opt('out')) { console.error('Usage: node replay.cjs --con
 const { chromium } = loadPlaywright();
 const CONFIG_PATH = path.resolve(opt('config'));
 const CONFIG_DIR = path.dirname(CONFIG_PATH);
-const CFG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+const CFG = exitOnConfigError(() => readJson(CONFIG_PATH));
 const OUT = path.resolve(opt('out'));
 const SIM = simBackend();
 if (SIM.error) console.warn('No simulator backend configured: replaying sessions without first-click predictions. Set TYPESAFE_API_KEY (https://typesafe.ai) or UX_SIM_ENDPOINT + UX_SIM_API_KEY + UX_SIM_MODEL to add them.');
@@ -71,7 +71,11 @@ async function open(browser, arm, viewport) {
   const page = await browser.newPage({ viewport });
   await page.goto(fileUrl(arm.url));
   const setup = setupFor(arm);
-  if (setup) await setup.run(page, page.context());
+  if (setup) {
+    try { await setup.run(page, page.context()); } catch (e) {
+      throw new Error(`setup module ${setup.file} failed: ${redactSecrets(String(e && e.message || e).split('\n')[0])}`);
+    }
+  }
   if (CFG.scenarioSelect && CFG.scenario) await page.selectOption(CFG.scenarioSelect, CFG.scenario);
   if (CFG.hideCss) await page.addStyleTag({ content: CFG.hideCss });
   await page.waitForTimeout(600);

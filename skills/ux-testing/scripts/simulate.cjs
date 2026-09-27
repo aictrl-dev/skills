@@ -26,7 +26,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { loadPlaywright, loadModel, loadSetup, exitOnConfigError, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
+const { loadPlaywright, loadModel, loadSetup, exitOnConfigError, readJson, redactSecrets, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
 
 const args = process.argv.slice(2);
 const O = options(args);
@@ -43,7 +43,6 @@ const { chromium } = loadPlaywright();
 const CONFIG_PATH = path.resolve(opt('config'));
 const CONFIG_DIR = path.dirname(CONFIG_PATH);
 // The files a run is configured by are read up front: an unreadable one is a config error (exit 2).
-const readJson = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { throw new Error(e.code ? e.message : `${f}: ${e.message}`); } };
 const CFG = exitOnConfigError(() => readJson(CONFIG_PATH));
 // Relative paths in the config resolve against the config's directory; in a hypothesis file, against its own.
 // An http(s) or file URL is used as it is.
@@ -73,6 +72,8 @@ const CASES = HYP ? [] : [
 ].filter((c) => !ONLY || ONLY.includes(c.id) || ONLY.includes(c.task));
 // Variants load their setup only once selected, so --tasks can skip a variant whose setup is broken.
 for (const c of CASES) if (c._setupSrc) { const v = c._setupSrc; delete c._setupSrc; c.setup = exitOnConfigError(() => setupOf(v, CONFIG_DIR)); }
+// A --tasks list that matches nothing is a usage error, reported before a browser starts or <out> is written.
+if (!HYP && !CASES.length) exitOnConfigError(() => { throw new Error(ONLY ? `no task or variant matches --tasks ${ONLY.join(',')}` : 'the task model has no runnable tasks'); });
 const observedPath = CFG.observed && path.resolve(CONFIG_DIR, CFG.observed);
 const OBSERVED = observedPath && fs.existsSync(observedPath) ? exitOnConfigError(() => readJson(observedPath)) : {};
 const OUT = path.resolve(opt('out') || fs.mkdtempSync(path.join(os.tmpdir(), 'ux-sim-')));
@@ -281,7 +282,7 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     await page.goto(c.url);
     if (c.setup) {
       try { await c.setup.run(page, page.context()); } catch (e) {
-        throw new SetupError(`task ${task.id}: setup module ${c.setup.file} failed: ${String(e && e.message || e).split('\n')[0].replace(/\.$/, '')}. Nothing from this run is scored; fix the setup module, the test account or the app and run again.`);
+        throw new SetupError(`task ${task.id}: setup module ${c.setup.file} failed: ${redactSecrets(String(e && e.message || e).split('\n')[0]).replace(/\.$/, '')}. Nothing from this run is scored; fix the setup module, the test account or the app and run again.`);
       }
     }
     const scenario = c.scenario || (task.start && task.start.scenario);
@@ -416,7 +417,6 @@ async function hypothesis(browser, H, hypDir, setups) {
       console.log(`wrote ${file} · model calls ${calls}`);
       return;
     }
-    if (!CASES.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }
     const cases = CASES;
     assertGradeable(cases.map((c) => c.task));
     const rows = [];

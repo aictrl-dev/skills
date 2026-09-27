@@ -148,7 +148,9 @@ one where the screen looks done before it is: check for a stub that pretends to 
   simulated user starts from a fresh, signed-in context. A variant or hypothesis arm can set its own `setup`
   (relative to its file), which replaces the config's; `"setup": null` turns it off. A missing module, or one
   that does not export a function, exits 2 before a browser starts. A setup that throws during a walk stops
-  the run at once with exit 3, naming the module and its error: it is not a user outcome or a harness error.
+  the run at once with exit 3, naming the module and the first line of its error, with the values of
+  password-, token- and key-like fields, bearer tokens and URL credentials masked. It is not a user outcome or a
+  harness error.
   See "A real app behind sign-in" below for an example.
 - `stateHook` names the page's read-only state object (or `meta.state_hook` in the task model; without either,
   `window.__state`, falling back to `window.__mock` for older models); `S` in `success` / `must_not` refers to it.
