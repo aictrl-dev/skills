@@ -34,11 +34,12 @@ This skill has two deliberately separate outcomes:
 5. Choose a new kebab-case filename and workflow `name`. If the path exists, show the conflict and obtain confirmation before replacing it.
 6. Author `schemaVersion: aictrl/workflow/v2` by default:
    - use inline `task` nodes for portable skill-backed work;
-   - version-pin `skill` and nested `workflow` references when a resolvable version is available;
+   - version-pin `skill` references when a resolvable version is available;
    - define typed workflow and task parameters;
    - map inputs explicitly and declare outputs used by downstream nodes;
-   - bound retries and loops;
-   - add manual gates before destructive, costly, security-sensitive, merge, or deploy actions.
+   - bound loops (each node is attempted once; do not add retries);
+   - set `model` on a task/template node, or `defaults.model` for the workflow, only when the user asks for a specific model;
+   - add manual quality gates before destructive, costly, security-sensitive, merge, or deploy actions; when a later step must prove what was approved, pass it the gate's approval receipt with `{ from: gate, afterWave }`.
 7. Run the bundled validator until schema and static DAG checks pass:
 
    ```bash

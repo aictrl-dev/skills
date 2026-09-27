@@ -15,12 +15,18 @@
 // Needs a simulator backend: TYPESAFE_API_KEY (TypeSafe Jev), or UX_SIM_ENDPOINT + UX_SIM_API_KEY +
 // UX_SIM_MODEL for a compatible endpoint. Without one it exits with code 2 and says how to set one up.
 // Keys are read from the environment only and never logged or written.
+//
+// Exit codes: 0 the run finished. 2 a usage or config error, found before a browser starts: a bad option, no
+// simulator backend, an unreadable config, task model, --hyp or observed file, or a setup module that is missing
+// or does not export a function (also 2: no task matches --tasks). 3 the run started and stopped: Chromium would not
+// start, a setup module threw, a check expression threw, the backend failed, a task cannot be graded, or too
+// many walks ended in harness errors. A stopped run is not scored; hypothesis rows already written are kept.
 // See reference/simulator.md for the config, the request/response contract, conditions and limits.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { loadPlaywright, loadModel, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
+const { loadPlaywright, loadModel, loadSetup, exitOnConfigError, readJson, redactSecrets, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
 
 const args = process.argv.slice(2);
 const O = options(args);
@@ -36,10 +42,18 @@ const { chromium } = loadPlaywright();
 
 const CONFIG_PATH = path.resolve(opt('config'));
 const CONFIG_DIR = path.dirname(CONFIG_PATH);
-const CFG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+// The files a run is configured by are read up front: an unreadable one is a config error (exit 2).
+const CFG = exitOnConfigError(() => readJson(CONFIG_PATH));
 // Relative paths in the config resolve against the config's directory; in a hypothesis file, against its own.
+// An http(s) or file URL is used as it is.
 const fileUrl = (p, base = CONFIG_DIR) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(base, p)}`);
-const MODEL = loadModel(path.resolve(CONFIG_DIR, CFG.model));
+// The setup module run after every page opens (e.g. signing in to a real app): the config's `setup`, unless a
+// variant or hypothesis arm sets its own (`null` turns it off there). A bad setup module the run needs (the
+// config's, a hypothesis arm's or a selected variant's) is a config error: exit 2 before a browser starts or
+// <out> is written.
+const CFG_SETUP = exitOnConfigError(() => loadSetup(CFG.setup, CONFIG_DIR));
+const setupOf = (v, base) => (v && 'setup' in v ? loadSetup(v.setup, base) : CFG_SETUP);
+const MODEL = exitOnConfigError(() => loadModel(path.resolve(CONFIG_DIR, CFG.model)));
 const TASKS = Object.fromEntries(MODEL.tasks.map((t) => [t.id, t]));
 // The page's state hook: named by the config or the model, else window.__state, falling back to window.__mock
 // (the name older task models used) so they keep working without a state_hook.
@@ -48,8 +62,20 @@ const STATE_HOOK = CFG.stateHook || (MODEL.meta && MODEL.meta.state_hook) || nul
 const SKIPPED = new Set(['needs-target', 'needs-mock']);
 const oldStatus = MODEL.tasks.filter((t) => t.status === 'needs-mock').map((t) => t.id);
 if (oldStatus.length) console.warn(`note: ${oldStatus.join(', ')} ${oldStatus.length > 1 ? 'still say' : 'still says'} "status: needs-mock"; skipped as needs-target (the new name).`);
+// The hypothesis file and both of its arms' setup modules load up front, before a browser starts.
+const HYP = opt('hyp') ? exitOnConfigError(() => { const hypPath = path.resolve(opt('hyp')); return { H: readJson(hypPath), dir: path.dirname(hypPath) }; }) : null;
+const HYP_SETUPS = HYP ? exitOnConfigError(() => ({ a: setupOf(HYP.H.a, HYP.dir), b: setupOf(HYP.H.b, HYP.dir) })) : null;
+const ONLY = opt('tasks') ? opt('tasks').split(',') : null;
+const CASES = HYP ? [] : [
+  ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url), setup: CFG_SETUP })),
+  ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url), _setupSrc: v })),
+].filter((c) => !ONLY || ONLY.includes(c.id) || ONLY.includes(c.task));
+// Variants load their setup only once selected, so --tasks can skip a variant whose setup is broken.
+for (const c of CASES) if (c._setupSrc) { const v = c._setupSrc; delete c._setupSrc; c.setup = exitOnConfigError(() => setupOf(v, CONFIG_DIR)); }
+// A --tasks list that matches nothing is a usage error, reported before a browser starts or <out> is written.
+if (!HYP && !CASES.length) exitOnConfigError(() => { throw new Error(ONLY ? `no task or variant matches --tasks ${ONLY.join(',')}` : 'the task model has no runnable tasks'); });
 const observedPath = CFG.observed && path.resolve(CONFIG_DIR, CFG.observed);
-const OBSERVED = observedPath && fs.existsSync(observedPath) ? JSON.parse(fs.readFileSync(observedPath, 'utf8')) : {};
+const OBSERVED = observedPath && fs.existsSync(observedPath) ? exitOnConfigError(() => readJson(observedPath)) : {};
 const OUT = path.resolve(opt('out') || fs.mkdtempSync(path.join(os.tmpdir(), 'ux-sim-')));
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -240,6 +266,9 @@ async function check(page, task) {
 
 class CheckError extends Error {}
 class RunError extends Error {}
+// A setup module that throws (a wrong test password, a drifted sign-in selector, the auth endpoint down) fails
+// every walk the same way: it is neither a usability result nor a harness error, so the run stops at once (exit 3).
+class SetupError extends Error {}
 
 function viewportFor(task, cond) {
   if (cond === 'laptop') return LAPTOP;
@@ -251,6 +280,11 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
   const page = await browser.newPage({ viewport: viewportFor(task, cond) });
   try {
     await page.goto(c.url);
+    if (c.setup) {
+      try { await c.setup.run(page, page.context()); } catch (e) {
+        throw new SetupError(`task ${task.id}: setup module ${c.setup.file} failed: ${redactSecrets(String(e && e.message || e).split('\n')[0]).replace(/\.$/, '')}. Nothing from this run is scored; fix the setup module, the test account or the app and run again.`);
+      }
+    }
     const scenario = c.scenario || (task.start && task.start.scenario);
     if (CFG.scenarioSelect && scenario && scenario !== 'cold') await page.selectOption(CFG.scenarioSelect, scenario);
     if (HIDE) await page.addStyleTag({ content: HIDE });
@@ -281,7 +315,7 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     }
   } catch (e) {
     // A backend failure or a broken check is not a usability result: stop the run rather than score it.
-    if (e instanceof CheckError) throw e;
+    if (e instanceof CheckError || e instanceof SetupError) throw e;
     if (/^simulator /.test(e.message)) throw new RunError(`task ${task.id}: a walk failed from a simulator backend error (${e.message}). Nothing from this run is scored; check the backend and run again.`);
     // Any other failure (page crash, navigation, a control replaced mid-click) is the harness's, not the user's:
     // it ends as `error`, which run() leaves out of success and harm and reports separately.
@@ -347,19 +381,19 @@ function boot(a, b, key, iters = 2000) {
   return { delta: +(mean(b) - mean(a)).toFixed(2), lo: +ds[Math.floor(iters * 0.05)].toFixed(2), hi: +ds[Math.floor(iters * 0.95)].toFixed(2) };
 }
 
-async function hypothesis(browser, H, hypDir) {
+async function hypothesis(browser, H, hypDir, setups) {
   assertGradeable(H.tasks);
   const rows = [];
   // Written after every row, so a later failure keeps the rows already computed.
   const file = path.join(OUT, `hyp-${H.id}.json`);
   const save = (extra) => fs.writeFileSync(file, JSON.stringify({ H, n: N, rows, ...extra }, null, 2));
-  const variant = (v, tid) => ({ id: tid, task: tid, url: v && v.url ? fileUrl(v.url, hypDir) : fileUrl(CFG.url), mutate: v && v.mutate });
+  const variant = (v, arm, tid) => ({ id: tid, task: tid, url: v && v.url ? fileUrl(v.url, hypDir) : fileUrl(CFG.url), mutate: v && v.mutate, setup: setups[arm] });
   const stepsOf = (R) => { const ok = R.raw.filter((r) => r.ok); return ok.length ? +(ok.reduce((t, r) => t + r.steps, 0) / ok.length).toFixed(1) : null; };
   const verdict = (x) => (x.lo > 0 ? 'B higher' : x.hi < 0 ? 'B lower' : 'no clear difference');
   for (const tid of H.tasks) {
     for (const cond of H.conds || ['focused']) {
-      const A = await run(browser, variant(H.a, tid), 'scanner', cond);
-      const B = await run(browser, variant(H.b, tid), 'scanner', cond);
+      const A = await run(browser, variant(H.a, 'a', tid), 'scanner', cond);
+      const B = await run(browser, variant(H.b, 'b', tid), 'scanner', cond);
       const s = boot(A.raw, B.raw, 'ok'); const h = boot(A.raw, B.raw, 'harm');
       const row = { task: tid, cond, A: A.success, B: B.success, nA: A.n, nB: B.n, errorsA: A.errors, errorsB: B.errors, stepsA: stepsOf(A), stepsB: stepsOf(B), success: { ...s, verdict: verdict(s) }, harmA: A.harm, harmB: B.harm, harm: { ...h, verdict: verdict(h) }, failA: A.topFail, failB: B.topFail };
       rows.push(row); console.log(JSON.stringify(row)); save();
@@ -378,19 +412,12 @@ async function hypothesis(browser, H, hypDir) {
     process.exit(3);
   }
   try {
-    if (opt('hyp')) {
-      const hypPath = path.resolve(opt('hyp'));
-      const H = JSON.parse(fs.readFileSync(hypPath, 'utf8'));
-      const { file } = await hypothesis(browser, H, path.dirname(hypPath));
+    if (HYP) {
+      const { file } = await hypothesis(browser, HYP.H, HYP.dir, HYP_SETUPS);
       console.log(`wrote ${file} · model calls ${calls}`);
       return;
     }
-    const only = opt('tasks') ? opt('tasks').split(',') : null;
-    const cases = [
-      ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url) })),
-      ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url) })),
-    ].filter((c) => !only || only.includes(c.id) || only.includes(c.task));
-    if (!cases.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }
+    const cases = CASES;
     assertGradeable(cases.map((c) => c.task));
     const rows = [];
     for (const c of cases) {

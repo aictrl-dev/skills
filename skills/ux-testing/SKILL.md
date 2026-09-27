@@ -20,7 +20,7 @@ Measure whether a first-time user can complete real tasks in a UI, find out wher
 
 Ask only for what is missing.
 
-1. **Target.** An HTML file or a URL. For a page behind sign-in, use a test account: pass `UX_SETUP=<module.cjs>` (exports `async (page, ctx) => {}` that signs in) or `UX_STORAGE_STATE=<state.json>`. Never test against real customer data.
+1. **Target.** An HTML file or a URL. For a page behind sign-in, use a test account: pass `UX_SETUP=<module.cjs>` (exports `async (page, context) => {}` that signs in; the simulator takes the same module as `setup`) or `UX_STORAGE_STATE=<state.json>`. Never test against real customer data.
 2. **Persona.** One line on who the tester is, e.g. "a clinic manager using this booking app for the first time, with no documentation". Default: "a first-time user of this product, with no documentation".
 3. **Tasks.** 4–8 outcome tasks for one flow (see `reference/tester-brief.md`). For a UI that serves several roles, or when variants will be compared, write a task model instead: roles, objectives, weighted tasks with success and must-not checks (`reference/task-model.md`).
 4. **Success checks.** One per task that changes state: a JavaScript expression evaluated in the tester's page that returns a value. Either

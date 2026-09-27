@@ -176,6 +176,45 @@ async function locateLegacy(page, name) {
   return null;
 }
 
+// ---------------------------------------------------------------- setup modules
+// A setup module runs after the page is opened, e.g. to sign in to a test account on a real app. It exports
+// async (page, context) => {}, the contract of server.cjs's UX_SETUP. A missing file or a module that does not
+// export a function is a config error, reported before any page is opened. Only an absent `setup` or `null`
+// means "no setup"; any other non-path value (an empty string, false) is a config error, not a silent off.
+// Returns null or { file, run }: `file` is the resolved path, so a setup that fails at run time can be named.
+function loadSetup(file, base) {
+  if (file === undefined || file === null) return null;
+  if (typeof file !== 'string' || !file.trim()) throw new Error(`setup must be a path to a .cjs module, or null to turn it off (got ${JSON.stringify(file)})`);
+  const f = path.resolve(base, file);
+  if (!fs.existsSync(f)) throw new Error(`setup module ${f} not found`);
+  const fn = require(f);
+  if (typeof fn !== 'function') throw new Error(`setup module ${f} must export async (page, context) => {}`);
+  return { file: f, run: fn };
+}
+
+// Reads a JSON file for a run's configuration. Every error names the file: some read errors (EISDIR) do not.
+function readJson(f) {
+  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { throw new Error(String(e.message).includes(f) ? e.message : `${f}: ${e.message}`); }
+}
+
+// A setup module signs in to a test account, and a config can hold a signed URL, so error text can carry a
+// password, a token or a signature. Mask the values of credential-like keys (any key containing password,
+// secret, token, api key, credential or signature; or exactly auth, authorization, session, sid, cookie, sig
+// or pwd, so author= and oauth_callback= survive), bearer tokens and URL credentials before printing it.
+const SECRET_VALUE = new RegExp(String.raw`(\b(?:[\w-]*(?:password|passwd|secret|token|api[_-]?key|apikey|credential|signature)[\w-]*|(?:x-)?(?:auth|authorization|session|session[_-]?id|sessid|sid|cookie|set-cookie|sig|pwd))["']?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,&;)}\]]+)`, 'gi');
+function redactSecrets(text) {
+  return String(text)
+    .replace(/\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 <redacted>')
+    .replace(SECRET_VALUE, '$1<redacted>')
+    .replace(/(\/\/)[^/\s:@]+:[^/\s@]+@/g, '$1<redacted>@');
+}
+
+// Runs fn and returns its result; anything it throws is a config error: print it and exit 2, before a browser
+// starts or an output directory is written. Wraps loadSetup and the reads of the files a run is configured by.
+function exitOnConfigError(fn) {
+  try { return fn(); } catch (e) { console.error(`ERROR: ${redactSecrets(e.message)}`); process.exit(2); }
+}
+
 // ---------------------------------------------------------------- options and randomness
 // Command-line options: `--name value`. A flag given without a value (last argument, or followed by another
 // --flag) is a usage error rather than silently becoming undefined/NaN.
@@ -224,4 +263,4 @@ function seedOf(...parts) {
   return h >>> 0;
 }
 
-module.exports = { loadPlaywright, loadModel, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy };
+module.exports = { loadPlaywright, loadModel, loadSetup, exitOnConfigError, readJson, redactSecrets, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy };
