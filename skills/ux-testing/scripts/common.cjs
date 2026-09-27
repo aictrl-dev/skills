@@ -176,6 +176,19 @@ async function locateLegacy(page, name) {
   return null;
 }
 
+// ---------------------------------------------------------------- setup modules
+// A setup module runs after the page is opened, e.g. to sign in to a test account on a real app. It exports
+// async (page, context) => {}, the contract of server.cjs's UX_SETUP. A missing file or a module that does not
+// export a function is a config error, reported before any page is opened.
+function loadSetup(file, base) {
+  if (!file) return null;
+  const f = path.resolve(base, file);
+  if (!fs.existsSync(f)) throw new Error(`setup module ${f} not found`);
+  const fn = require(f);
+  if (typeof fn !== 'function') throw new Error(`setup module ${f} must export async (page, context) => {}`);
+  return fn;
+}
+
 // ---------------------------------------------------------------- options and randomness
 // Command-line options: `--name value`. A flag given without a value (last argument, or followed by another
 // --flag) is a usage error rather than silently becoming undefined/NaN.
@@ -224,4 +237,4 @@ function seedOf(...parts) {
   return h >>> 0;
 }
 
-module.exports = { loadPlaywright, loadModel, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy };
+module.exports = { loadPlaywright, loadModel, loadSetup, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy };

@@ -13,7 +13,7 @@
 // Writes <dir>/replays.json and <dir>/img/*.jpg. See reference/visual-report.md for the config and the page.
 const fs = require('fs');
 const path = require('path');
-const { loadPlaywright, simBackend, options, resolveTarget, locateLegacy } = require('./common.cjs');
+const { loadPlaywright, loadSetup, simBackend, options, resolveTarget, locateLegacy } = require('./common.cjs');
 
 const args = process.argv.slice(2);
 const O = options(args);
@@ -30,6 +30,13 @@ const SIM = simBackend();
 if (SIM.error) console.warn('No simulator backend configured: replaying sessions without first-click predictions. Set TYPESAFE_API_KEY (https://typesafe.ai) or UX_SIM_ENDPOINT + UX_SIM_API_KEY + UX_SIM_MODEL to add them.');
 fs.mkdirSync(path.join(OUT, 'img'), { recursive: true });
 const fileUrl = (p) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(CONFIG_DIR, p)}`);
+// The setup module run after every page opens (e.g. signing in to a real app): the config's `setup`, unless an
+// arm sets its own (`null` turns it off there). All of them load up front, so a bad path stops the run at once.
+const SETUPS = new Map();
+try {
+  const cfgSetup = loadSetup(CFG.setup, CONFIG_DIR);
+  for (const exp of CFG.experiments || []) for (const arm of exp.arms || []) SETUPS.set(arm, 'setup' in arm ? loadSetup(arm.setup, CONFIG_DIR) : cfgSetup);
+} catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
 const HIDE_SEL = CFG.hideCss ? CFG.hideCss.split('{')[0] : '';
 // A chat region is marked with data-ux-chat; a plain <aside> (the older default) still counts.
 const REGIONS = { chat: '[data-ux-chat], aside', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
@@ -52,9 +59,11 @@ async function find(page, e) {
   return name ? locateLegacy(page, name) : null;
 }
 
-async function open(browser, url, viewport) {
+async function open(browser, arm, viewport) {
   const page = await browser.newPage({ viewport });
-  await page.goto(fileUrl(url));
+  await page.goto(fileUrl(arm.url));
+  const setup = SETUPS.get(arm);
+  if (setup) await setup(page, page.context());
   if (CFG.scenarioSelect && CFG.scenario) await page.selectOption(CFG.scenarioSelect, CFG.scenario);
   if (CFG.hideCss) await page.addStyleTag({ content: CFG.hideCss });
   await page.waitForTimeout(600);
@@ -74,7 +83,7 @@ function readLog(file) {
 async function replay(browser, exp, arm, sid, outcome) {
   const log = readLog(path.resolve(CONFIG_DIR, arm.log)).filter((e) => e.session === sid);
   if (!log.length) throw new Error(`No log entries for session ${sid} in ${arm.log}`);
-  const page = await open(browser, arm.url, exp.viewport);
+  const page = await open(browser, arm, exp.viewport);
   try {
     const steps = [];
     for (const e of log) {
@@ -105,7 +114,7 @@ async function replay(browser, exp, arm, sid, outcome) {
 
 // The first screen, and (with a simulator backend) where a busy first-time user would click first.
 async function firstScreen(browser, exp, arm) {
-  const page = await open(browser, arm.url, exp.viewport);
+  const page = await open(browser, arm, exp.viewport);
   const img = `img/${exp.id}-${arm.arm}-first.jpg`;
   let g;
   try {

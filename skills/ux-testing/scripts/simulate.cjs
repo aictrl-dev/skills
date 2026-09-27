@@ -20,7 +20,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { loadPlaywright, loadModel, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
+const { loadPlaywright, loadModel, loadSetup, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
 
 const args = process.argv.slice(2);
 const O = options(args);
@@ -38,7 +38,13 @@ const CONFIG_PATH = path.resolve(opt('config'));
 const CONFIG_DIR = path.dirname(CONFIG_PATH);
 const CFG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 // Relative paths in the config resolve against the config's directory; in a hypothesis file, against its own.
+// An http(s) or file URL is used as it is.
 const fileUrl = (p, base = CONFIG_DIR) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(base, p)}`);
+// The setup module run after every page opens (e.g. signing in to a real app): the config's `setup`, unless a
+// variant or hypothesis arm sets its own (`null` turns it off there).
+let CFG_SETUP;
+try { CFG_SETUP = loadSetup(CFG.setup, CONFIG_DIR); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
+const setupOf = (v, base) => (v && 'setup' in v ? loadSetup(v.setup, base) : CFG_SETUP);
 const MODEL = loadModel(path.resolve(CONFIG_DIR, CFG.model));
 const TASKS = Object.fromEntries(MODEL.tasks.map((t) => [t.id, t]));
 // The page's state hook: named by the config or the model, else window.__state, falling back to window.__mock
@@ -251,6 +257,7 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
   const page = await browser.newPage({ viewport: viewportFor(task, cond) });
   try {
     await page.goto(c.url);
+    if (c.setup) await c.setup(page, page.context());
     const scenario = c.scenario || (task.start && task.start.scenario);
     if (CFG.scenarioSelect && scenario && scenario !== 'cold') await page.selectOption(CFG.scenarioSelect, scenario);
     if (HIDE) await page.addStyleTag({ content: HIDE });
@@ -353,13 +360,15 @@ async function hypothesis(browser, H, hypDir) {
   // Written after every row, so a later failure keeps the rows already computed.
   const file = path.join(OUT, `hyp-${H.id}.json`);
   const save = (extra) => fs.writeFileSync(file, JSON.stringify({ H, n: N, rows, ...extra }, null, 2));
-  const variant = (v, tid) => ({ id: tid, task: tid, url: v && v.url ? fileUrl(v.url, hypDir) : fileUrl(CFG.url), mutate: v && v.mutate });
+  // Both arms' setup modules load before either arm runs, so a bad path in B does not surface after A's walks.
+  const setups = { a: setupOf(H.a, hypDir), b: setupOf(H.b, hypDir) };
+  const variant = (v, arm, tid) => ({ id: tid, task: tid, url: v && v.url ? fileUrl(v.url, hypDir) : fileUrl(CFG.url), mutate: v && v.mutate, setup: setups[arm] });
   const stepsOf = (R) => { const ok = R.raw.filter((r) => r.ok); return ok.length ? +(ok.reduce((t, r) => t + r.steps, 0) / ok.length).toFixed(1) : null; };
   const verdict = (x) => (x.lo > 0 ? 'B higher' : x.hi < 0 ? 'B lower' : 'no clear difference');
   for (const tid of H.tasks) {
     for (const cond of H.conds || ['focused']) {
-      const A = await run(browser, variant(H.a, tid), 'scanner', cond);
-      const B = await run(browser, variant(H.b, tid), 'scanner', cond);
+      const A = await run(browser, variant(H.a, 'a', tid), 'scanner', cond);
+      const B = await run(browser, variant(H.b, 'b', tid), 'scanner', cond);
       const s = boot(A.raw, B.raw, 'ok'); const h = boot(A.raw, B.raw, 'harm');
       const row = { task: tid, cond, A: A.success, B: B.success, nA: A.n, nB: B.n, errorsA: A.errors, errorsB: B.errors, stepsA: stepsOf(A), stepsB: stepsOf(B), success: { ...s, verdict: verdict(s) }, harmA: A.harm, harmB: B.harm, harm: { ...h, verdict: verdict(h) }, failA: A.topFail, failB: B.topFail };
       rows.push(row); console.log(JSON.stringify(row)); save();
@@ -387,8 +396,8 @@ async function hypothesis(browser, H, hypDir) {
     }
     const only = opt('tasks') ? opt('tasks').split(',') : null;
     const cases = [
-      ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url) })),
-      ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url) })),
+      ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url), setup: CFG_SETUP })),
+      ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url), setup: setupOf(v, CONFIG_DIR) })),
     ].filter((c) => !only || only.includes(c.id) || only.includes(c.task));
     if (!cases.length) { console.error('No tasks matched.'); process.exitCode = 2; return; }
     assertGradeable(cases.map((c) => c.task));

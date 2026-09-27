@@ -129,6 +129,7 @@ one where the screen looks done before it is: check for a stub that pretends to 
 {
   "model": "access-console.ux-model.yaml",
   "url": "access-console.html",
+  "setup": "sign-in.cjs",
   "stateHook": "__state",
   "scenarioSelect": "#scenario",
   "hideCss": ".dev-toolbar,.design-notes{display:none!important}",
@@ -142,14 +143,46 @@ one where the screen looks done before it is: check for a stub that pretends to 
 ```
 
 - Relative paths resolve against the config file's directory. Only `model` and `url` are required.
+- `url` is a file path, or an `http(s)://` URL used as it is (e.g. a local dev server).
+- `setup` is a `.cjs` module exporting `async (page, context) => {}`, the same contract as the harness's
+  `UX_SETUP`. It runs after every page opens, before anything is perceived, checked or clicked, so each
+  simulated user starts from a fresh, signed-in context. A variant or hypothesis arm can set its own `setup`
+  (relative to its file), which replaces the config's; `"setup": null` turns it off.
 - `stateHook` names the page's read-only state object (or `meta.state_hook` in the task model; without either,
   `window.__state`, falling back to `window.__mock` for older models); `S` in `success` / `must_not` refers to it.
 - `regions.main` is the main content area (and the scrolling area, if it scrolls on its own); controls in
   `menu`, `topbar` and `chat` are always visible to scanners. `chat` (default `[data-ux-chat], aside`) is only
   used when it contains a `<textarea>`.
 - `rowSelector` / `rowTitleSelector` let a button like "Start" be described as "Start on <row title>".
-- `variants` adds extra cases (another `url`, or a DOM `mutate` of the main URL). `observed` holds
+- `variants` adds extra cases (another `url` or `setup`, or a DOM `mutate` of the main URL). `observed` holds
   agent-tester results per case id, copied into the output so simulated and observed sit side by side.
+
+### A real app behind sign-in
+
+Run the app locally against a test account or fixtures (never real customer data), point `url` at it, and
+sign in from `setup`:
+
+```json
+{ "model": "app.ux-model.yaml", "url": "http://127.0.0.1:5173/projects", "setup": "sign-in.cjs", "stateHook": "__state",
+  "regions": { "main": "main", "menu": "nav", "topbar": "header" } }
+```
+
+```js
+// sign-in.cjs: runs once per simulated user, after page.goto(url).
+module.exports = async (page, context) => {
+  const target = page.url(); // the config's or the arm's url
+  await page.goto(new URL('/login', target).href);
+  await page.fill('#email', 'ux-tester@example.test');
+  await page.fill('#password', process.env.UX_TEST_PASSWORD);
+  await page.click('button[type=submit]');
+  await page.waitForURL(/\/projects/);
+  await page.goto(target); // land where the task starts
+};
+```
+
+Read test credentials from the environment, never from the config. Expose a read-only state object (here
+`window.__state`) for the `success` and `must_not` checks, or write checks that query the DOM. Pick `regions`
+from the app's own landmarks, so the sidebar, header and main area are told apart.
 
 ## Running
 
@@ -168,7 +201,9 @@ in every page state. About 4 minutes and
 
 ## Hypothesis mode
 
-A hypothesis file compares two variants, A (the current design unless it says otherwise) and B:
+A hypothesis file compares two variants, A (the current design unless it says otherwise) and B. An arm can
+set `url` (a file, or an `http(s)://` URL such as a second dev server running the other build), `mutate` and
+`setup`:
 
 ```json
 {

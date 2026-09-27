@@ -53,7 +53,9 @@ node $SKILL/scripts/replay.cjs --config replay.config.json --out <dir> [--steps 
 }
 ```
 
-Relative paths resolve against the config's directory. The script re-runs each session's clicks from the
+Relative paths resolve against the config's directory. A `setup` module (`async (page, context) => {}`, as in
+`reference/simulator.md`) at the top level, or on an arm to replace it, runs after each page opens, e.g. to
+sign in. The script re-runs each session's clicks from the
 harness log (up to `--steps` per session), saves a screenshot before each click with the clicked element's
 box, and the first screen of each arm. Typed text is redacted in the harness log, so replays show clicks,
 key presses and waits only. With a simulator backend configured it adds the model's first-click
