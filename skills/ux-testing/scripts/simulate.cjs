@@ -45,8 +45,9 @@ const fileUrl = (p, base = CONFIG_DIR) => (/^(https?|file):/.test(p) ? p : `file
 let CFG_SETUP;
 try { CFG_SETUP = loadSetup(CFG.setup, CONFIG_DIR); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
 const setupOf = (v, base) => (v && 'setup' in v ? loadSetup(v.setup, base) : CFG_SETUP);
-// A bad setup module anywhere (config, variant or hypothesis arm) is a config error: report it and exit 2
-// before a browser starts, the same way as the config's own setup.
+// A bad setup module the run needs (the config's, a hypothesis arm's or a selected variant's) is a config
+// error: report it and exit 2 before a browser starts. A variant that --tasks leaves out never loads its
+// setup, so a broken one there does not stop the run (see CASES below).
 const configError = (fn) => { try { return fn(); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); } };
 const MODEL = loadModel(path.resolve(CONFIG_DIR, CFG.model));
 const TASKS = Object.fromEntries(MODEL.tasks.map((t) => [t.id, t]));

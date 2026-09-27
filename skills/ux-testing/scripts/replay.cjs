@@ -32,11 +32,17 @@ fs.mkdirSync(path.join(OUT, 'img'), { recursive: true });
 const fileUrl = (p) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(CONFIG_DIR, p)}`);
 // The setup module run after every page opens (e.g. signing in to a real app): the config's `setup`, unless an
 // arm sets its own (`null` turns it off there). All of them load up front, so a bad path stops the run at once.
+// Keyed by the arm objects of CFG.experiments; setupFor() refuses any other object (a clone, an arm rebuilt
+// from replays.json) instead of treating the miss as "no setup" and silently skipping sign-in.
 const SETUPS = new Map();
 try {
   const cfgSetup = loadSetup(CFG.setup, CONFIG_DIR);
   for (const exp of CFG.experiments || []) for (const arm of exp.arms || []) SETUPS.set(arm, 'setup' in arm ? loadSetup(arm.setup, CONFIG_DIR) : cfgSetup);
 } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
+function setupFor(arm) {
+  if (!SETUPS.has(arm)) throw new Error(`arm ${arm.arm} is not an arm of the loaded config, so its setup is unknown`);
+  return SETUPS.get(arm);
+}
 const HIDE_SEL = CFG.hideCss ? CFG.hideCss.split('{')[0] : '';
 // A chat region is marked with data-ux-chat; a plain <aside> (the older default) still counts.
 const REGIONS = { chat: '[data-ux-chat], aside', menu: 'nav', topbar: 'header', ...(CFG.regions || {}) };
@@ -62,7 +68,7 @@ async function find(page, e) {
 async function open(browser, arm, viewport) {
   const page = await browser.newPage({ viewport });
   await page.goto(fileUrl(arm.url));
-  const setup = SETUPS.get(arm);
+  const setup = setupFor(arm);
   if (setup) await setup(page, page.context());
   if (CFG.scenarioSelect && CFG.scenario) await page.selectOption(CFG.scenarioSelect, CFG.scenario);
   if (CFG.hideCss) await page.addStyleTag({ content: CFG.hideCss });

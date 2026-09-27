@@ -179,9 +179,11 @@ async function locateLegacy(page, name) {
 // ---------------------------------------------------------------- setup modules
 // A setup module runs after the page is opened, e.g. to sign in to a test account on a real app. It exports
 // async (page, context) => {}, the contract of server.cjs's UX_SETUP. A missing file or a module that does not
-// export a function is a config error, reported before any page is opened.
+// export a function is a config error, reported before any page is opened. Only an absent `setup` or `null`
+// means "no setup"; any other non-path value (an empty string, false) is a config error, not a silent off.
 function loadSetup(file, base) {
-  if (!file) return null;
+  if (file === undefined || file === null) return null;
+  if (typeof file !== 'string' || !file.trim()) throw new Error(`setup must be a path to a .cjs module, or null to turn it off (got ${JSON.stringify(file)})`);
   const f = path.resolve(base, file);
   if (!fs.existsSync(f)) throw new Error(`setup module ${f} not found`);
   const fn = require(f);
