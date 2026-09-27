@@ -38,7 +38,7 @@ Judged (visible only to the rubric):
 | N3 | `inline-link.html` | | `tap-target` (links inside a sentence in a `label` and a `span`) | |
 | N4 | `eyebrow.html` | | `text-size` | the uppercase labels as `info` |
 | N5 | `scoped-heading.html` | `--scope "#signup"`, `--scope "#prefs"` | `heading` | `info` "Heading is outside the scope" |
-| N6 | `content-page.html` | `--profile content` | `type-scale`, `action-distance`, `action-below-fold`, `dead-space` | the four fire under the default profile |
+| N6 | `content-page.html` | `--profile content` | `type-scale`, `action-distance`, `action-below-fold`, `dead-space` | `type-scale`, `action-distance` and `action-below-fold` fire under the default profile; `dead-space` does not, because the page's only band is a shaded 240px figure, which is content |
 | N7 | `config-ignore.html` | `--config` with a `.fine-print` rule | `text-size` | the finding under `accepted` with its reason |
 | N8 | `overlay.html` | `--hide ".cookie-banner"` | `tap-target`, `text-size` | |
 | N9 | `consolidate.html` | both viewports | more than one finding per cause | one `input-font-size` for both 15px fields, one `tap-target` for both 20px checkboxes, one `text-size` warning per viewport with its `groups` and one eyebrow `info`, each identical finding once with `viewports: ["phone", "desktop"]` |
@@ -58,6 +58,7 @@ Positive controls (must still fire):
 - `clip-partial.html`: text under `clip-path: inset(50% 0 0 0)` is still measured.
 - `copy-before.html` → `copy-after-hidden-number.html`: `--compare` fails with `invented-number` for numbers added only in sr-only or `aria-hidden` text.
 - `compare-fix-before.html` → `compare-fix-after.html`: `--compare` lists the two fixed checkboxes as "2 of 3 elements", the unchanged one as remaining, and the new small button (error) and small text as new, and exits 1.
+- `compare-radios-before.html` → `compare-radios-after.html`: two radios that share one `name` (and so one anchor) are both fixed; `--compare` reports the group as fixed ("2 controls styled"), not "1 of 2 elements".
 
 ## How to run
 
