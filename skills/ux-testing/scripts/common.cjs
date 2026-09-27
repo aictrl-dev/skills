@@ -181,6 +181,7 @@ async function locateLegacy(page, name) {
 // async (page, context) => {}, the contract of server.cjs's UX_SETUP. A missing file or a module that does not
 // export a function is a config error, reported before any page is opened. Only an absent `setup` or `null`
 // means "no setup"; any other non-path value (an empty string, false) is a config error, not a silent off.
+// Returns null or { file, run }: `file` is the resolved path, so a setup that fails at run time can be named.
 function loadSetup(file, base) {
   if (file === undefined || file === null) return null;
   if (typeof file !== 'string' || !file.trim()) throw new Error(`setup must be a path to a .cjs module, or null to turn it off (got ${JSON.stringify(file)})`);
@@ -188,7 +189,13 @@ function loadSetup(file, base) {
   if (!fs.existsSync(f)) throw new Error(`setup module ${f} not found`);
   const fn = require(f);
   if (typeof fn !== 'function') throw new Error(`setup module ${f} must export async (page, context) => {}`);
-  return fn;
+  return { file: f, run: fn };
+}
+
+// Runs fn and returns its result; anything it throws is a config error: print it and exit 2, before a browser
+// starts or an output directory is written. Wraps loadSetup and the reads of the files a run is configured by.
+function exitOnConfigError(fn) {
+  try { return fn(); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
 }
 
 // ---------------------------------------------------------------- options and randomness
@@ -239,4 +246,4 @@ function seedOf(...parts) {
   return h >>> 0;
 }
 
-module.exports = { loadPlaywright, loadModel, loadSetup, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy };
+module.exports = { loadPlaywright, loadModel, loadSetup, exitOnConfigError, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy };

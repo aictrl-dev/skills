@@ -15,12 +15,18 @@
 // Needs a simulator backend: TYPESAFE_API_KEY (TypeSafe Jev), or UX_SIM_ENDPOINT + UX_SIM_API_KEY +
 // UX_SIM_MODEL for a compatible endpoint. Without one it exits with code 2 and says how to set one up.
 // Keys are read from the environment only and never logged or written.
+//
+// Exit codes: 0 the run finished. 2 a usage or config error, found before a browser starts: a bad option, no
+// simulator backend, an unreadable config, task model or --hyp file, or a setup module that is missing or does
+// not export a function (also 2: no task matches --tasks). 3 the run started and stopped: Chromium would not
+// start, a setup module threw, a check expression threw, the backend failed, a task cannot be graded, or too
+// many walks ended in harness errors. A stopped run is not scored; hypothesis rows already written are kept.
 // See reference/simulator.md for the config, the request/response contract, conditions and limits.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { loadPlaywright, loadModel, loadSetup, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
+const { loadPlaywright, loadModel, loadSetup, exitOnConfigError, requireSimBackend, options, rng, seedOf } = require('./common.cjs');
 
 const args = process.argv.slice(2);
 const O = options(args);
@@ -36,20 +42,19 @@ const { chromium } = loadPlaywright();
 
 const CONFIG_PATH = path.resolve(opt('config'));
 const CONFIG_DIR = path.dirname(CONFIG_PATH);
-const CFG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+// The files a run is configured by are read up front: an unreadable one is a config error (exit 2).
+const readJson = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { throw new Error(e.code ? e.message : `${f}: ${e.message}`); } };
+const CFG = exitOnConfigError(() => readJson(CONFIG_PATH));
 // Relative paths in the config resolve against the config's directory; in a hypothesis file, against its own.
 // An http(s) or file URL is used as it is.
 const fileUrl = (p, base = CONFIG_DIR) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(base, p)}`);
 // The setup module run after every page opens (e.g. signing in to a real app): the config's `setup`, unless a
-// variant or hypothesis arm sets its own (`null` turns it off there).
-let CFG_SETUP;
-try { CFG_SETUP = loadSetup(CFG.setup, CONFIG_DIR); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
+// variant or hypothesis arm sets its own (`null` turns it off there). A bad setup module the run needs (the
+// config's, a hypothesis arm's or a selected variant's) is a config error: exit 2 before a browser starts or
+// <out> is written.
+const CFG_SETUP = exitOnConfigError(() => loadSetup(CFG.setup, CONFIG_DIR));
 const setupOf = (v, base) => (v && 'setup' in v ? loadSetup(v.setup, base) : CFG_SETUP);
-// A bad setup module the run needs (the config's, a hypothesis arm's or a selected variant's) is a config
-// error: report it and exit 2 before a browser starts. A variant that --tasks leaves out never loads its
-// setup, so a broken one there does not stop the run (see CASES below).
-const configError = (fn) => { try { return fn(); } catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); } };
-const MODEL = loadModel(path.resolve(CONFIG_DIR, CFG.model));
+const MODEL = exitOnConfigError(() => loadModel(path.resolve(CONFIG_DIR, CFG.model)));
 const TASKS = Object.fromEntries(MODEL.tasks.map((t) => [t.id, t]));
 // The page's state hook: named by the config or the model, else window.__state, falling back to window.__mock
 // (the name older task models used) so they keep working without a state_hook.
@@ -58,8 +63,18 @@ const STATE_HOOK = CFG.stateHook || (MODEL.meta && MODEL.meta.state_hook) || nul
 const SKIPPED = new Set(['needs-target', 'needs-mock']);
 const oldStatus = MODEL.tasks.filter((t) => t.status === 'needs-mock').map((t) => t.id);
 if (oldStatus.length) console.warn(`note: ${oldStatus.join(', ')} ${oldStatus.length > 1 ? 'still say' : 'still says'} "status: needs-mock"; skipped as needs-target (the new name).`);
+// The hypothesis file and both of its arms' setup modules load up front, before a browser starts.
+const HYP = opt('hyp') ? exitOnConfigError(() => { const hypPath = path.resolve(opt('hyp')); return { H: readJson(hypPath), dir: path.dirname(hypPath) }; }) : null;
+const HYP_SETUPS = HYP ? exitOnConfigError(() => ({ a: setupOf(HYP.H.a, HYP.dir), b: setupOf(HYP.H.b, HYP.dir) })) : null;
+const ONLY = opt('tasks') ? opt('tasks').split(',') : null;
+const CASES = HYP ? [] : [
+  ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url), setup: CFG_SETUP })),
+  ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url), _setupSrc: v })),
+].filter((c) => !ONLY || ONLY.includes(c.id) || ONLY.includes(c.task));
+// Variants load their setup only once selected, so --tasks can skip a variant whose setup is broken.
+for (const c of CASES) if (c._setupSrc) { const v = c._setupSrc; delete c._setupSrc; c.setup = exitOnConfigError(() => setupOf(v, CONFIG_DIR)); }
 const observedPath = CFG.observed && path.resolve(CONFIG_DIR, CFG.observed);
-const OBSERVED = observedPath && fs.existsSync(observedPath) ? JSON.parse(fs.readFileSync(observedPath, 'utf8')) : {};
+const OBSERVED = observedPath && fs.existsSync(observedPath) ? exitOnConfigError(() => readJson(observedPath)) : {};
 const OUT = path.resolve(opt('out') || fs.mkdtempSync(path.join(os.tmpdir(), 'ux-sim-')));
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -250,6 +265,9 @@ async function check(page, task) {
 
 class CheckError extends Error {}
 class RunError extends Error {}
+// A setup module that throws (a wrong test password, a drifted sign-in selector, the auth endpoint down) fails
+// every walk the same way: it is neither a usability result nor a harness error, so the run stops at once (exit 3).
+class SetupError extends Error {}
 
 function viewportFor(task, cond) {
   if (cond === 'laptop') return LAPTOP;
@@ -261,7 +279,11 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
   const page = await browser.newPage({ viewport: viewportFor(task, cond) });
   try {
     await page.goto(c.url);
-    if (c.setup) await c.setup(page, page.context());
+    if (c.setup) {
+      try { await c.setup.run(page, page.context()); } catch (e) {
+        throw new SetupError(`task ${task.id}: setup module ${c.setup.file} failed: ${String(e && e.message || e).split('\n')[0].replace(/\.$/, '')}. Nothing from this run is scored; fix the setup module, the test account or the app and run again.`);
+      }
+    }
     const scenario = c.scenario || (task.start && task.start.scenario);
     if (CFG.scenarioSelect && scenario && scenario !== 'cold') await page.selectOption(CFG.scenarioSelect, scenario);
     if (HIDE) await page.addStyleTag({ content: HIDE });
@@ -292,7 +314,7 @@ async function walkOne(browser, c, task, profile, cond, rnd) {
     }
   } catch (e) {
     // A backend failure or a broken check is not a usability result: stop the run rather than score it.
-    if (e instanceof CheckError) throw e;
+    if (e instanceof CheckError || e instanceof SetupError) throw e;
     if (/^simulator /.test(e.message)) throw new RunError(`task ${task.id}: a walk failed from a simulator backend error (${e.message}). Nothing from this run is scored; check the backend and run again.`);
     // Any other failure (page crash, navigation, a control replaced mid-click) is the harness's, not the user's:
     // it ends as `error`, which run() leaves out of success and harm and reports separately.
@@ -378,18 +400,6 @@ async function hypothesis(browser, H, hypDir, setups) {
   }
   return { rows, file };
 }
-
-// Resolve every setup module the run needs before a browser starts. Only the selected cases load theirs, so
-// --tasks can still skip a variant whose setup is broken.
-const HYP = opt('hyp') ? configError(() => { const hypPath = path.resolve(opt('hyp')); return { H: JSON.parse(fs.readFileSync(hypPath, 'utf8')), dir: path.dirname(hypPath) }; }) : null;
-const HYP_SETUPS = HYP ? configError(() => ({ a: setupOf(HYP.H.a, HYP.dir), b: setupOf(HYP.H.b, HYP.dir) })) : null;
-const ONLY = opt('tasks') ? opt('tasks').split(',') : null;
-const CASES = HYP ? [] : [
-  ...MODEL.tasks.filter((t) => !SKIPPED.has(t.status)).map((t) => ({ id: t.id, task: t.id, url: fileUrl(CFG.url), setup: CFG_SETUP })),
-  ...(CFG.variants || []).map((v) => ({ ...v, url: fileUrl(v.url || CFG.url), _setupSrc: v })),
-].filter((c) => !ONLY || ONLY.includes(c.id) || ONLY.includes(c.task));
-// Variants load their setup only once selected, so --tasks can skip a variant whose setup is broken.
-for (const c of CASES) if (c._setupSrc) { const v = c._setupSrc; delete c._setupSrc; c.setup = configError(() => setupOf(v, CONFIG_DIR)); }
 
 (async () => {
   console.log(`simulator: ${BACKEND.label} · output ${OUT} · cache ${CACHE_F}`);

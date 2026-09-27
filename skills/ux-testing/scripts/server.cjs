@@ -12,7 +12,7 @@
 //   UX_HIDE_CSS      CSS injected on open to hide prototype chrome users would not see,
 //                    e.g. '.dev-toolbar,.design-notes{display:none!important}'
 //   UX_SCENARIO_SEL  selector of a <select> that jumps a prototype to a named state on "open <scenario>"
-//   UX_SETUP         path to a .cjs module exporting async (page, ctx) => {} run after navigation
+//   UX_SETUP         path to a .cjs module exporting async (page, context) => {} run after navigation
 //                    (e.g. sign in to a test account)
 //   UX_STORAGE_STATE Playwright storageState JSON for an already signed-in context
 //   UX_VERIFY_TOKEN  optional verify token of your choice (>= 32 chars); when set it is not printed

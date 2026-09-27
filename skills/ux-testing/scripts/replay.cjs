@@ -13,7 +13,7 @@
 // Writes <dir>/replays.json and <dir>/img/*.jpg. See reference/visual-report.md for the config and the page.
 const fs = require('fs');
 const path = require('path');
-const { loadPlaywright, loadSetup, simBackend, options, resolveTarget, locateLegacy } = require('./common.cjs');
+const { loadPlaywright, loadSetup, exitOnConfigError, simBackend, options, resolveTarget, locateLegacy } = require('./common.cjs');
 
 const args = process.argv.slice(2);
 const O = options(args);
@@ -28,17 +28,19 @@ const CFG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const OUT = path.resolve(opt('out'));
 const SIM = simBackend();
 if (SIM.error) console.warn('No simulator backend configured: replaying sessions without first-click predictions. Set TYPESAFE_API_KEY (https://typesafe.ai) or UX_SIM_ENDPOINT + UX_SIM_API_KEY + UX_SIM_MODEL to add them.');
-fs.mkdirSync(path.join(OUT, 'img'), { recursive: true });
 const fileUrl = (p) => (/^(https?|file):/.test(p) ? p : `file://${path.resolve(CONFIG_DIR, p)}`);
 // The setup module run after every page opens (e.g. signing in to a real app): the config's `setup`, unless an
-// arm sets its own (`null` turns it off there). All of them load up front, so a bad path stops the run at once.
+// arm sets its own (`null` turns it off there). All of them load up front, before <out> is written, so a bad
+// path stops the run at once (exit 2) and leaves nothing behind.
 // Keyed by the arm objects of CFG.experiments; setupFor() refuses any other object (a clone, an arm rebuilt
 // from replays.json) instead of treating the miss as "no setup" and silently skipping sign-in.
-const SETUPS = new Map();
-try {
+const SETUPS = exitOnConfigError(() => {
   const cfgSetup = loadSetup(CFG.setup, CONFIG_DIR);
-  for (const exp of CFG.experiments || []) for (const arm of exp.arms || []) SETUPS.set(arm, 'setup' in arm ? loadSetup(arm.setup, CONFIG_DIR) : cfgSetup);
-} catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
+  const m = new Map();
+  for (const exp of CFG.experiments || []) for (const arm of exp.arms || []) m.set(arm, 'setup' in arm ? loadSetup(arm.setup, CONFIG_DIR) : cfgSetup);
+  return m;
+});
+fs.mkdirSync(path.join(OUT, 'img'), { recursive: true });
 function setupFor(arm) {
   if (!SETUPS.has(arm)) throw new Error(`arm ${arm.arm} is not an arm of the loaded config, so its setup is unknown`);
   return SETUPS.get(arm);
@@ -69,7 +71,7 @@ async function open(browser, arm, viewport) {
   const page = await browser.newPage({ viewport });
   await page.goto(fileUrl(arm.url));
   const setup = setupFor(arm);
-  if (setup) await setup(page, page.context());
+  if (setup) await setup.run(page, page.context());
   if (CFG.scenarioSelect && CFG.scenario) await page.selectOption(CFG.scenarioSelect, CFG.scenario);
   if (CFG.hideCss) await page.addStyleTag({ content: CFG.hideCss });
   await page.waitForTimeout(600);
