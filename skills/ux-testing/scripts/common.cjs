@@ -125,7 +125,9 @@ function validate(j, questions) {
 
 // ---------------------------------------------------------------- matching controls by visible name
 // Shared by the harness (server.cjs) and replay.cjs, so a replay clicks what the tester clicked.
-const ROLES = ['button', 'link', 'tab', 'option', 'menuitem', 'checkbox', 'radio', 'treeitem', 'row', 'combobox'];
+// `switch` is its own role (MUI <Switch> renders input[type=checkbox][role=switch]), not a checkbox: without it a
+// toggle cannot be clicked by name, and a click by text lands on the adjacent description instead.
+const ROLES = ['button', 'link', 'tab', 'option', 'menuitem', 'checkbox', 'switch', 'radio', 'treeitem', 'row', 'combobox'];
 const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Returns { loc, note }, { error } for malformed input, or null when nothing matches.
