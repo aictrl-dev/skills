@@ -134,7 +134,7 @@ async function firstScreen(browser, exp, arm) {
     await page.screenshot({ path: path.join(OUT, img), type: 'jpeg', quality: 72 });
     g = await page.evaluate(({ HIDE_SEL, R }) => {
       const vh = innerHeight; const out = []; const seen = new Set();
-      for (const el of document.querySelectorAll('button, a[href], [role="button"], [role="tab"], input[type="radio"], input[type="checkbox"], select')) {
+      for (const el of document.querySelectorAll('button, a[href], [role="button"], [role="tab"], [role="switch"], input[type="radio"], input[type="checkbox"], select')) {
         if (HIDE_SEL && el.closest(HIDE_SEL)) continue;
         const r = el.getBoundingClientRect(); if (r.width === 0 || r.height === 0 || r.top >= vh - 4 || r.bottom <= 0) continue;
         const txt = (el.innerText || '').trim().replace(/\s+/g, ' '); const aria = (el.getAttribute('aria-label') || txt).trim();

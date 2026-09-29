@@ -115,7 +115,7 @@ const sample = (rnd, dist) => {
   return dist.find(([, v]) => v > 0)[0]; // floating-point edge: the most likely option, never the least
 };
 
-const SEL = 'button, a[href], [role="button"], [role="tab"], input[type="radio"], input[type="checkbox"], summary, select';
+const SEL = 'button, a[href], [role="button"], [role="tab"], [role="switch"], input[type="radio"], input[type="checkbox"], summary, select';
 
 // Perception is code, not the model. A "scanner" sees only what is on screen without scrolling (the 14 most
 // prominent page controls, icons as symbols); a "reader" gets every control's accessible name and all page text.
@@ -154,12 +154,13 @@ async function perceive(page, profile) {
       const role = el.getAttribute('role');
       const style = /\b(primary|cta)\b|-primary\b/i.test(cls) ? 'primary button'
         : /\b(danger|destructive)\b|-danger\b/i.test(cls) ? 'red button'
+        : role === 'switch' ? 'switch'
         : el.tagName === 'BUTTON' || role === 'button' || /\bbtn\b/.test(cls) ? 'button'
         : role === 'tab' ? 'tab'
         : el.type === 'radio' ? 'radio option' : el.type === 'checkbox' ? 'checkbox'
         : el.tagName === 'SELECT' ? 'dropdown' : el.tagName === 'A' ? 'link' : 'clickable text';
       // visual weight: area × emphasis, discounted the further down the screen it sits
-      const emphasis = { 'primary button': 3, 'red button': 2, button: 1.6, tab: 1.4, 'radio option': 1.4, checkbox: 1.2, dropdown: 1.2, link: 1, 'clickable text': 0.9 }[style];
+      const emphasis = { 'primary button': 3, 'red button': 2, button: 1.6, tab: 1.4, 'radio option': 1.4, checkbox: 1.2, switch: 1.2, dropdown: 1.2, link: 1, 'clickable text': 0.9 }[style];
       const weight = (r.width * r.height) * emphasis / (1 + Math.max(0, r.top) / vh);
       const label = profile === 'reader' ? (aria || '(unnamed control)') : icon ? `(icon ${raw || 'symbol'}, no label)` : raw;
       out.push({ idx, reg, label: label.slice(0, 90), style, hostTitle, weight, top: Math.round(r.top) });
