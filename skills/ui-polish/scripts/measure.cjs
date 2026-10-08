@@ -33,8 +33,10 @@
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
  * run itself fails (missing browser, navigation error or timeout).
  *
- * Needs Playwright with Chromium: `npm i -D playwright && npx playwright install chromium`
- * in the project, or run with NODE_PATH pointing at a node_modules that has it.
+ * Needs Playwright with Chromium. It is loaded only from the skill's own location or NODE_PATH,
+ * never from the current directory: install it in a directory you trust (`npm i -D playwright
+ * && npx playwright install chromium`) and run with NODE_PATH=<that directory>/node_modules,
+ * or install it next to the skill.
  */
 const fs = require('fs');
 const path = require('path');
@@ -91,7 +93,7 @@ function loadPlaywright() {
   for (const name of ['playwright', 'playwright-core']) {
     try { return require(name); } catch { /* try the next one */ }
   }
-  console.error('Playwright is not installed. Run `npm i -D playwright && npx playwright install chromium` in the project, or set NODE_PATH to a node_modules that has it.');
+  console.error('Playwright was not found next to the skill or on NODE_PATH. Install it in a directory you trust (`npm i -D playwright && npx playwright install chromium`) and run with NODE_PATH=<that directory>/node_modules.');
   process.exit(2);
 }
 

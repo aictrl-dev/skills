@@ -19,10 +19,10 @@ Ask only for what is missing.
 
 ### 1. Measure the current screen
 
-Run the bundled script (needs Node and Playwright with Chromium; install with `npm i -D playwright && npx playwright install chromium` if the project lacks it):
+Run the bundled script (needs Node and Playwright with Chromium; install it in a directory you trust with `npm i -D playwright && npx playwright install chromium` and run the script with `NODE_PATH=<that directory>/node_modules`, or install it next to the skill — the script loads `playwright` or `playwright-core` only from the skill's own location or `NODE_PATH`, never from the project, so the page under test cannot plant code in it):
 
 ```bash
-node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--scope "<selector>"] [--primary "<selector>"] [--hide "<selector>,…"] [--profile form|content]
+NODE_PATH=<dir>/node_modules node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--scope "<selector>"] [--primary "<selector>"] [--hide "<selector>,…"] [--profile form|content]
 ```
 
 - It renders at phone (390×844) and desktop (1366×900) (exit 1 while error findings remain, 2 on usage errors, 3 when the run itself fails), writes `measure.json` into `--out` (resolved against the current directory) with two screenshots per viewport, `<viewport>.png` (the first screen) and `<viewport>-scope.png` (the whole scope, including anything below the fold), and prints every finding with a selector. Elements that share a cause are one finding with a count and example selectors, and a finding that is the same on phone and desktop is printed once, with both in `viewports` (use `viewports`, not `viewport`, when filtering a merged finding by viewport).
