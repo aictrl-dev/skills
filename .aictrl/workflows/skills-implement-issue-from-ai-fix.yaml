@@ -43,9 +43,12 @@ nodes:
       ai-fix/<issue-number>-<slug>, where the slug uses only lowercase
       letters, digits and hyphens and is at most 40 characters including any
       numeric suffix. First list open pull requests targeting main whose
-      head is an ai-fix branch for this issue and whose head branch is linked
-      to the issue (it appears in the issue's `linkedBranches` in GraphQL);
-      ignore pull requests that only match the name pattern. If exactly one
+      head is an ai-fix branch for this issue and which GitHub links to the
+      issue as closing it (it appears in the issue's
+      `closedByPullRequestsReferences` in GraphQL, which is what the issue's
+      Development field shows once a pull request exists; `linkedBranches`
+      no longer lists a branch after its pull request is opened); ignore pull
+      requests that only match the name pattern. If exactly one
       exists, check out its head branch and update that pull request; it is
       the only existing branch you may reuse. If more than one exists, stop.
       Otherwise create a new branch linked to the issue, so the branch and its
