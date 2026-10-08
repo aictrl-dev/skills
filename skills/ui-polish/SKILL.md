@@ -19,10 +19,10 @@ Ask only for what is missing.
 
 ### 1. Measure the current screen
 
-Run the bundled script (needs Node and Playwright with Chromium; install with `npm i -D playwright && npx playwright install chromium` if the project lacks it):
+Run the bundled script (needs Node and Playwright with Chromium; install it in a directory you trust with `npm i -D playwright && npx playwright install chromium` and run the script with `NODE_PATH=<that directory>/node_modules`, or install it next to the skill. The script resolves `playwright` or `playwright-core` from node_modules next to or above the skill — which includes the project's when the skill is vendored inside it — then from `NODE_PATH`, then from Node's global folders, so when measuring an untrusted repo keep the skill outside it):
 
 ```bash
-node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--scope "<selector>"] [--primary "<selector>"] [--hide "<selector>,…"] [--profile form|content]
+NODE_PATH=<dir>/node_modules node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--scope "<selector>"] [--primary "<selector>"] [--hide "<selector>,…"] [--profile form|content]
 ```
 
 - It renders at phone (390×844) and desktop (1366×900) (exit 1 while error findings remain, 2 on usage errors, 3 when the run itself fails), writes `measure.json` into `--out` (resolved against the current directory) with two screenshots per viewport, `<viewport>.png` (the first screen) and `<viewport>-scope.png` (the whole scope, including anything below the fold), and prints every finding with a selector. Elements that share a cause are one finding with a count and example selectors, and a finding that is the same on phone and desktop is printed once, with both in `viewports` (use `viewports`, not `viewport`, when filtering a merged finding by viewport).
@@ -55,7 +55,7 @@ Edit the real source: the component and its styles in a repository, or the HTML 
 ### 5. Re-measure until it passes
 
 ```bash
-node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/after [same options]
+NODE_PATH=<dir>/node_modules node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/after [same options]
 node <skill-dir>/scripts/measure.cjs --compare ui-polish/before/measure.json ui-polish/after/measure.json
 ```
 

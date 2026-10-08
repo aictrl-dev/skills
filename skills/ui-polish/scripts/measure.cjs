@@ -31,10 +31,13 @@
  * findings "viewports" is authoritative and "viewport" is only the first of them.
  * --compare expands grouped and merged findings to (viewport, element or style group) pairs before matching.
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
- * run itself fails (missing browser, navigation error or timeout).
+ * run itself fails (missing Playwright or browser, navigation error or timeout).
  *
- * Needs Playwright with Chromium: `npm i -D playwright && npx playwright install chromium`
- * in the project, or run with NODE_PATH pointing at a node_modules that has it.
+ * Needs Playwright with Chromium, resolved like any require(): from node_modules next to or above
+ * the scripts — which includes the measured project's when the skill is vendored inside it — then
+ * NODE_PATH, then Node's global folders. Install it in a directory you trust (`npm i -D playwright
+ * && npx playwright install chromium`) and run with NODE_PATH=<that directory>/node_modules, or
+ * install it next to the skill; when measuring an untrusted repo, keep the skill outside it.
  */
 const fs = require('fs');
 const path = require('path');
@@ -89,10 +92,16 @@ function fail(msg) {
 
 function loadPlaywright() {
   for (const name of ['playwright', 'playwright-core']) {
-    try { return require(name); } catch { /* try the next one */ }
+    try { return require(name); } catch (e) {
+      // "Cannot find module '<name>'" means the package is missing or its entry point is unresolvable;
+      // other MODULE_NOT_FOUND errors (a missing dependency inside a broken install) are surfaced
+      // as they are, not as "not found".
+      if (e && e.code === 'MODULE_NOT_FOUND' && String(e.message).startsWith(`Cannot find module '${name}'`)) continue;
+      throw e;
+    }
   }
-  console.error('Playwright is not installed. Run `npm i -D playwright && npx playwright install chromium` in the project, or set NODE_PATH to a node_modules that has it.');
-  process.exit(2);
+  console.error('Playwright was not found in node_modules next to or above the skill, on NODE_PATH, or in Node\'s global folders. Install it next to the skill, or in a directory you trust (`npm i -D playwright && npx playwright install chromium`) and run with NODE_PATH=<that directory>/node_modules.');
+  process.exit(3);
 }
 
 // ---------------------------------------------------------------- project config (accepted decisions)
