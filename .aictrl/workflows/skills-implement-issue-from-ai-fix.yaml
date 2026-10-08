@@ -1,8 +1,8 @@
 schemaVersion: aictrl/workflow/v2
-name: implement-issue-from-ai-fix
-label: Implement issue from ai-fix
+name: skills-implement-issue-from-ai-fix
+label: Implement skills issue from ai-fix
 description: >-
-  When the ai-fix label is added to a GitHub issue, implement the requested
+  When the ai-fix label is added to an issue in aictrl-dev/skills, implement the requested
   change from main on a feature branch, open a pull request back to main,
   run up to two review/fix rounds, and report the resulting PR on the issue.
 category: development
