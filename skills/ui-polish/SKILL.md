@@ -19,7 +19,7 @@ Ask only for what is missing.
 
 ### 1. Measure the current screen
 
-Run the bundled script (needs Node and Playwright with Chromium; install it in a directory you trust with `npm i -D playwright && npx playwright install chromium` and run the script with `NODE_PATH=<that directory>/node_modules`, or install it next to the skill — the script loads `playwright` or `playwright-core` only from the skill's own location or `NODE_PATH`, never from the project, so the page under test cannot plant code in it):
+Run the bundled script (needs Node and Playwright with Chromium; install it in a directory you trust with `npm i -D playwright && npx playwright install chromium` and run the script with `NODE_PATH=<that directory>/node_modules`, or install it next to the skill. The script resolves `playwright` or `playwright-core` from node_modules next to or above the skill — which includes the project's when the skill is vendored inside it — then from `NODE_PATH`, so when measuring an untrusted repo keep the skill outside it):
 
 ```bash
 NODE_PATH=<dir>/node_modules node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--scope "<selector>"] [--primary "<selector>"] [--hide "<selector>,…"] [--profile form|content]
@@ -55,7 +55,7 @@ Edit the real source: the component and its styles in a repository, or the HTML 
 ### 5. Re-measure until it passes
 
 ```bash
-node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/after [same options]
+NODE_PATH=<dir>/node_modules node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/after [same options]
 node <skill-dir>/scripts/measure.cjs --compare ui-polish/before/measure.json ui-polish/after/measure.json
 ```
 
