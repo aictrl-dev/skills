@@ -31,7 +31,7 @@
  * findings "viewports" is authoritative and "viewport" is only the first of them.
  * --compare expands grouped and merged findings to (viewport, element or style group) pairs before matching.
  * Exit code 1 when any "error" finding remains (so it can gate a fix loop), 2 on usage errors, 3 when the
- * run itself fails (missing browser, navigation error or timeout).
+ * run itself fails (missing Playwright or browser, navigation error or timeout).
  *
  * Needs Playwright with Chromium, resolved like any require(): from node_modules next to or above
  * the scripts — which includes the measured project's when the skill is vendored inside it — then
@@ -93,14 +93,15 @@ function fail(msg) {
 function loadPlaywright() {
   for (const name of ['playwright', 'playwright-core']) {
     try { return require(name); } catch (e) {
-      // Absent only when the package itself is missing; a broken install (a missing dependency
-      // inside it) is reported as it is, not as "not found".
+      // "Cannot find module '<name>'" means the package is missing or its entry point is unresolvable;
+      // other MODULE_NOT_FOUND errors (a missing dependency inside a broken install) are surfaced
+      // as they are, not as "not found".
       if (e && e.code === 'MODULE_NOT_FOUND' && String(e.message).startsWith(`Cannot find module '${name}'`)) continue;
       throw e;
     }
   }
-  console.error('Playwright was not found in node_modules next to or above the skill, or on NODE_PATH. Install it in a directory you trust (`npm i -D playwright && npx playwright install chromium`) and run with NODE_PATH=<that directory>/node_modules.');
-  process.exit(2);
+  console.error('Playwright was not found in node_modules next to or above the skill, on NODE_PATH, or in Node\'s global folders. Install it next to the skill, or in a directory you trust (`npm i -D playwright && npx playwright install chromium`) and run with NODE_PATH=<that directory>/node_modules.');
+  process.exit(3);
 }
 
 // ---------------------------------------------------------------- project config (accepted decisions)

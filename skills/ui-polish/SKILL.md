@@ -19,7 +19,7 @@ Ask only for what is missing.
 
 ### 1. Measure the current screen
 
-Run the bundled script (needs Node and Playwright with Chromium; install it in a directory you trust with `npm i -D playwright && npx playwright install chromium` and run the script with `NODE_PATH=<that directory>/node_modules`, or install it next to the skill. The script resolves `playwright` or `playwright-core` from node_modules next to or above the skill — which includes the project's when the skill is vendored inside it — then from `NODE_PATH`, so when measuring an untrusted repo keep the skill outside it):
+Run the bundled script (needs Node and Playwright with Chromium; install it in a directory you trust with `npm i -D playwright && npx playwright install chromium` and run the script with `NODE_PATH=<that directory>/node_modules`, or install it next to the skill. The script resolves `playwright` or `playwright-core` from node_modules next to or above the skill — which includes the project's when the skill is vendored inside it — then from `NODE_PATH`, then from Node's global folders, so when measuring an untrusted repo keep the skill outside it):
 
 ```bash
 NODE_PATH=<dir>/node_modules node <skill-dir>/scripts/measure.cjs <file-or-url> --out ui-polish/before [--scope "<selector>"] [--primary "<selector>"] [--hide "<selector>,…"] [--profile form|content]
