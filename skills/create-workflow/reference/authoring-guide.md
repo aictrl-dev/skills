@@ -32,7 +32,7 @@ description: What this workflow does # optional
 category: code-quality              # optional; UI grouping
 icon: code                          # optional; Lucide icon name
 failureStrategy: fail-fast          # optional; 'fail-fast' (default) | 'continue-on-error'
-failureComment: true                # optional; default true. On failure of a run started by a
+failureComment: true                # optional (v2); default true. On failure of a run started by a
                                     # GitHub issue/PR trigger, aictrl comments on that issue/PR;
                                     # false turns that comment off
 defaults:                           # optional (v2); workflow-level execution defaults
@@ -94,7 +94,7 @@ Parameter schema:
 ## Node types (4 total)
 
 v1 files support only `template`, `loop` and `user-input`; the `task` node,
-`model`, `defaults` and gate-receipt input mappings are v2-only.
+`model`, `defaults`, `failureComment` and gate-receipt input mappings are v2-only.
 
 Every node must have `id` (kebab-case) and `type`. Each type has a required field
 and a set of forbidden fields (per-type **field exclusivity**, enforced by the
