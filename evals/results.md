@@ -448,6 +448,31 @@ Pending (human): run the scenario in a fresh agent session against a public
 repository pull request and verify that the generated draft grounds every claim
 in the selected commit.
 
+## create-workflow schema sync — 2026-10-09
+
+Method: the bundled v1 and v2 schemas are the ones recorded in SPEC.md, from
+source commit `44c8c44de4a528c849472d6c3e1d9a5692f1927b`. Their normalized
+hashes (v2 `22ae2803fe66a8f2a418af2a6cd58f9c1030fd08141498009d82c9df3a1ba120`,
+v1 `3220fe19844591ea6c02ca5499ba2587b79cb7cfec0936613a8e9e8fdfcad3cc`) were
+verified against that source; a parallel sync from
+`51105d1b8e48e759505dce8886567417e7ac2c61` normalizes to the same hashes. Then ran
+the bundled `validate.mjs` with AJV 8.20.0 (Draft 2020-12), `ajv-formats` 3.0.1
+and `js-yaml` 5.4.3 from a clean scratch installation, against the bundled
+examples and eight controls built from `inline-review-fix.yaml`. Each control
+also ran against the previous bundle.
+
+| Criterion | Result |
+|---|---|
+| Validation keywords are equivalent to the source schemas after removing `description` annotations (v2 `22ae2803…`, v1 `3220fe19…`) | PASS |
+| All bundled workflow examples pass schema and static DAG validation | PASS (4/4 after the merge with the Issue → PR example) |
+| `failureComment: true` and `false` are valid; a string value is rejected | PASS (the previous bundle rejected all three) |
+| An `issue` workflow parameter is valid | PASS (the previous bundle rejected it) |
+| A `taskType: code-review` task node with a parameter other than one required `pull-request` is rejected: no parameters, optional, `issue` type, two parameters | PASS (the previous bundle accepted the first two) |
+| No description names an issue number, internal file or internal check | PASS |
+| Public skill checks and checksum manifest pass | PASS |
+
+Verdict: PASS — the bundle validates the released contract offline.
+
 ## create-workflow commandless chat trigger schema sync — 2026-08-22
 
 Method: synchronized the bundled v1 trigger definitions and authoring guidance
