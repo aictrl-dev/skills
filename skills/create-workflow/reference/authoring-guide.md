@@ -32,8 +32,9 @@ description: What this workflow does # optional
 category: code-quality              # optional; UI grouping
 icon: code                          # optional; Lucide icon name
 failureStrategy: fail-fast          # optional; 'fail-fast' (default) | 'continue-on-error'
-failureComment: true                # optional; default true. On failure of a run started by a
-                                    # GitHub issue/PR trigger, aictrl comments on that issue/PR
+failureComment: true                # optional (v2); default true. On failure of a run started by a
+                                    # GitHub issue/PR trigger, aictrl comments on that issue/PR;
+                                    # false turns that comment off
 defaults:                           # optional (v2); workflow-level execution defaults
   model: anthropic/claude-sonnet-5  # optional; for task/template nodes without their own `model`
 parameters: [...]                   # optional; workflow-level inputs (see Parameter types)
@@ -54,7 +55,7 @@ repositories, prefix the name with the repository
 the platform on import. Authoring them is a schema error (`additionalProperties`
 is `false` at the top level and on every object).
 
-## Parameter types (13 total)
+## Parameter types (14 total)
 
 Used for workflow-level `parameters`, `user-input` node `parameters`, and inline
 `task` node `parameters`:
@@ -72,6 +73,7 @@ Used for workflow-level `parameters`, `user-input` node `parameters`, and inline
 | `repository` | string | Connected repository in owner/name form |
 | `pull-request` | string | PR URL |
 | `story` | string | Story/ticket URL |
+| `issue` | string | aictrl issue; resolved to a snapshot when the run starts |
 | `image` | string | Image URL or base64 |
 | `github-issue` | string | GitHub issue URL |
 
@@ -79,7 +81,7 @@ Parameter schema:
 ```yaml
 - name: my-param          # required; kebab-case
   label: My Parameter     # optional; defaults to name
-  type: string            # required; one of the 12 types above
+  type: string            # required; one of the 14 types above
   description: What it is # optional
   required: false         # optional; default false
   default: some-value     # optional
@@ -92,7 +94,7 @@ Parameter schema:
 ## Node types (4 total)
 
 v1 files support only `template`, `loop` and `user-input`; the `task` node,
-`model`, `defaults` and gate-receipt input mappings are v2-only.
+`model`, `defaults`, `failureComment` and gate-receipt input mappings are v2-only.
 
 Every node must have `id` (kebab-case) and `type`. Each type has a required field
 and a set of forbidden fields (per-type **field exclusivity**, enforced by the
@@ -150,6 +152,36 @@ the selected skill, not as a way to relax workflow policy or tool boundaries.
 `anthropic/claude-sonnet-5`); it is resolved against the organization's model
 connections when the file is applied. A node without `model` uses
 `defaults.model`, then the organization default.
+
+An output can be a primitive type name or a descriptor with `type`, optional
+`nullable` and `description`, and an optional `verify` block. With `verify`,
+aictrl checks the GitHub issue effect after the task runs instead of trusting
+the reported value. `issueParameter` names the task parameter that holds the
+issue; mark that parameter `githubIssueContext: true` (it must be a required
+`string` or `github-issue` parameter):
+
+```yaml
+- id: triage
+  type: task
+  skill: issue-triage@1.0.0
+  taskType: general
+  prompt: Triage the issue, comment with the plan and label it ready.
+  parameters:
+    - { name: issue, type: github-issue, required: true, githubIssueContext: true }
+  inputs:
+    issue: { from: input, name: issue }
+  outputs:
+    summary: string
+    planComment:                 # URL of the comment the task posted
+      type: string               # github-issue-comment requires string, not nullable
+      verify: { kind: github-issue-comment, issueParameter: issue }
+    labelled:
+      type: boolean
+      verify: { kind: github-issue-labels, issueParameter: issue, labels: [ready] }
+```
+
+`labels` takes 1-8 unique literal names. A node declares at most 64 outputs, and
+`__aictrlFailure` is reserved and cannot be an output name.
 
 Forbidden on `task`: `template`, `templateVersion`, `workflow`, `workflowVersion`,
 `maxIterations`, `until`, `while`, `onMaxIterations`, `body`, `signalSource`,
