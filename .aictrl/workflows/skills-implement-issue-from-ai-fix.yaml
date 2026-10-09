@@ -118,10 +118,14 @@ nodes:
       with `gh pr list --repo <repository> --head <your-branch> --base main
       --state open --json url` rather than composing it and require exactly
       one result. If it returns none, list the branch's pull requests again
-      with `--state all`: if that pull request was merged in the meantime, it
-      is not a block, so use its URL; if it was closed without merging, stop
-      with reason-code pr-closed rather than step-failed. Return exactly one
-      JSON object whose prUrl is that pull request:
+      with `gh pr list --repo <repository> --head <your-branch> --base main
+      --state all --json url,state` and require exactly one result: if that
+      pull request was merged in the meantime, it is not a block, so use its
+      URL; if it was closed without merging, stop with reason-code pr-closed;
+      if this list also returns none or more than one, re-read the open list
+      once after a short pause, use its URL if it now returns exactly one, and
+      otherwise stop with reason-code step-failed. Return exactly one JSON
+      object whose prUrl is that pull request:
       {"prUrl":"https://github.com/<owner>/<repo>/pull/123"}
     parameters:
       - name: repository
@@ -163,21 +167,21 @@ nodes:
             than 2. Do not modify code or reuse findings from an earlier
             round.
 
-            First use the GitHub CLI to read the pull request, retrying the
-            read up to 3 times with a short pause if it errors. If it is
-            already merged, record no findings and finish without failing.
-            This step is given only the pull request, not the issue or the
-            trigger repository, so it checks only what the pull request itself
-            supports: the pull request is open, and the pull request targets
-            main, has a head branch of the form ai-fix/<number>-<slug>, and
-            has its head repository equal to its base repository (read
-            `head.repo.full_name` and `base.repo.full_name` from the REST
-            API), not a fork. triage-fix and notify-issue then verify the
-            issue and the trigger repository. If any of that does not hold, or
-            you still cannot read the pull request after those retries, record
-            no findings and finish without failing and without commenting: the
-            loop then ends with an empty review and notify-issue repeats the
-            full check and posts the blocked comment.
+            First use the GitHub CLI to read the pull request; if the read
+            errors, pause briefly and retry until you have attempted the read
+            3 times in total. If it is already merged, record no findings and
+            finish without failing. This step is given only the pull request,
+            not the issue or the trigger repository, so it checks only what
+            the pull request itself supports: the pull request is open, and
+            the pull request targets main, has a head branch of the form
+            ai-fix/<number>-<slug>, and has its head repository equal to its
+            base repository (read `head.repo.full_name` and
+            `base.repo.full_name` from the REST API), not a fork. triage-fix
+            and notify-issue then verify the issue and the trigger repository.
+            If any of that does not hold, or the read still errors after those
+            3 attempts, record no findings and finish without failing and
+            without commenting: the loop then ends with an empty review and
+            notify-issue repeats the full check and posts the blocked comment.
 
             This step only reads the pull request and records findings: do not
             push, comment on issues or the pull request, or change anything

@@ -567,7 +567,7 @@ these rules:
   findings; it does not post comments, push or edit anything. It checks only
   what the PR URL supports (base branch, head repository equals base
   repository, branch form) and leaves the issue match to the writing steps. It
-  retries a failed read of the PR a few times; on a failed check it records no
+  attempts the PR read up to 3 times in total; on a failed check it records no
   findings and finishes without failing, so the run still reaches the notify
   step, which repeats the check and reports it.
 - **Check ownership in the steps that write.** Before a step comments, pushes or
@@ -598,8 +598,10 @@ these rules:
 - **Read the PR URL back, never compose it.** The implement step lists open PRs
   for its branch and base (`gh pr list --head <branch> --base <base> --state
   open --json url`) and requires exactly one result. If there is none, it
-  checks the branch's PR with `--state all`: a PR merged in the meantime is
-  not a block, and only a PR closed without merging stops with `pr-closed`.
+  lists the branch's PRs into the same base with `--state all` and again
+  requires exactly one: a PR merged in the meantime is not a block, a PR
+  closed without merging stops with `pr-closed`, and any other result
+  re-reads the open list once before stopping with `step-failed`.
 
 ## Portable references
 
