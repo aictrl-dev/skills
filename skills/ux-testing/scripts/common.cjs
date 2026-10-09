@@ -168,6 +168,17 @@ async function locate(page, target, idx) {
   return null;
 }
 
+// `type --field "<label>"` must reach every text-entry role, not just textbox: <input type="search"> has role
+// searchbox and an editable combobox (an autocomplete input) has role combobox, and both are typeable. A
+// non-editable <select> shares the combobox role but is the `select` action's job, never fill()'s.
+function namedFields(page, field) {
+  return page
+    .getByRole('textbox', { name: field })
+    .or(page.getByRole('searchbox', { name: field }))
+    .or(page.getByRole('combobox', { name: field }))
+    .filter({ visible: true });
+}
+
 // Replay only: logs written before the harness recorded the clicked name may need a contains-match on roles,
 // which the harness itself never uses. Tried last, after the harness ladder.
 async function locateLegacy(page, name) {
@@ -265,4 +276,4 @@ function seedOf(...parts) {
   return h >>> 0;
 }
 
-module.exports = { loadPlaywright, loadModel, loadSetup, exitOnConfigError, readJson, redactSecrets, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy };
+module.exports = { loadPlaywright, loadModel, loadSetup, exitOnConfigError, readJson, redactSecrets, tokenFile, simBackend, requireSimBackend, options, rng, seedOf, ROLES, resolveTarget, locateLegacy, namedFields };

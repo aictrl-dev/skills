@@ -32,7 +32,7 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
-const { loadPlaywright, tokenFile, resolveTarget: resolve } = require('./common.cjs');
+const { loadPlaywright, tokenFile, resolveTarget: resolve, namedFields } = require('./common.cjs');
 
 const { chromium } = loadPlaywright();
 const PORT = Number(process.env.UX_PORT || 3917);
@@ -198,7 +198,8 @@ async function run(s, action, args) {
       }
       if (words[words.length - 1] === '--enter') { enter = true; words.pop(); }
       if (!words.join(' ').trim()) return 'ERROR: type needs text, e.g. type Hello --enter or type --field "Title" New title';
-      const named = field ? page.getByRole('textbox', { name: field }).filter({ visible: true }) : null;
+      // Text-entry roles: textbox, searchbox (<input type="search">) and combobox (editable combo). See namedFields.
+      const named = field ? namedFields(page, field) : null;
       const n = named ? await named.count() : 0;
       if (field && !n) return `ERROR: nothing visible matches field "${field}". Take a snapshot and use a label you can see.`;
       // The chat box is a textarea; only fall back to single-line inputs (e.g. a search field) when there is none.
