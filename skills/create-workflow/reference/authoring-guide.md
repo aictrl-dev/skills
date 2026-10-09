@@ -565,7 +565,9 @@ these rules:
   posts nothing if a comment with that marker already exists.
 - **Read the PR URL back, never compose it.** The implement step lists open PRs
   for its branch and base (`gh pr list --head <branch> --base <base> --state
-  open --json url`) and requires exactly one result.
+  open --json url`) and requires exactly one result. If there is none, it
+  checks the branch's PR with `--state all`: a PR merged in the meantime is
+  not a block, and only a PR closed without merging stops with `pr-closed`.
 
 ## Portable references
 
