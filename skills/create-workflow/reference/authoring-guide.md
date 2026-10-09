@@ -598,11 +598,19 @@ these rules:
 - **Read the PR URL back, never compose it.** The implement step lists open PRs
   for its branch and base (`gh pr list --head <branch> --base <base> --state
   open --json url`) and requires exactly one result. If there is none, it
-  lists the branch's PRs into the same base with `--state all` and again
-  requires exactly one, reading its state: an `OPEN` or `MERGED` PR is not a
-  block, a PR closed without merging stops with `pr-closed`, and any other
-  result re-runs the open-list command once after a short pause before
-  stopping with `step-failed`.
+  lists the branch's PRs into the same base with `--state all` and keeps only
+  the `OPEN` or `MERGED` ones, because older `CLOSED` PRs on the same head
+  branch are history, not blockers: exactly one left is not a block and its
+  URL is used. Otherwise it re-runs the open-list command once after a short
+  pause and uses its URL if that now returns exactly one; failing that it
+  stops with `pr-closed` if the `--state all` list was non-empty and none of
+  its results were `OPEN` or `MERGED`, and with `step-failed` in every other
+  case. Known residual: `gh pr list --head` matches by branch name, so a
+  lone `MERGED` PR left on a reused head branch could be taken for this
+  round's PR if both lists also miss the new one. The workflow only reuses a
+  branch that has an open trusted PR and otherwise creates a new branch, so
+  this needs an outside actor plus a listing delay; a time-based guard would
+  make the prompt fragile, so the residual is accepted.
 
 ## Portable references
 

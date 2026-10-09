@@ -119,14 +119,14 @@ nodes:
       --state open --json url` rather than composing it and require exactly
       one result. If it returns none, list the branch's pull requests again
       with `gh pr list --repo <repository> --head <your-branch> --base main
-      --state all --json url,state` and require exactly one result, reading
-      its state: if it is OPEN or MERGED, it is not a block, so use its URL;
-      if it was closed without merging, stop with reason-code pr-closed; if
-      this list also returns none or more than one, re-run `gh pr list --repo
-      <repository> --head <your-branch> --base main --state open --json url`
-      once after a short pause, use its URL if it now returns exactly one, and
-      otherwise stop with reason-code step-failed. Return exactly one JSON
-      object whose prUrl is that pull request:
+      --state all --json url,state` and keep only the OPEN or MERGED results:
+      if exactly one remains, it is not a block, so use its URL; otherwise
+      re-run `gh pr list --repo <repository> --head <your-branch> --base main
+      --state open --json url` once after a short pause and use its URL if it
+      now returns exactly one, and otherwise stop with reason-code pr-closed
+      if the `--state all` list was non-empty and none of its results were
+      OPEN or MERGED, and with reason-code step-failed in every other case.
+      Return exactly one JSON object whose prUrl is that pull request:
       {"prUrl":"https://github.com/<owner>/<repo>/pull/123"}
     parameters:
       - name: repository

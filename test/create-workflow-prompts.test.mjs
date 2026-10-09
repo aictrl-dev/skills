@@ -47,15 +47,16 @@ const BINDING_PHRASES = [
 // implement-issue's PR read-back, including the fallback for a PR that is no
 // longer open, and the review step's retry budget.
 const READBACK_RULE =
-  "If it returns none, list the branch's pull requests again with `gh pr list " +
-  '--repo <repository> --head <your-branch> --base main --state all --json ' +
-  'url,state` and require exactly one result, reading its state: if it is ' +
-  'OPEN or MERGED, it is not a block, so use its URL; if it was closed ' +
-  'without merging, stop with reason-code pr-closed; if this list also ' +
-  'returns none or more than one, re-run `gh pr list --repo <repository> ' +
-  '--head <your-branch> --base main --state open --json url` once after a ' +
-  'short pause, use its URL if it now returns exactly one, and otherwise ' +
-  'stop with reason-code step-failed.';
+  "If it returns none, list the branch's pull requests again with `gh " +
+  'pr list --repo <repository> --head <your-branch> --base main --state ' +
+  'all --json url,state` and keep only the OPEN or MERGED results: if ' +
+  'exactly one remains, it is not a block, so use its URL; otherwise ' +
+  're-run `gh pr list --repo <repository> --head <your-branch> --base ' +
+  'main --state open --json url` once after a short pause and use its ' +
+  'URL if it now returns exactly one, and otherwise stop with ' +
+  'reason-code pr-closed if the `--state all` list was non-empty and ' +
+  'none of its results were OPEN or MERGED, and with reason-code ' +
+  'step-failed in every other case.';
 const REVIEW_RETRY_RULE =
   'First use the GitHub CLI to read the pull request; if the read errors, ' +
   'pause briefly and retry until you have attempted the read 3 times in ' +
@@ -134,8 +135,11 @@ for (const file of [CANONICAL, EXAMPLE]) {
       assert.equal(count(prompts[nodeId], UNTRUSTED_RULE), 1, `${nodeId}: untrusted-data rule`);
     }
     assert.equal(count(prompts['notify-issue'], UNTRUSTED_RULE_NOTIFY), 1, 'notify-issue: untrusted-data rule');
-    // A PR merged before the read-back is not a block; only a PR closed
-    // without merging stops with pr-closed; an ambiguous result re-reads once.
+    // A PR merged before the read-back is not a block. Exactly one OPEN or
+    // MERGED fallback result is used; anything else re-reads the open list
+    // once (using its URL if it now returns exactly one), then stops with
+    // pr-closed (the --state all list was non-empty and none of its results
+    // were OPEN or MERGED) or step-failed (every other case).
     assert.equal(count(prompts['implement-issue'], READBACK_RULE), 1, 'implement-issue: PR read-back rule');
     assert.equal(count(prompts.review, REVIEW_RETRY_RULE), 1, 'review: retry budget');
     assert.match(prompts.review, /or the read still errors after those 3 attempts, record no findings/);
