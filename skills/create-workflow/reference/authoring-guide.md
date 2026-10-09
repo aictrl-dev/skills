@@ -333,7 +333,7 @@ maps to storage `medium` — never use it in a condition.)
 
 ```yaml
 retry:
-  maxRetries: 2            # required; 0-10
+  maxRetries: 0            # required; schema allows 0-10, apply rejects above 0
   backoffMs: 2000          # required; milliseconds between retries (>= 0)
   backoffMultiplier: 2.0   # optional; multiplier applied to backoffMs each retry (0-10)
   maxBackoffMs: 30000      # optional; cap on exponential backoff
