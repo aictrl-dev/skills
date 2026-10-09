@@ -601,9 +601,10 @@ these rules:
   lists the branch's PRs into the same base with `--state all` and keeps only
   the `OPEN` or `MERGED` ones, because older `CLOSED` PRs on the same head
   branch are history, not blockers: exactly one left is not a block and its
-  URL is used; none left re-runs the open-list command once after a short
-  pause, then stops with `pr-closed` if a `CLOSED` PR was listed and
-  `step-failed` if not; more than one left stops with `step-failed`.
+  URL is used. Otherwise it re-runs the open-list command once after a short
+  pause and uses its URL if that now returns exactly one; failing that it
+  stops with `pr-closed` if none were left and a `CLOSED` PR was listed, and
+  with `step-failed` in every other case.
 
 ## Portable references
 
