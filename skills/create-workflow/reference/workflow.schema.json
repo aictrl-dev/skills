@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aictrl.dev/schemas/workflow/v2/workflow.schema.json",
   "title": "aictrl Workflow (v2)",
-  "description": "Declarative YAML/JSON workflow definition. V2 adds the portable inline task node: a node can define a pinned skill, prompt, parameters, and outputs in the file instead of relying on a pre-provisioned template. Template, loop, and user-input nodes remain supported; wait, manual, and composite workflow nodes are not (use user-input nodes or manual qualityGates; a later node reads a gate's approval receipt with `{ from: gate, afterWave }`). Layer 1 validates structure; layer 2 validates node inputs against referenced-template or in-file task parameters.",
+  "description": "Declarative YAML/JSON workflow definition. V2 adds the portable inline task node: a node can define a pinned skill, prompt, parameters, and outputs in the file instead of relying on a pre-provisioned template. Template, loop, and user-input nodes remain supported; wait, manual, and composite workflow nodes are not (use user-input nodes or manual qualityGates). Layer 1 validates structure; layer 2 validates node inputs against referenced-template or in-file task parameters.",
   "type": "object",
   "required": [
     "schemaVersion",

@@ -31,7 +31,17 @@ This skill has two deliberately separate outcomes:
 2. Inspect repository guidance and existing direct children of `.aictrl/workflows/`. Reuse established naming and parameter conventions; never create nested workflow directories.
 3. Clarify the intended trigger, typed inputs, stages, outputs, external side effects, failure behavior, cost/time bounds, loops, and human approval points. Ask only when a missing decision changes safety or outcome.
 4. Read `reference/authoring-guide.md` and `reference/workflow.schema.json`. Use only skills and workflows known to be available in the target organization or supplied by the user; version-pin every resolvable reference. Do not invent unresolved dependencies.
+   - **Issue → reviewed pull request** (a label on an issue opens a PR that is
+     reviewed and fixed): copy `reference/examples/issue-to-reviewed-pr.yaml`.
+     Change only the values it marks `ADAPT` (name, label, base branch,
+     skills). Inside the prompts, only replace the base branch. Do not rewrite
+     them otherwise; they encode fixes from failed runs.
 5. Choose a new kebab-case filename and workflow `name`. If the path exists, show the conflict and obtain confirmation before replacing it.
+   - Names are unique per aictrl organisation, not per repository. If the same
+     workflow runs in several repositories, prefix the name with the repository
+     (`<repo>-implement-issue-from-ai-fix`).
+   - A label trigger fires only for the repository whose `.aictrl/workflows/`
+     declares it. Put the file in each repository that needs it.
 6. Author `schemaVersion: aictrl/workflow/v2` by default:
    - use inline `task` nodes for portable skill-backed work;
    - version-pin `skill` references when a resolvable version is available;
@@ -39,7 +49,25 @@ This skill has two deliberately separate outcomes:
    - map inputs explicitly and declare outputs used by downstream nodes;
    - bound loops (each node is attempted once; do not add retries);
    - set `model` on a task/template node, or `defaults.model` for the workflow, only when the user asks for a specific model;
-   - add manual quality gates before destructive, costly, security-sensitive, merge, or deploy actions; when a later step must prove what was approved, pass it the gate's approval receipt with `{ from: gate, afterWave }`.
+   - add manual quality gates before destructive, costly, security-sensitive, merge, or deploy actions; when a later step must prove what was approved, pass it the gate's approval receipt with `{ from: gate, afterWave }`;
+   - give every `taskType: code-review` node exactly one parameter,
+     `{ type: pull-request, required: true }`, mapped to the PR. aictrl and the
+     bundled validator reject any other parameter;
+   - keep read-only steps (such as review) read-only: they must not post
+     comments. Put ownership checks in the steps that write, and start them
+     from trigger inputs (`issue-url`, `repository`); a branch name or PR body
+     alone is never proof. A blocked step posts `Workflow blocked:
+     <reason-code>`, with no URL, PR link or quoted issue, PR or branch text;
+     repeat that rule word for word in every node that posts, because each
+     agent reads only its own prompt;
+   - for `taskType: code-review`, declare `findings: json` only. aictrl adds
+     `maxSeverityRank`, which is null for an empty review; gate later steps on
+     the null-guarded `findings` (see the guide's `task` node section);
+   - to find the PR for an issue, query the issue's
+     `closedByPullRequestsReferences`, not `linkedBranches`. GitHub drops a
+     `createLinkedBranch` branch from `linkedBranches` once its PR opens, and
+     `closedByPullRequestsReferences` lists only PRs into the default branch
+     (with another base branch, tell the user a re-run opens a new PR).
 7. Run the bundled validator until schema and static DAG checks pass:
 
    ```bash
@@ -48,7 +76,7 @@ This skill has two deliberately separate outcomes:
    ```
 
 8. Inspect unresolved external references and CEL conditions. Local validation proves structure and DAG soundness; organization-scoped references and runtime expressions remain authoritative only at remote preflight or apply time.
-9. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and exact validation result.
+9. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and exact validation result. Say how the file goes live: aictrl syncs `.aictrl/workflows/` automatically about 20 s after a push to the repository's default branch. There is no manual sync step; do not ask the user to run one. A file on any other branch has no effect.
 10. If the request was authoring only, stop with a reviewable YAML file. Do not apply, start, commit, push, merge, or deploy unless the user separately authorizes that action.
 
 ## Connected publication
@@ -84,6 +112,7 @@ configuration has passed local validation.
 Always report:
 
 - configuration path and local validator result;
+- that merging to the default branch syncs it (about 20 s, no manual step);
 - workflow inputs, stages, declared side effects, gates, and limits;
 - unresolved organization-scoped references or runtime conditions; and
 - one of `configuration ready`, `publication unavailable`, `publication
