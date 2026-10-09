@@ -130,6 +130,17 @@ both reject any other shape; older releases accepted it and then failed the
 step at dispatch with `template_unavailable`. Do context checks that need the
 issue in a later `general` step.
 
+**Code-review outputs are written by the platform.** For `taskType:
+code-review`, aictrl adds the recorded `findings` (an empty list when there are
+none) and `maxSeverityRank` to the step output; `maxSeverityRank` is `null` for
+an empty review. Declare `findings: json` only. A declared `number` output
+cannot be null-guarded (`!= null` is a CEL type error at apply), and a `when`
+on an undeclared output of a task node fails apply. So gate a later step on
+the findings, which bind as `dyn`:
+`has(review.output.findings) && review.output.findings != null && size(review.output.findings) > 0`.
+A loop's `until`/`while` may use the guarded
+`last.review.output.maxSeverityRank` (see the Issue → PR example).
+
 Inline task nodes make the task configuration portable in the workflow file.
 Their `inputs` are checked against the in-file `parameters`; their declared
 `outputs` may be mapped by downstream nodes. Treat `prompt` as instructions for
@@ -509,26 +520,41 @@ triggers:
 For "label an issue → get a reviewed PR", start from
 `reference/examples/issue-to-reviewed-pr.yaml`. It is the production workflow
 with its repository-specific values marked `ADAPT`. Change only the name,
-label, base branch and skills; do not rewrite the prompts. Its prompts already
-encode these rules:
+label, base branch and skills; the base-branch substitution (`main` →
+your branch) is the only edit inside the prompts. Its prompts already encode
+these rules:
 
 - **Find the issue's PR through `closedByPullRequestsReferences`.** GitHub lists
   a branch made with `createLinkedBranch` in the issue's `linkedBranches` only
   until its PR opens; after that it is gone. `closedByPullRequestsReferences`
   (GraphQL) lists the PRs that close the issue, but only those whose base is the
   repository's default branch. If the workflow targets another base branch,
-  the lookup finds nothing and a re-run opens a new PR; tell the user.
+  the lookup finds nothing, a re-run opens a new PR and the ownership checks
+  below block; tell the user.
 - **Read-only steps stay read-only.** A review step reads the PR and records
-  findings; it does not post comments, push or edit anything.
+  findings; it does not post comments, push or edit anything. It checks only
+  what the PR URL supports (base branch, same-repository head, branch form) and
+  leaves the issue match to the writing steps.
 - **Check ownership in the steps that write.** Before a step comments, pushes or
-  changes the PR, it confirms the PR belongs to the triggering issue. Anchor the
-  check on trigger inputs (`issue-url`, `repository`), not on PR-controlled data
-  (branch name, PR title or body), which anyone who can push to the PR controls.
+  changes the PR, it confirms the PR belongs to the triggering issue. Start the
+  check from trigger inputs: look up the issue from `issue-url` and confirm it
+  lists the PR in `closedByPullRequestsReferences`, that the PR is in
+  `repository` with its head in `repository` (not a fork), and that it targets
+  the base branch. A branch name or PR text (title, body) alone is never proof:
+  anyone who can push to the PR controls it.
+- **Ownership is identity, not state.** A PR merged mid-run still belongs to
+  the issue: the fix step writes nothing and the notify step reports it as
+  merged. A PR closed without merging blocks.
 - **The code-review step takes only the PR** (see the `task` node section).
-- **Write blocked runs back to the issue.** A writing step that must stop posts
-  one comment on the triggering issue saying why, then fails. aictrl also
-  comments on the triggering issue or PR when a run fails (`failureComment`,
-  default `true`), which covers steps that crash or time out.
+- **Write blocked runs back to the issue in a fixed form.** A writing step that
+  must stop posts one comment on the triggering issue, `Workflow blocked:
+  <reason-code>`, then fails. The comment never links the PR, contains the PR
+  URL or quotes issue, PR or branch text. aictrl also comments on the
+  triggering issue or PR when a run fails (`failureComment`, default `true`),
+  which covers steps that crash or time out.
+- **Make the success comment idempotent.** The notify step ends its comment
+  with a fixed marker line and posts nothing if a comment with that marker
+  already exists, so a re-run does not duplicate it.
 
 ## Portable references
 
@@ -594,8 +620,12 @@ Before submitting a workflow file for apply:
       `type: pull-request`, `required: true`
 - [ ] `name` is prefixed with the repository when the workflow runs in several
       repositories
-- [ ] Read-only steps post no comments; writing steps check ownership against
-      trigger inputs, not PR-controlled data
+- [ ] Read-only steps post no comments; writing steps start ownership checks
+      from trigger inputs, never from a branch name or PR text alone
+- [ ] Blocked comments use `Workflow blocked: <reason-code>` and never link the
+      PR or quote issue, PR or branch text
+- [ ] A `taskType: code-review` node declares `findings: json` only; later
+      steps gate on the null-guarded `findings`
 - [ ] An issue's PR is found through `closedByPullRequestsReferences`, not
       `linkedBranches`
 - [ ] An Issue → PR workflow starts from `reference/examples/issue-to-reviewed-pr.yaml`

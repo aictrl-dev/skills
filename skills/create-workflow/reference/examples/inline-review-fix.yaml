@@ -24,26 +24,29 @@ nodes:
     taskType: code-review
     prompt: >-
       Review the pull request for correctness, security, and consistency
-      issues. Return a findings array and the highest severity rank observed.
+      issues. Record each finding through the review tools; the platform adds
+      the findings and their highest severity rank to this step's output.
     parameters:                        # layer-2 validates `inputs` against these (no DB lookup)
       - name: pr-url
         label: Pull Request URL
         type: pull-request
         required: true
     outputs:                           # declared in-file → downstream extract/CEL with no DB round-trip
-      findings: json
-      maxSeverityRank: number
+      findings: json                   # platform-written for code-review. maxSeverityRank is added too but
+                                       # stays undeclared: it is null for an empty review, and a declared
+                                       # `number` cannot be null-guarded in CEL.
     inputs:
       pr-url: { from: input, name: pr-url }
 
-  # 2. A second inline task that only runs when the worst finding is above
-  #    `medium` (rank 2). Consumes the first node's declared `findings` output.
+  # 2. A second inline task that only runs when the review recorded findings,
+  #    and fixes those above `medium` (rank 2). Consumes the first node's
+  #    `findings` output (json binds dyn, so the null guard type-checks).
   - id: fix
     type: task
     skill: apply-fixes@2.0.0
     taskType: general               # taskType is constrained to code-review | general
-    prompt: "Apply fixes for the supplied findings and commit them back to the PR."
-    when: "review.output.maxSeverityRank > 2"   # gates on review's DECLARED `maxSeverityRank` output; high(3)/critical(4) only
+    prompt: "Apply fixes for the supplied findings whose severityRank is above 2 (high or critical) and commit them back to the PR."
+    when: "has(review.output.findings) && review.output.findings != null && size(review.output.findings) > 0"   # skipped for an empty review
     parameters:
       - name: findings
         label: Findings

@@ -34,7 +34,8 @@ This skill has two deliberately separate outcomes:
    - **Issue → reviewed pull request** (a label on an issue opens a PR that is
      reviewed and fixed): copy `reference/examples/issue-to-reviewed-pr.yaml`.
      Change only the values it marks `ADAPT` (name, label, base branch,
-     skills). Do not rewrite its prompts; they encode fixes from failed runs.
+     skills). Inside the prompts, only replace the base branch. Do not rewrite
+     them otherwise; they encode fixes from failed runs.
 5. Choose a new kebab-case filename and workflow `name`. If the path exists, show the conflict and obtain confirmation before replacing it.
    - Names are unique per aictrl organisation, not per repository. If the same
      workflow runs in several repositories, prefix the name with the repository
@@ -53,9 +54,13 @@ This skill has two deliberately separate outcomes:
      `{ type: pull-request, required: true }`, mapped to the PR. aictrl and the
      bundled validator reject any other parameter;
    - keep read-only steps (such as review) read-only: they must not post
-     comments. Put ownership checks in the steps that write, and anchor them
-     on trigger inputs (`issue-url`, `repository`), not on PR-controlled data
-     such as the branch name or PR body;
+     comments. Put ownership checks in the steps that write, and start them
+     from trigger inputs (`issue-url`, `repository`); a branch name or PR body
+     alone is never proof. A blocked step posts `Workflow blocked:
+     <reason-code>` and never links the PR or quotes issue, PR or branch text;
+   - for `taskType: code-review`, declare `findings: json` only. aictrl adds
+     `maxSeverityRank`, which is null for an empty review; gate later steps on
+     the null-guarded `findings` (see the guide's `task` node section);
    - to find the PR for an issue, query the issue's
      `closedByPullRequestsReferences`, not `linkedBranches`. GitHub drops a
      `createLinkedBranch` branch from `linkedBranches` once its PR opens, and

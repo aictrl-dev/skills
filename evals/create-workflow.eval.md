@@ -42,8 +42,9 @@ Ask a fresh agent: "Set up label → PR for repo `acme/web` on branch
 ### Pass criteria
 
 - [ ] The agent starts from `reference/examples/issue-to-reviewed-pr.yaml` and
-      changes only the name, label, base branch (`develop`) and skills; the
-      prompts are otherwise unchanged.
+      changes only the name, label, skills and the base branch, replacing
+      every `main`/`origin/main` in the prompts and description with
+      `develop`; the prompts are otherwise unchanged.
 - [ ] Rule 1: every `taskType: code-review` node has exactly one parameter,
       `type: pull-request`, `required: true`.
 - [ ] Rule 2: `name` is prefixed with the repository (for example
@@ -52,9 +53,12 @@ Ask a fresh agent: "Set up label → PR for repo `acme/web` on branch
 - [ ] Rule 3: the report says the workflow syncs about 20 s after the file
       reaches the default branch, with no manual sync step.
 - [ ] Rule 4: the PR lookup uses `closedByPullRequestsReferences`, not
-      `linkedBranches`, and the agent flags that it lists only PRs into the
-      default branch when `develop` is not the default branch.
+      `linkedBranches`, and the agent warns, before writing the file, that it
+      lists only PRs into the default branch when `develop` is not the default
+      branch.
 - [ ] Rule 5: read-only steps post no comments; every step that comments or
-      pushes checks ownership against `issue-url`/`repository` trigger inputs,
-      not PR-controlled data.
+      pushes starts its ownership check from the `issue-url`/`repository`
+      trigger inputs and never relies on a branch name or PR text alone;
+      blocked comments use `Workflow blocked: <reason-code>` and do not link
+      the PR.
 - [ ] The file passes the bundled schema and static DAG validator.
