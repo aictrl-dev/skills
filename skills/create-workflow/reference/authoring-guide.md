@@ -17,6 +17,11 @@ YAML and JSON; the schema validates the parsed object, so both are equivalent.
 Author the file as `.aictrl/workflows/<name>.yaml` in your connected repository —
 see SKILL.md for the apply loop.
 
+**How a file goes live:** aictrl syncs `.aictrl/workflows/` automatically about
+20 s after a push to the repository's default branch. There is no manual sync
+step; do not add one to your instructions. A file on any other branch has no
+effect.
+
 ## Top-level fields
 
 ```yaml
@@ -35,6 +40,12 @@ edges: [...]                        # optional; ordering (see Edges)
 qualityGates: [...]                 # optional; manual or auto checkpoints
 triggers: [...]                     # optional; up to 10 file-declared event triggers
 ```
+
+**Name the workflow for the organisation, not the repository.** `name` is
+unique per aictrl organisation. Two repositories that sync the same `name`
+conflict and one fails to sync. When the same workflow runs in several
+repositories, prefix the name with the repository
+(`web-implement-issue-from-ai-fix`, `api-implement-issue-from-ai-fix`).
 
 **No system fields** in the authored file: no `id` (org-level UUID), `version`,
 `status`, timestamps, `runCount`, or canvas `position`. These are populated by
@@ -108,6 +119,14 @@ quality gate; a later node can read the gate's approval receipt (see
   outputs:
     findings: json
 ```
+
+**`taskType: code-review` takes exactly one parameter: the pull request.**
+Declare it as `{ name: <any>, type: pull-request, required: true }` and map it
+to the PR URL. Add no other parameter (no `issue-url`, `repository` or
+findings). aictrl rejects any other shape at save/sync time; older releases
+accepted it and then failed the step at dispatch with `template_unavailable`.
+Do context checks that need the issue in a later `general` step. The bundled
+offline validator does not check this rule yet; check it by hand.
 
 Inline task nodes make the task configuration portable in the workflow file.
 Their `inputs` are checked against the in-file `parameters`; their declared
@@ -462,6 +481,9 @@ triggers:
 - `comment`, `pr-ready`, and `pr-opened` require `on: pull-request`. `label`
   takes `on: pull-request` (a label added to a pull request) or `on: issue` (a
   label added to an issue; map inputs from `$.issue.*` and `$.repository.*`).
+- A label trigger fires only for the repository whose `.aictrl/workflows/`
+  declares it. The same label in two repositories does not cross-fire; each
+  repository needs its own file (with its own `name`).
 - `pr-opened` fires for every newly opened PR, including drafts. `pr-ready` fires
   when a draft becomes ready or when a PR is opened non-draft.
 - For GitHub triggers, `inputs` maps workflow parameter names to JSONPath
@@ -479,6 +501,30 @@ triggers:
   write/admin permission fire a trigger; bot comments and comment edits are
   ignored for GitHub triggers. This is a platform guarantee, not something you
   configure in the file.
+
+## Issue → reviewed pull request workflows
+
+For "label an issue → get a reviewed PR", start from
+`reference/examples/issue-to-reviewed-pr.yaml`. It is the production workflow
+with its repository-specific values marked `ADAPT`. Change only the name,
+label, base branch and skills; do not rewrite the prompts. Its prompts already
+encode these rules:
+
+- **Find the issue's PR through `closedByPullRequestsReferences`.** GitHub lists
+  a branch made with `createLinkedBranch` in the issue's `linkedBranches` only
+  until its PR opens; after that it is gone. `closedByPullRequestsReferences`
+  (GraphQL) lists the PRs that close the issue, but only those whose base is the
+  repository's default branch. If the workflow targets another base branch,
+  the lookup finds nothing and a re-run opens a new PR; tell the user.
+- **Read-only steps stay read-only.** A review step reads the PR and records
+  findings; it does not post comments, push or edit anything.
+- **Check ownership in the steps that write.** Before a step comments, pushes or
+  changes the PR, it confirms the PR belongs to the triggering issue. Anchor the
+  check on trigger inputs (`issue-url`, `repository`), not on PR-controlled data
+  (branch name, PR title or body), which anyone who can push to the PR controls.
+- **The code-review step takes only the PR** (see the `task` node section).
+- **Write blocked runs back to the issue.** A writing step that must stop posts
+  one comment on the triggering issue saying why, then fails.
 
 ## Portable references
 
@@ -540,6 +586,15 @@ Before submitting a workflow file for apply:
 - [ ] Every `template` node has a `template` field (kebab name, no UUID)
 - [ ] Every `task` node has a version-pinned `skill` when resolvable, `taskType`,
       `prompt`, typed `parameters`, and declared `outputs` used downstream
+- [ ] Every `taskType: code-review` node has exactly one parameter:
+      `type: pull-request`, `required: true`
+- [ ] `name` is prefixed with the repository when the workflow runs in several
+      repositories
+- [ ] Read-only steps post no comments; writing steps check ownership against
+      trigger inputs, not PR-controlled data
+- [ ] An issue's PR is found through `closedByPullRequestsReferences`, not
+      `linkedBranches`
+- [ ] An Issue → PR workflow starts from `reference/examples/issue-to-reviewed-pr.yaml`
 - [ ] Every `loop` node has `maxIterations` and `body`; `until` and `while` are mutually exclusive
 - [ ] Every `user-input` node has `parameters`
 - [ ] CEL expressions are boolean; no string/number results

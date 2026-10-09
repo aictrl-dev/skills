@@ -9,6 +9,7 @@
 - Inspects existing workflow files before selecting names and conventions.
 - Defines typed parameters, outputs, mappings, edges, conditions, retries, bounded loops, triggers, and approvals as required by the requested outcome.
 - Version-pins skill/workflow references when a resolvable version is available.
+- Starts Issue → reviewed PR workflows from the bundled canonical example and adapts only its marked values.
 - Validates JSON Schema and static DAG constraints with the bundled offline validator.
 - Never overwrites, applies, starts, commits, or pushes without explicit authorization.
 
@@ -26,6 +27,7 @@ create-workflow/
       workflow.schema.json
     examples/
       inline-review-fix.yaml
+      issue-to-reviewed-pr.yaml
       pr-review-and-triage.yaml
       review-fix-loop.yaml
 ```
@@ -33,6 +35,12 @@ create-workflow/
 `reference/workflow.schema.json` is the public v2 authoring schema. The template
 and loop examples prove v2 compatibility with established node types; new
 portable workflows should prefer the inline-task example.
+`issue-to-reviewed-pr.yaml` is the canonical Issue → reviewed pull request
+workflow, adapted from this repository's
+`.aictrl/workflows/skills-implement-issue-from-ai-fix.yaml` with its
+repository-specific values marked `ADAPT`. It is maintained by hand, not
+copied by the sync procedure below; when that workflow's prompts change,
+update the example to match.
 
 ## Validation boundary
 
