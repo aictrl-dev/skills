@@ -42,6 +42,20 @@ const SELECT_FORM = `<!doctype html><main><form>
   <label for="assignee-input">Assignee</label><input type="text" id="assignee-input">
 </form></main>`;
 
+// A site search box named exactly "Search" sits ahead of a "Search filters" textbox: the exact name must win
+// the text (DOM order must not hand it to the textbox that merely contains the label), and the textbox must
+// still be reachable by its own label.
+const OVERLAP_FORM = `<!doctype html><main><header>
+  <input type="search" id="site-search" aria-label="Search">
+</header><form>
+  <label for="filters">Search filters</label><input type="text" id="filters">
+</form></main>`;
+
+// Some rich-text comboboxes edit plain text only; fill() reaches them like any other contenteditable.
+const PLAINTEXT_FORM = `<!doctype html><main><form>
+  <label for="tag">Tag</label><div id="tag" role="combobox" aria-expanded="false" contenteditable="plaintext-only"></div>
+</form></main>`;
+
 async function withPage(fn, html = FORM) {
   const page = await browser.newPage();
   try {
@@ -53,7 +67,8 @@ async function withPage(fn, html = FORM) {
 }
 
 async function typeIntoField(page, label, text) {
-  const named = namedFields(page, label);
+  const exact = namedFields(page, label, true);
+  const named = (await exact.count()) ? exact : namedFields(page, label);
   const n = await named.count();
   if (!n) return 0;
   await named.first().fill(text);
@@ -82,6 +97,19 @@ test('ux-testing: type --field still misses a label that is not on the page', { 
 test('ux-testing: type --field never matches a native select by label', { skip }, () => withPage(async (page) => {
   assert.equal(await namedFields(page, 'Status').count(), 0);
 }, SELECT_FORM));
+
+test('ux-testing: type --field fills the exactly-named field, not one whose label contains it', { skip }, () => withPage(async (page) => {
+  assert.equal(await typeIntoField(page, 'Search', 'hooks'), 1);
+  assert.equal(await page.locator('#site-search').inputValue(), 'hooks');
+  assert.equal(await page.locator('#filters').inputValue(), '');
+  assert.equal(await typeIntoField(page, 'Search filters', 'status:open'), 1);
+  assert.equal(await page.locator('#filters').inputValue(), 'status:open');
+}, OVERLAP_FORM));
+
+test('ux-testing: type --field reaches a plaintext-only contenteditable combobox', { skip }, () => withPage(async (page) => {
+  assert.equal(await typeIntoField(page, 'Tag', 'beta'), 1);
+  assert.equal((await page.locator('#tag').innerText()).trim(), 'beta');
+}, PLAINTEXT_FORM));
 
 test('ux-testing: type --field fills the text field when a same-labelled select comes first', { skip }, () => withPage(async (page) => {
   assert.equal(await typeIntoField(page, 'Assignee', 'Jordan'), 1);

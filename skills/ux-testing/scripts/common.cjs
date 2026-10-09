@@ -172,12 +172,15 @@ async function locate(page, target, idx) {
 // searchbox and an editable combobox (an autocomplete input) has role combobox, and both are typeable. A
 // non-editable <select> shares the combobox role but is the `select` action's job, never fill()'s, so the
 // combobox branch keeps only fill()'s own targets: a labelled <select> must neither be filled (fill() throws
-// on it) nor, with a duplicate label, shadow a typeable field ahead of it in DOM order.
-function namedFields(page, field) {
+// on it) nor, with a duplicate label, shadow a typeable field ahead of it in DOM order. Callers run this with
+// exact: true first, then substring — locate()'s ladder — so a field named exactly "<label>" wins over one
+// whose name merely contains it; substring names otherwise collide across roles and .or() picks DOM order.
+function namedFields(page, field, exact = false) {
+  const name = exact ? { name: field, exact: true } : { name: field };
   return page
-    .getByRole('textbox', { name: field })
-    .or(page.getByRole('searchbox', { name: field }))
-    .or(page.getByRole('combobox', { name: field }).and(page.locator('input, textarea, [contenteditable=""], [contenteditable="true"]')))
+    .getByRole('textbox', name)
+    .or(page.getByRole('searchbox', name))
+    .or(page.getByRole('combobox', name).and(page.locator('input, textarea, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]')))
     .filter({ visible: true });
 }
 

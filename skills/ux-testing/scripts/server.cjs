@@ -199,7 +199,11 @@ async function run(s, action, args) {
       if (words[words.length - 1] === '--enter') { enter = true; words.pop(); }
       if (!words.join(' ').trim()) return 'ERROR: type needs text, e.g. type Hello --enter or type --field "Title" New title';
       // Text-entry roles: textbox, searchbox (<input type="search">) and combobox (editable combo). See namedFields.
-      const named = field ? namedFields(page, field) : null;
+      // Exact accessible name first, substring only as a fallback (locate()'s ladder): a field named exactly
+      // "<label>" must win even when another field's name merely contains the label, so DOM order cannot
+      // retarget the text between roles that both substring-match.
+      const exactNamed = field ? namedFields(page, field, true) : null;
+      const named = !field ? null : ((await exactNamed.count()) ? exactNamed : namedFields(page, field));
       const n = named ? await named.count() : 0;
       if (field && !n) return `ERROR: nothing visible matches field "${field}". Take a snapshot and use a label you can see.`;
       // The chat box is a textarea; only fall back to single-line inputs (e.g. a search field) when there is none.
