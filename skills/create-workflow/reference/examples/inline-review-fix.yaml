@@ -35,7 +35,6 @@ nodes:
       maxSeverityRank: number
     inputs:
       pr-url: { from: input, name: pr-url }
-    retry: { maxRetries: 2, backoffMs: 2000 }
 
   # 2. A second inline task that only runs when the worst finding is above
   #    `medium` (rank 2). Consumes the first node's declared `findings` output.
