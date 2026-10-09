@@ -102,6 +102,7 @@
             "repository",
             "pull-request",
             "story",
+            "issue",
             "image",
             "github-issue"
           ]

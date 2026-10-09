@@ -32,13 +32,12 @@ Ask a fresh agent: "Set up label → PR for repo `acme/web` on branch
 ### Deterministic checks
 
 1. Run `node skills/create-workflow/validate.mjs` against the generated file;
-   it must exit 0.
-2. Every node with `taskType: code-review` has exactly one parameter, with
-   `type: pull-request` and `required: true`:
-
-   ```bash
-   node -e "const y=require('js-yaml'),f=require('fs');const d=y.load(f.readFileSync(process.argv[1],'utf8'));const w=n=>(n||[]).flatMap(x=>[x,...w(x.body&&x.body.nodes)]);const bad=w(d.nodes).filter(n=>n.taskType==='code-review'&&!(n.parameters?.length===1&&n.parameters[0].type==='pull-request'&&n.parameters[0].required===true));if(bad.length){console.error('bad code-review nodes:',bad.map(n=>n.id));process.exit(1)}" .aictrl/workflows/<name>.yaml
-   ```
+   it must exit 0. The bundled schema enforces rule 1, so this also proves every
+   `taskType: code-review` node has exactly one `pull-request` parameter with
+   `required: true`.
+2. Control: add a second parameter (for example `repository`) to the review
+   node of `reference/examples/issue-to-reviewed-pr.yaml`, or set its
+   parameter to `required: false`; `validate.mjs` must exit 1.
 
 ### Pass criteria
 

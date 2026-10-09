@@ -39,6 +39,11 @@
       ],
       "default": "fail-fast"
     },
+    "failureComment": {
+      "type": "boolean",
+      "default": true,
+      "description": "When a run started by a GitHub issue or pull request trigger (label, comment or PR trigger) fails, aictrl posts one comment on that issue or PR naming the failed step, a plain-language reason and a link to the run. Set to false to turn the comment off for this workflow. Has no effect on runs started manually, from the Studio or through the API."
+    },
     "defaults": {
       "type": "object",
       "additionalProperties": false,
@@ -89,6 +94,242 @@
   "$defs": {
     "parameter": {
       "$ref": "../v1/workflow.schema.json#/$defs/parameter"
+    },
+    "taskParameter": {
+      "type": "object",
+      "required": [
+        "name",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "text",
+            "number",
+            "boolean",
+            "url",
+            "select",
+            "multi-select",
+            "json",
+            "repository",
+            "pull-request",
+            "story",
+            "issue",
+            "image",
+            "github-issue"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "default": {},
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validation": {
+          "type": "object"
+        },
+        "githubIssueContext": {
+          "const": true,
+          "description": "Required authenticated issue context for a general task; supplied separately before the model runs."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "select",
+                  "multi-select"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "options"
+            ],
+            "properties": {
+              "options": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "not": {
+                  "enum": [
+                    "select",
+                    "multi-select"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "options"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "githubIssueContext"
+            ]
+          },
+          "then": {
+            "required": [
+              "required"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "string",
+                  "github-issue"
+                ]
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "taskOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "json"
+          ]
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "verify": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "issueParameter"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "github-issue-comment"
+                },
+                "issueParameter": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "issueParameter",
+                "labels"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "github-issue-labels"
+                },
+                "issueParameter": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "labels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50,
+                    "pattern": "^\\S(?:[\\s\\S]*\\S)?(?![\\s\\S])",
+                    "description": "Literal label name without surrounding whitespace; internal spaces are allowed."
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "verify"
+            ],
+            "properties": {
+              "verify": {
+                "properties": {
+                  "kind": {
+                    "const": "github-issue-comment"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "string"
+              },
+              "nullable": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
     },
     "node": {
       "type": "object",
@@ -156,18 +397,29 @@
         },
         "outputs": {
           "type": "object",
+          "maxProperties": 64,
           "propertyNames": {
-            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "not": {
+              "const": "__aictrlFailure"
+            }
           },
           "additionalProperties": {
-            "enum": [
-              "string",
-              "number",
-              "boolean",
-              "json"
+            "oneOf": [
+              {
+                "enum": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "json"
+                ]
+              },
+              {
+                "$ref": "#/$defs/taskOutput"
+              }
             ]
           },
-          "description": "task: declared output field name -> type. Declared outputs can be referenced by downstream `extract` and CEL conditions."
+          "description": "task: named outputs, declared as primitive type names or descriptors with type, optional nullability, descriptions and verified GitHub issue effects."
         },
         "inputs": {
           "type": "object",
@@ -259,12 +511,35 @@
         "parameters": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/parameter"
+            "$ref": "#/$defs/taskParameter"
           },
           "description": "user-input: form fields; task: the inline task's declared parameters (layer-2 validates the node's `inputs` against these, exactly as a template's parameter schema is used for `template` nodes)."
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "not": {
+                  "const": "task"
+                }
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "items": {
+                  "$ref": "#/$defs/parameter"
+                }
+              }
+            }
+          }
+        },
         {
           "if": {
             "properties": {
@@ -978,8 +1253,53 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "task"
+              },
+              "taskType": {
+                "const": "code-review"
+              }
+            },
+            "required": [
+              "type",
+              "taskType"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/codeReviewTaskParameters"
+          }
         }
       ]
+    },
+    "codeReviewTaskParameters": {
+      "description": "A `taskType: code-review` task node runs as a Code Review step, which takes exactly one parameter: a required `pull-request`. Pass any other context (issue, repository) through the prompt or a neighbouring step. Applies to loop-body task nodes too (they share `#/$defs/node`).",
+      "required": [
+        "parameters"
+      ],
+      "properties": {
+        "parameters": {
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "required": [
+              "type",
+              "required"
+            ],
+            "properties": {
+              "type": {
+                "const": "pull-request"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
     },
     "inputMapping": {
       "oneOf": [

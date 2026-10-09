@@ -50,9 +50,8 @@ This skill has two deliberately separate outcomes:
    - set `model` on a task/template node, or `defaults.model` for the workflow, only when the user asks for a specific model;
    - add manual quality gates before destructive, costly, security-sensitive, merge, or deploy actions; when a later step must prove what was approved, pass it the gate's approval receipt with `{ from: gate, afterWave }`;
    - give every `taskType: code-review` node exactly one parameter,
-     `{ type: pull-request, required: true }`, mapped to the PR. aictrl rejects
-     any other parameter at save/sync time, and the offline validator does not
-     check it yet;
+     `{ type: pull-request, required: true }`, mapped to the PR. aictrl and the
+     bundled validator reject any other parameter;
    - keep read-only steps (such as review) read-only: they must not post
      comments. Put ownership checks in the steps that write, and anchor them
      on trigger inputs (`issue-url`, `repository`), not on PR-controlled data

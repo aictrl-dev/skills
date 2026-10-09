@@ -32,6 +32,8 @@ description: What this workflow does # optional
 category: code-quality              # optional; UI grouping
 icon: code                          # optional; Lucide icon name
 failureStrategy: fail-fast          # optional; 'fail-fast' (default) | 'continue-on-error'
+failureComment: true                # optional; default true. On failure of a run started by a
+                                    # GitHub issue/PR trigger, aictrl comments on that issue/PR
 defaults:                           # optional (v2); workflow-level execution defaults
   model: anthropic/claude-sonnet-5  # optional; for task/template nodes without their own `model`
 parameters: [...]                   # optional; workflow-level inputs (see Parameter types)
@@ -123,10 +125,10 @@ quality gate; a later node can read the gate's approval receipt (see
 **`taskType: code-review` takes exactly one parameter: the pull request.**
 Declare it as `{ name: <any>, type: pull-request, required: true }` and map it
 to the PR URL. Add no other parameter (no `issue-url`, `repository` or
-findings). aictrl rejects any other shape at save/sync time; older releases
-accepted it and then failed the step at dispatch with `template_unavailable`.
-Do context checks that need the issue in a later `general` step. The bundled
-offline validator does not check this rule yet; check it by hand.
+findings). The schema enforces this, so `validate.mjs` and aictrl's save/sync
+both reject any other shape; older releases accepted it and then failed the
+step at dispatch with `template_unavailable`. Do context checks that need the
+issue in a later `general` step.
 
 Inline task nodes make the task configuration portable in the workflow file.
 Their `inputs` are checked against the in-file `parameters`; their declared
@@ -524,7 +526,9 @@ encode these rules:
   (branch name, PR title or body), which anyone who can push to the PR controls.
 - **The code-review step takes only the PR** (see the `task` node section).
 - **Write blocked runs back to the issue.** A writing step that must stop posts
-  one comment on the triggering issue saying why, then fails.
+  one comment on the triggering issue saying why, then fails. aictrl also
+  comments on the triggering issue or PR when a run fails (`failureComment`,
+  default `true`), which covers steps that crash or time out.
 
 ## Portable references
 
