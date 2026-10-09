@@ -34,10 +34,18 @@ const FORM = `<!doctype html><main><form>
   <label for="assignee">Assignee</label><input type="text" id="assignee" role="combobox" aria-expanded="false">
 </form></main>`;
 
-async function withPage(fn) {
+// A native <select> also has role combobox, but it is the `select` action's job, never fill()'s: a labelled one
+// must not capture `type --field`, and with a duplicate label must not shadow a typeable field behind it.
+const SELECT_FORM = `<!doctype html><main><form>
+  <label for="status">Status</label><select id="status"><option>Ready</option><option>Blocked</option></select>
+  <label for="assignee-select">Assignee</label><select id="assignee-select"><option>Unassigned</option></select>
+  <label for="assignee-input">Assignee</label><input type="text" id="assignee-input">
+</form></main>`;
+
+async function withPage(fn, html = FORM) {
   const page = await browser.newPage();
   try {
-    await page.setContent(FORM);
+    await page.setContent(html);
     await fn(page);
   } finally {
     await page.close();
@@ -70,3 +78,12 @@ test('ux-testing: type --field reaches an editable combobox by label', { skip },
 test('ux-testing: type --field still misses a label that is not on the page', { skip }, () => withPage(async (page) => {
   assert.equal(await namedFields(page, 'No such field').count(), 0);
 }));
+
+test('ux-testing: type --field never matches a native select by label', { skip }, () => withPage(async (page) => {
+  assert.equal(await namedFields(page, 'Status').count(), 0);
+}, SELECT_FORM));
+
+test('ux-testing: type --field fills the text field when a same-labelled select comes first', { skip }, () => withPage(async (page) => {
+  assert.equal(await typeIntoField(page, 'Assignee', 'Jordan'), 1);
+  assert.equal(await page.locator('#assignee-input').inputValue(), 'Jordan');
+}, SELECT_FORM));

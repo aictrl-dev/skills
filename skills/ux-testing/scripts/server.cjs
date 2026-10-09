@@ -236,9 +236,9 @@ async function run(s, action, args) {
 
 // Never persist typed text: it can contain credentials entered during sign-in.
 // Only actions whose arguments are never secret are logged verbatim; "type" keeps its --enter flag, and its
-// --field label only when the command succeeded (the label then matched a visible text box, so it is page text;
-// a failed "type --field hunter2" may be a secret typed where the label goes). Anything else (an unknown or
-// misspelled action, e.g. "type " or "Type") is fully redacted.
+// --field label only when the command succeeded (the label then matched a visible text-entry field: textbox,
+// searchbox or editable combobox, so it is page text; a failed "type --field hunter2" may be a secret typed
+// where the label goes). Anything else (an unknown or misspelled action, e.g. "type " or "Type") is fully redacted.
 const LOGGED_ARGS = new Set(['snapshot', 'click', 'select', 'press', 'wait', 'screenshot', 'open', 'close', 'errors', 'eval']);
 function redactArgs(action, args, ok) {
   if (!Array.isArray(args) || args.length === 0) return args;
