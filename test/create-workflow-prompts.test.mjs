@@ -49,12 +49,13 @@ const BINDING_PHRASES = [
 const READBACK_RULE =
   "If it returns none, list the branch's pull requests again with `gh pr list " +
   '--repo <repository> --head <your-branch> --base main --state all --json ' +
-  'url,state` and require exactly one result: if that pull request was ' +
-  'merged in the meantime, it is not a block, so use its URL; if it was ' +
-  'closed without merging, stop with reason-code pr-closed; if this list also ' +
-  'returns none or more than one, re-read the open list once after a short ' +
-  'pause, use its URL if it now returns exactly one, and otherwise stop with ' +
-  'reason-code step-failed.';
+  'url,state` and require exactly one result, reading its state: if it is ' +
+  'OPEN or MERGED, it is not a block, so use its URL; if it was closed ' +
+  'without merging, stop with reason-code pr-closed; if this list also ' +
+  'returns none or more than one, re-run `gh pr list --repo <repository> ' +
+  '--head <your-branch> --base main --state open --json url` once after a ' +
+  'short pause, use its URL if it now returns exactly one, and otherwise ' +
+  'stop with reason-code step-failed.';
 const REVIEW_RETRY_RULE =
   'First use the GitHub CLI to read the pull request; if the read errors, ' +
   'pause briefly and retry until you have attempted the read 3 times in ' +
