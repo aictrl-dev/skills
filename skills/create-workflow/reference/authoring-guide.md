@@ -534,9 +534,10 @@ these rules:
 - **Read-only steps stay read-only.** A review step reads the PR and records
   findings; it does not post comments, push or edit anything. It checks only
   what the PR URL supports (base branch, head repository equals base
-  repository, branch form) and leaves the issue match to the writing steps. On
-  a failed check it records no findings and finishes without failing, so the
-  run still reaches the notify step, which repeats the check and reports it.
+  repository, branch form) and leaves the issue match to the writing steps. It
+  retries a failed read of the PR a few times; on a failed check it records no
+  findings and finishes without failing, so the run still reaches the notify
+  step, which repeats the check and reports it.
 - **Check ownership in the steps that write.** Before a step comments, pushes or
   changes the PR, it confirms the PR belongs to the triggering issue. Start the
   check from trigger inputs: look up the issue from `issue-url` and confirm it
@@ -545,8 +546,9 @@ these rules:
   the base branch. A branch name or PR text (title, body) alone is never proof:
   anyone who can push to the PR controls it.
 - **Ownership is identity, not state.** A PR merged mid-run still belongs to
-  the issue: the fix step writes nothing and the notify step reports it as
-  merged. A PR closed without merging blocks.
+  the issue: the fix step writes nothing and the notify step runs the same full
+  ownership check, relaxing only "open" to "open or already merged", and
+  reports it as merged. A PR closed without merging blocks.
 - **The code-review step takes only the PR** (see the `task` node section).
 - **Write blocked runs back to the issue in a fixed form.** A writing step that
   must stop posts one comment on the triggering issue, `Workflow blocked:
