@@ -40,7 +40,9 @@ workflow, adapted from this repository's
 `.aictrl/workflows/skills-implement-issue-from-ai-fix.yaml` with its
 repository-specific values marked `ADAPT`. It is maintained by hand, not
 copied by the sync procedure below; when that workflow's prompts change,
-update the example to match.
+update the example to match. `npm test` fails if the example's prompts differ
+from the workflow's, or if a shared rule (PR form check, trigger check,
+blocked-comment rule) is not word for word in every node that carries it.
 
 ## Validation boundary
 

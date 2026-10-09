@@ -57,7 +57,9 @@ This skill has two deliberately separate outcomes:
      comments. Put ownership checks in the steps that write, and start them
      from trigger inputs (`issue-url`, `repository`); a branch name or PR body
      alone is never proof. A blocked step posts `Workflow blocked:
-     <reason-code>` and never links the PR or quotes issue, PR or branch text;
+     <reason-code>`, with no URL, PR link or quoted issue, PR or branch text;
+     repeat that rule word for word in every node that posts, because each
+     agent reads only its own prompt;
    - for `taskType: code-review`, declare `findings: json` only. aictrl adds
      `maxSeverityRank`, which is null for an empty review; gate later steps on
      the null-guarded `findings` (see the guide's `task` node section);

@@ -533,8 +533,10 @@ these rules:
   below block; tell the user.
 - **Read-only steps stay read-only.** A review step reads the PR and records
   findings; it does not post comments, push or edit anything. It checks only
-  what the PR URL supports (base branch, same-repository head, branch form) and
-  leaves the issue match to the writing steps.
+  what the PR URL supports (base branch, head repository equals base
+  repository, branch form) and leaves the issue match to the writing steps. On
+  a failed check it records no findings and finishes without failing, so the
+  run still reaches the notify step, which repeats the check and reports it.
 - **Check ownership in the steps that write.** Before a step comments, pushes or
   changes the PR, it confirms the PR belongs to the triggering issue. Start the
   check from trigger inputs: look up the issue from `issue-url` and confirm it
@@ -548,13 +550,20 @@ these rules:
 - **The code-review step takes only the PR** (see the `task` node section).
 - **Write blocked runs back to the issue in a fixed form.** A writing step that
   must stop posts one comment on the triggering issue, `Workflow blocked:
-  <reason-code>`, then fails. The comment never links the PR, contains the PR
-  URL or quotes issue, PR or branch text. aictrl also comments on the
+  <reason-code>`, with one reason-code vocabulary shared by every node, then
+  fails. The comment contains no URL and never links the PR or quotes issue,
+  PR or branch text. Agents read only their own node's prompt, so repeat the
+  rule word for word in each node that posts rather than referring to a
+  comment or another node. aictrl also comments on the
   triggering issue or PR when a run fails (`failureComment`, default `true`),
   which covers steps that crash or time out.
-- **Make the success comment idempotent.** The notify step ends its comment
-  with a fixed marker line and posts nothing if a comment with that marker
-  already exists, so a re-run does not duplicate it.
+- **Keep the success comment short and idempotent.** The notify step writes
+  its summary in its own words, quotes no issue, PR or branch text, contains no
+  URL other than the verified PR URL, and ends with a fixed marker line; it
+  posts nothing if a comment with that marker already exists.
+- **Read the PR URL back, never compose it.** The implement step lists open PRs
+  for its branch and base (`gh pr list --head <branch> --base <base> --state
+  open --json url`) and requires exactly one result.
 
 ## Portable references
 
