@@ -18,7 +18,6 @@ nodes:
     templateVersion: "1.4.0"                    # pinned for reproducibility
     inputs:
       pr-url: { from: input, name: pr-url }     # workflow input -> template param
-    retry: { maxRetries: 2, backoffMs: 2000 }
 
   # 2. Summarise the review findings into a human-readable digest.
   - id: summarize

@@ -1,10 +1,38 @@
+# Canonical Issue -> reviewed pull request workflow.
+#
+# Adding a label to an issue implements it on a linked branch, opens one pull
+# request, runs up to two review/fix rounds and reports the PR on the issue.
+# This file is the version that runs in production for aictrl's own skills
+# repository, with the repository-specific values marked `ADAPT`.
+#
+# Start from this file; do not rewrite the prompts. Change only:
+#   1. ADAPT name     - prefix with your repository; names are unique per
+#                       aictrl organisation.
+#   2. ADAPT label    - the trigger label (here `ai-fix`). The prompts also use
+#                       it as the branch prefix `ai-fix/<issue-number>-<slug>`
+#                       and in the notify marker; replace every `ai-fix` if you
+#                       rename it.
+#   3. ADAPT base     - the base branch (here `main`). Replace every `main` and
+#                       `origin/main` in the prompts and the description; that
+#                       substitution is the only prompt edit. Keep the default
+#                       branch: GitHub lists only PRs into the default branch in
+#                       `closedByPullRequestsReferences`, so with another base
+#                       the PR lookup and the ownership checks find nothing, a
+#                       re-run opens a new PR and the writing steps block. Tell
+#                       the user before targeting a non-default branch.
+#   4. ADAPT skills   - the `skill:` refs. These are default skills every aictrl
+#                       organisation has; pin `name@version` when your
+#                       organisation resolves one.
+# Keep the review step's single `pull-request` parameter, the read-only review
+# prompt and the ownership checks in the writing steps unchanged.
 schemaVersion: aictrl/workflow/v2
-name: skills-implement-issue-from-ai-fix
-label: Implement skills issue from ai-fix
+name: my-repo-implement-issue-from-ai-fix   # ADAPT name: <repo>-implement-issue-from-<label>
+label: Implement issue from ai-fix          # ADAPT label
 description: >-
-  When the ai-fix label is added to an issue in aictrl-dev/skills, implement the requested
-  change from main on a feature branch, open a pull request back to main,
-  run up to two review/fix rounds, and report the resulting PR on the issue.
+  When the ai-fix label is added to an issue in this repository, implement the
+  requested change from main on a feature branch, open a pull request back to
+  main, run up to two review/fix rounds, and report the resulting PR on the
+  issue.
 category: development
 icon: git-pull-request-arrow
 failureStrategy: fail-fast
@@ -12,7 +40,7 @@ failureStrategy: fail-fast
 triggers:
   - type: label
     on: issue
-    label: ai-fix
+    label: ai-fix                     # ADAPT label (exact, case-sensitive)
     inputs:
       issue-url: $.issue.html_url
       repository: $.repository.full_name
@@ -52,7 +80,7 @@ nodes:
   - id: implement-issue
     type: task
     label: Implement issue and open PR
-    skill: implement-code-change
+    skill: implement-code-change      # ADAPT skills
     taskType: general
     timeoutMinutes: 60
     prompt: >-
@@ -142,7 +170,7 @@ nodes:
         - id: review
           type: task
           label: Review current PR head
-          skill: code-review
+          skill: code-review            # ADAPT skills
           taskType: code-review
           timeoutMinutes: 60
           prompt: >-
@@ -203,7 +231,7 @@ nodes:
         - id: triage-fix
           type: task
           label: Reply to review and fix
-          skill: reply-to-code-review
+          skill: reply-to-code-review   # ADAPT skills
           taskType: general
           timeoutMinutes: 60
           when: "has(review.output.findings) && review.output.findings != null && size(review.output.findings) > 0"
@@ -270,7 +298,7 @@ nodes:
   - id: notify-issue
     type: task
     label: Report PR on issue
-    skill: implement-code-change
+    skill: implement-code-change      # ADAPT skills
     taskType: general
     timeoutMinutes: 15
     prompt: >-

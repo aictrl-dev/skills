@@ -9,6 +9,7 @@
 - Inspects existing workflow files before selecting names and conventions.
 - Defines typed parameters, outputs, mappings, edges, conditions, retries, bounded loops, triggers, and approvals as required by the requested outcome.
 - Version-pins skill/workflow references when a resolvable version is available.
+- Starts Issue → reviewed PR workflows from the bundled canonical example and adapts only its marked values.
 - Validates JSON Schema and static DAG constraints with the bundled offline validator.
 - Never overwrites, applies, starts, commits, or pushes without explicit authorization.
 
@@ -26,6 +27,7 @@ create-workflow/
       workflow.schema.json
     examples/
       inline-review-fix.yaml
+      issue-to-reviewed-pr.yaml
       pr-review-and-triage.yaml
       review-fix-loop.yaml
 ```
@@ -33,6 +35,14 @@ create-workflow/
 `reference/workflow.schema.json` is the public v2 authoring schema. The template
 and loop examples prove v2 compatibility with established node types; new
 portable workflows should prefer the inline-task example.
+`issue-to-reviewed-pr.yaml` is the canonical Issue → reviewed pull request
+workflow, adapted from this repository's
+`.aictrl/workflows/skills-implement-issue-from-ai-fix.yaml` with its
+repository-specific values marked `ADAPT`. It is maintained by hand, not
+copied by the sync procedure below; when that workflow's prompts change,
+update the example to match. `npm test` fails if the example's prompts differ
+from the workflow's, or if a shared rule (PR form check, trigger check,
+blocked-comment rule) is not word for word in every node that carries it.
 
 ## Validation boundary
 
@@ -53,5 +63,10 @@ When the public workflow schema changes:
 
 | Bundle | Source | Source commit | Released | Normalized SHA-256 |
 |---|---|---|---|---|
-| `reference/workflow.schema.json` | `aictrl-dev/aictrl/schemas/workflow/v2/workflow.schema.json` | `9030c3397d5e36338707617e9e96bde7e0f2ab67` | 2026-09-27 | `36ececff2123ee3dec44e2d167d7e67d36b0cf07396c7169ec985aa4684aefda` |
-| `reference/v1/workflow.schema.json` | `aictrl-dev/aictrl/schemas/workflow/v1/workflow.schema.json` | `9030c3397d5e36338707617e9e96bde7e0f2ab67` | 2026-09-27 | `202df36dd25d4cd8a6258da62696969266c19ca7c95fe14398c78b3b214ec2d7` |
+| `reference/workflow.schema.json` | `aictrl-dev/aictrl/schemas/workflow/v2/workflow.schema.json` | `44c8c44de4a528c849472d6c3e1d9a5692f1927b` | 2026-10-09 | `22ae2803fe66a8f2a418af2a6cd58f9c1030fd08141498009d82c9df3a1ba120` |
+| `reference/v1/workflow.schema.json` | `aictrl-dev/aictrl/schemas/workflow/v1/workflow.schema.json` | `44c8c44de4a528c849472d6c3e1d9a5692f1927b` | 2026-10-09 | `3220fe19844591ea6c02ca5499ba2587b79cb7cfec0936613a8e9e8fdfcad3cc` |
+
+The source commit is the head of the aictrl release that ships the
+code-review parameter rule and `failureComment`. Hashes use the platform's
+normalization: every `description` annotation stripped (property names called
+`description` kept) and object keys sorted, array order preserved.
