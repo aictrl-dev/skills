@@ -454,7 +454,7 @@ Method: copied the v1 and v2 schemas from source commit
 `51105d1b8e48e759505dce8886567417e7ac2c61`, kept the existing sanitized
 descriptions and `$id`s, and sanitized the new and changed descriptions. Then ran
 the bundled `validate.mjs` with AJV 8.20.0 (Draft 2020-12), `ajv-formats` 3.0.1
-and `js-yaml` 4 from a clean scratch installation, against the three examples
+and `js-yaml` 5.4.3 from a clean scratch installation, against the three examples
 and eight controls built from `inline-review-fix.yaml`. Each control also ran
 against the previous bundle.
 
