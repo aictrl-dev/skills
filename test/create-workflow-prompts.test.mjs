@@ -54,9 +54,9 @@ const READBACK_RULE =
   're-run `gh pr list --repo <repository> --head <your-branch> --base ' +
   'main --state open --json url` once after a short pause and use its ' +
   'URL if it now returns exactly one, and otherwise stop with ' +
-  'reason-code pr-closed if none remained and the `--state all` list ' +
-  'contained a CLOSED pull request, and with reason-code step-failed in ' +
-  'every other case.';
+  'reason-code pr-closed if the `--state all` list was non-empty and ' +
+  'none of its results were OPEN or MERGED, and with reason-code ' +
+  'step-failed in every other case.';
 const REVIEW_RETRY_RULE =
   'First use the GitHub CLI to read the pull request; if the read errors, ' +
   'pause briefly and retry until you have attempted the read 3 times in ' +
@@ -137,8 +137,9 @@ for (const file of [CANONICAL, EXAMPLE]) {
     assert.equal(count(prompts['notify-issue'], UNTRUSTED_RULE_NOTIFY), 1, 'notify-issue: untrusted-data rule');
     // A PR merged before the read-back is not a block. Exactly one OPEN or
     // MERGED fallback result is used; anything else re-reads the open list
-    // once, then stops with pr-closed (none remained and a CLOSED PR was
-    // listed) or step-failed (every other case).
+    // once (using its URL if it now returns exactly one), then stops with
+    // pr-closed (the --state all list was non-empty and none of its results
+    // were OPEN or MERGED) or step-failed (every other case).
     assert.equal(count(prompts['implement-issue'], READBACK_RULE), 1, 'implement-issue: PR read-back rule');
     assert.equal(count(prompts.review, REVIEW_RETRY_RULE), 1, 'review: retry budget');
     assert.match(prompts.review, /or the read still errors after those 3 attempts, record no findings/);

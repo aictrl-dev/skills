@@ -603,8 +603,14 @@ these rules:
   branch are history, not blockers: exactly one left is not a block and its
   URL is used. Otherwise it re-runs the open-list command once after a short
   pause and uses its URL if that now returns exactly one; failing that it
-  stops with `pr-closed` if none were left and a `CLOSED` PR was listed, and
-  with `step-failed` in every other case.
+  stops with `pr-closed` if the `--state all` list was non-empty and none of
+  its results were `OPEN` or `MERGED`, and with `step-failed` in every other
+  case. Known residual: `gh pr list --head` matches by branch name, so a
+  lone `MERGED` PR left on a reused head branch could be taken for this
+  round's PR if both lists also miss the new one. The workflow only reuses a
+  branch that has an open trusted PR and otherwise creates a new branch, so
+  this needs an outside actor plus a listing delay; a time-based guard would
+  make the prompt fragile, so the residual is accepted.
 
 ## Portable references
 
