@@ -32,7 +32,7 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
-const { loadPlaywright, tokenFile, resolveTarget: resolve } = require('./common.cjs');
+const { loadPlaywright, tokenFile, resolveTarget: resolve, namedFields } = require('./common.cjs');
 
 const { chromium } = loadPlaywright();
 const PORT = Number(process.env.UX_PORT || 3917);
@@ -198,7 +198,12 @@ async function run(s, action, args) {
       }
       if (words[words.length - 1] === '--enter') { enter = true; words.pop(); }
       if (!words.join(' ').trim()) return 'ERROR: type needs text, e.g. type Hello --enter or type --field "Title" New title';
-      const named = field ? page.getByRole('textbox', { name: field }).filter({ visible: true }) : null;
+      // Text-entry roles: textbox, searchbox (<input type="search">) and combobox (editable combo). See namedFields.
+      // Exact accessible name first, substring only as a fallback (locate()'s ladder): a field named exactly
+      // "<label>" must win even when another field's name merely contains the label, so DOM order cannot
+      // retarget the text between roles that both substring-match.
+      const exactNamed = field ? namedFields(page, field, true) : null;
+      const named = !field ? null : ((await exactNamed.count()) ? exactNamed : namedFields(page, field));
       const n = named ? await named.count() : 0;
       if (field && !n) return `ERROR: nothing visible matches field "${field}". Take a snapshot and use a label you can see.`;
       // The chat box is a textarea; only fall back to single-line inputs (e.g. a search field) when there is none.
@@ -235,9 +240,9 @@ async function run(s, action, args) {
 
 // Never persist typed text: it can contain credentials entered during sign-in.
 // Only actions whose arguments are never secret are logged verbatim; "type" keeps its --enter flag, and its
-// --field label only when the command succeeded (the label then matched a visible text box, so it is page text;
-// a failed "type --field hunter2" may be a secret typed where the label goes). Anything else (an unknown or
-// misspelled action, e.g. "type " or "Type") is fully redacted.
+// --field label only when the command succeeded (the label then matched a visible text-entry field: textbox,
+// searchbox or editable combobox, so it is page text; a failed "type --field hunter2" may be a secret typed
+// where the label goes). Anything else (an unknown or misspelled action, e.g. "type " or "Type") is fully redacted.
 const LOGGED_ARGS = new Set(['snapshot', 'click', 'select', 'press', 'wait', 'screenshot', 'open', 'close', 'errors', 'eval']);
 function redactArgs(action, args, ok) {
   if (!Array.isArray(args) || args.length === 0) return args;
