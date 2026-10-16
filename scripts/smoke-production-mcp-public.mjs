@@ -359,7 +359,7 @@ function schemaShape(value) {
   if (Array.isArray(value)) return value.map(schemaShape);
   if (!value || typeof value !== 'object') return value;
   return Object.fromEntries(Object.entries(value)
-    .filter(([key]) => key !== 'description')
+    .filter(([key, child]) => !(key === 'description' && typeof child === 'string'))
     .map(([key, child]) => [key, schemaShape(child)]));
 }
 

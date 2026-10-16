@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { EXPECTED_SKILLS, ROOT, readJson } from '../scripts/public-catalog.mjs';
+import { EXPECTED_PUBLIC_MCP_TOOLS, EXPECTED_SKILLS, ROOT, readJson } from '../scripts/public-catalog.mjs';
 
 const submission = (path) => readFileSync(join(ROOT, 'submission', path), 'utf8');
 
@@ -65,6 +65,8 @@ test('Codex submission requires the exact public MCP catalog', () => {
   assert.ok(toolBlock, 'missing production tool allow-list');
   const tools = [...toolBlock.matchAll(/^\d+\. `([^`]+)`$/gm)]
     .map(([, tool]) => tool);
+  assert.deepEqual([...tools].sort(), [...EXPECTED_PUBLIC_MCP_TOOLS].sort(),
+    'Codex listing differs from the canonical public MCP catalog.');
 
   assert.deepEqual(tools, [
     'list_organizations',

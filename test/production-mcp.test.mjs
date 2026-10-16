@@ -175,7 +175,7 @@ function catalog() {
 }
 
 function definition(name, annotations, properties, required) {
-  return {
+  return structuredClone({
     name,
     description: `${name} description`,
     annotations,
@@ -185,7 +185,7 @@ function definition(name, annotations, properties, required) {
       required,
       additionalProperties: false,
     },
-  };
+  });
 }
 
 function rpcResult(id, result, eventStream = false) {
@@ -236,22 +236,32 @@ const schemaMutations = [
   ['list_pr_findings', (s) => { s.required.shift(); }],
   ['list_pr_findings', (s) => { s.properties.repository.properties.platform.enum = ['github']; }],
   ['record_finding_verdict', (s) => { delete s.additionalProperties; }],
-  ['record_finding_verdict', (s) => { s.properties.organization_id.type = 'number'; }],
-  ['record_finding_verdict', (s) => { s.properties.organization_id.description = ''; }],
+  ['record_finding_verdict', (s) => { s.properties.organization_id.type = 'number'; }, /record_finding_verdict\.organization_id/],
+  ['record_finding_verdict', (s) => { s.properties.organization_id.description = ''; }, /record_finding_verdict\.organization_id/],
+  ['record_finding_verdict', (s) => { s.properties.organization_id.minLength = 1; }, /record_finding_verdict\.organization_id/],
   ['record_finding_verdict', (s) => { s.properties.verdict.enum.push('MAYBE'); }],
   ['record_finding_verdict', (s) => { s.properties.reasoning.required.pop(); }],
   ['record_finding_verdict', (s) => { s.properties.evidence.items.additionalProperties = true; }],
   ['start_workflow', (s) => { s.properties.repository_id.type = 'number'; }],
   ['approve_workflow_step', (s) => { s.properties.expected_digest.pattern = '.*'; }],
   ['approve_workflow_step', (s) => { s.properties.expected_gate.additionalProperties = true; }],
-  ['get_workflow', (s) => { delete s.properties.organization_id.minLength; }],
+  ['get_workflow', (s) => { delete s.properties.organization_id.minLength; }, /get_workflow\.organization_id/],
   ['get_workflow', (s) => { delete s.additionalProperties; }],
 ];
-for (const [index, [name, mutate]] of schemaMutations.entries()) {
+for (const [index, [name, mutate, message]] of schemaMutations.entries()) {
   test(`rejects schema drift ${index + 1} in ${name}`, () => {
     const tools = catalog();
     mutate(tools.find((tool) => tool.name === name).inputSchema);
-    assert.throws(() => assertProductionCatalog(tools));
+    assert.throws(() => assertProductionCatalog(tools), message);
+  });
+}
+
+for (const description of [{ type: 'string' }, false]) {
+  test(`rejects a nested input property named description: ${JSON.stringify(description)}`, () => {
+    const tools = catalog();
+    tools.find((tool) => tool.name === 'record_finding_verdict')
+      .inputSchema.properties.reasoning.properties.description = description;
+    assert.throws(() => assertProductionCatalog(tools), /record_finding_verdict schema drifted/);
   });
 }
 
