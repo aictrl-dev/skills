@@ -760,3 +760,32 @@ agent-reported commands add evidence, without an enforced tool allowlist. The
 benign sample's initial output was captured by a documented deterministic replay.
 The samples do not establish general prompt-injection resistance, and no new
 agent runs are claimed by either review-remediation round.
+
+## recording-product-demo private sessions — 2026-10-16
+
+Method: browser stub and synthetic cookies under umask 000, stacked on the trusted
+dependency change (#66). No real credentials, sessions or interactive login used.
+
+| Criterion | Result |
+|-----------|--------|
+| Original session regression baseline | RED: 7 failed, 1 passed |
+| Private session regression tests | PASS: 8/8 |
+| Combined dependency and session regression tests after rebase | PASS: 28/28 |
+| Standard `npm test` after rebase | PASS: 69 passed, 0 failed, 47 optional browser skips |
+| `npm run validate`, recording-script syntax, checksum comparison, diff whitespace | PASS |
+
+The tests observe directory modes before browser launch and file mode at the
+initial write, atomic replacement, unsafe path rejection, shared ancestor
+preservation, and cleanup/browser closure on persistence failure. POSIX mode
+assertions do not establish Windows ACL guarantees; Windows capture is rejected.
+
+### Private-session review follow-up — 2026-10-16
+
+Added 14 regression cases for ancestor ownership and sticky/write permissions,
+owner-restrictive umasks, pre-existing state modes, closed-window versus unexpected
+errors, and simultaneous primary/cleanup failures. Before the follow-up changes,
+the session suite was RED: 13 failed, 9 passed. Afterward all 22 session and 20
+trusted-dependency regressions passed (42/42). Standard `npm test`: 83 passed,
+0 failed, 47 optional browser skips (130 total). Skill validation, generated
+checksums, all recording-script syntax checks, and diff whitespace checks passed.
+All session data remained synthetic; browser and cleanup failures were stubbed.

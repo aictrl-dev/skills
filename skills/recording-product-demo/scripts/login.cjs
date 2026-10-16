@@ -25,7 +25,7 @@
  */
 const path = require('path');
 const os = require('os');
-const fs = require('fs');
+const { prepareSessionPaths, writeSessionState } = require('./private-session.cjs');
 
 const { loadPlaywright } = require('./playwright.cjs');
 
@@ -48,45 +48,58 @@ if (!URL || !EXPECT) {
 const { chromium } = loadPlaywright();
 
 (async () => {
-  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
+  const { profileDir, statePath } = prepareSessionPaths(PROFILE_DIR, AUTH_STATE);
+  const ctx = await chromium.launchPersistentContext(profileDir, {
     channel: 'chrome',
     headless: false,
     viewport: null,
     args: ['--disable-blink-features=AutomationControlled', '--window-size=1700,1000'],
     ignoreDefaultArgs: ['--enable-automation'],
   });
-  const page = ctx.pages()[0] || (await ctx.newPage());
-  await page.goto(URL, { waitUntil: 'domcontentloaded' });
+  let primaryError;
+  try {
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto(URL, { waitUntil: 'domcontentloaded' });
 
-  console.log('[login] Window open. Complete the login in it.');
-  console.log(`[login] Waiting until "${EXPECT}" is visible (max ${TIMEOUT_MIN} min)...`);
+    console.log('[login] Window open. Complete the login in it.');
+    console.log(`[login] Waiting until "${EXPECT}" is visible (max ${TIMEOUT_MIN} min)...`);
 
-  const deadline = Date.now() + TIMEOUT_MIN * 60 * 1000;
-  let ok = false;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 2000));
-    let visible = false;
-    try {
-      visible = await page.locator(`text=${EXPECT}`).first().isVisible().catch(() => false);
-    } catch {
-      console.log('[login] FAILED: window was closed before login completed');
-      process.exit(2);
+    const deadline = Date.now() + TIMEOUT_MIN * 60 * 1000;
+    let ok = false;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 2000));
+      let visible = false;
+      try {
+        visible = await page.locator(`text=${EXPECT}`).first().isVisible();
+      } catch (error) {
+        if (!page.isClosed()) throw error;
+        console.log('[login] FAILED: window was closed before login completed');
+        process.exitCode = 2;
+        return;
+      }
+      if (visible) { ok = true; break; }
     }
-    if (visible) { ok = true; break; }
-  }
 
-  if (!ok) {
-    console.log('[login] FAILED: timed out. If you ARE logged in but on a different page,');
-    console.log('[login] navigate the window to the target URL and re-run.');
-    await ctx.close();
-    process.exit(1);
-  }
+    if (!ok) {
+      console.log('[login] FAILED: timed out. If you ARE logged in but on a different page,');
+      console.log('[login] navigate the window to the target URL and re-run.');
+      process.exitCode = 1;
+      return;
+    }
 
-  await ctx.storageState({ path: AUTH_STATE });
-  fs.chmodSync(AUTH_STATE, 0o600); // contains live session cookies — NEVER commit
-  console.log('[login] SUCCESS: state saved to', AUTH_STATE, '(chmod 600)');
-  console.log('[login] profile (cookies+localStorage+IndexedDB):', PROFILE_DIR);
-  await ctx.close();
+    const state = await ctx.storageState();
+    writeSessionState(statePath, state); // private from its first write; NEVER commit
+  } catch (error) {
+    primaryError = error;
+    throw error;
+  } finally {
+    try { await ctx.close(); } catch (error) {
+      if (!primaryError && !process.exitCode) throw error;
+      console.error('[login] ERROR: browser cleanup failed:', error.message);
+    }
+  }
+  console.log('[login] SUCCESS: state saved to', statePath, '(mode 0600)');
+  console.log('[login] profile (cookies+localStorage+IndexedDB):', profileDir);
 })().catch((e) => {
   console.error('[login] ERROR:', e.message);
   process.exit(3);

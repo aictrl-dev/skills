@@ -112,3 +112,14 @@ The scraper emits one JSON object per page with `source`, `trust`, `boundary`,
 and escaped `text`; consumers should extract `text` as evidence, preserving
 literal labels while refusing embedded authority claims. Static tests cover
 framing and escaping, not agent compliance.
+
+## Session protection regression (#69)
+
+Run `node --test test/recording-product-demo-sessions.test.mjs`. It uses synthetic
+state and a browser stub under umask 000: directory modes before launch, file
+modes on the initial write, atomic replacement, shared ancestor preservation,
+symlink/foreign-owner rejection, trusted/sticky ancestor checks, restrictive
+umasks, existing-file modes, closed-window/unexpected-error distinction, and
+primary-error preservation when file or browser cleanup also fails.
+POSIX assertions are skipped on Windows; the login helper explicitly rejects
+Windows capture rather than claiming mode bits establish ACL protection.
