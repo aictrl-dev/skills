@@ -2,11 +2,18 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import test from 'node:test';
-import { ROOT, readJson } from '../scripts/public-catalog.mjs';
+import { ROOT, distTagForVersion, readJson } from '../scripts/public-catalog.mjs';
 import { inspectReleasePublication } from '../scripts/verify-release-publication.mjs';
 
 const metadata = readJson('package.json');
-const expectedDistTag = metadata.version.includes('-') ? 'beta' : 'latest';
+const expectedDistTag = distTagForVersion(metadata.version);
+
+test('pre-releases publish on beta and everything else on latest', () => {
+  assert.equal(distTagForVersion('1.2.0'), 'latest');
+  assert.equal(distTagForVersion('1.2.0-beta.1'), 'beta');
+  assert.equal(distTagForVersion('1.2.0+build-1'), 'latest');
+  assert.equal(distTagForVersion('1.2.0-rc.1+build-1'), 'beta');
+});
 
 test('release tag must exactly match the shared package version', () => {
   const valid = spawnSync(process.execPath, [

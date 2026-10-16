@@ -6,6 +6,7 @@ import {
   EXPECTED_SKILLS,
   PUBLIC_MCP_URL,
   ROOT,
+  distTagForVersion,
   listSkillNames,
   readJson,
 } from './public-catalog.mjs';
@@ -66,7 +67,7 @@ for (const included of ['.mcp.json', 'skills', 'opencode/bin', 'README.md', 'LIC
   check(pkg.files?.includes(included), `OpenCode package must include ${included}`);
 }
 check(pkg.publishConfig?.access === 'public', 'OpenCode package must publish publicly');
-const expectedDistTag = pkg.version.includes('-') ? 'beta' : 'latest';
+const expectedDistTag = distTagForVersion(pkg.version);
 check(pkg.publishConfig?.tag === expectedDistTag,
   `Version ${pkg.version} must publish on the ${expectedDistTag} tag`);
 
