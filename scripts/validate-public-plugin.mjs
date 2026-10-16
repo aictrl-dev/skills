@@ -6,6 +6,7 @@ import {
   EXPECTED_SKILLS,
   PUBLIC_MCP_URL,
   ROOT,
+  distTagForVersion,
   listSkillNames,
   readJson,
 } from './public-catalog.mjs';
@@ -66,7 +67,9 @@ for (const included of ['.mcp.json', 'skills', 'opencode/bin', 'README.md', 'LIC
   check(pkg.files?.includes(included), `OpenCode package must include ${included}`);
 }
 check(pkg.publishConfig?.access === 'public', 'OpenCode package must publish publicly');
-check(pkg.publishConfig?.tag === 'beta', 'Pre-release package must publish on the beta tag');
+const expectedDistTag = distTagForVersion(pkg.version);
+check(pkg.publishConfig?.tag === expectedDistTag,
+  `Version ${pkg.version} must publish on the ${expectedDistTag} tag`);
 
 for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills']) {
   check(!existsSync(join(ROOT, duplicate)), `Generated skill mirror is forbidden: ${duplicate}`);
