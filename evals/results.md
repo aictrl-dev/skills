@@ -660,9 +660,10 @@ Verdict: PASS. Pending (human): interactive run through the installed plugin in 
   evidence, and existing-authorization cases in `untrusted-evidence.eval.md`.
 - Agent behavior cases: **NOT EXECUTED**. These are runnable evaluation fixtures
   and criteria, not evidence that a model resists prompt injection.
-- Deterministic scraper regression: **PASS**, 3/3 cases after 3/3 baseline
-  failures. It exercises the shipped CLI using a trusted fake browser without
+- Deterministic scraper regression: **PASS**, 4/4 cases after 3/3 baseline
+  failures and a follow-up failing navigation-error case. Error stderr now uses
+  the same terminal-safe serializer as stdout. It exercises the shipped CLI using a trusted fake browser without
   network/session access.
-- Repository checks: `npm test` **PASS** (44 passed, 0 failed, 47 optional
+- Repository checks: `npm test` **PASS** (45 passed, 0 failed, 47 optional
   browser skips); `npm run validate` **PASS** (17 skills); generated checksum
   manifest matches. Fresh-agent behavior remains unverified.

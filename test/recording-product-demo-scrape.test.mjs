@@ -9,13 +9,13 @@ const scraper = resolve('skills/recording-product-demo/scripts/scrape-text.cjs')
 
 // Execute the shipped scraper with a trusted fake browser. No dependency from a
 // target repository, browser binary, network request, or saved session is used.
-function scrape(texts, urls, extraArgs = []) {
+function scrape(texts, urls, extraArgs = [], { gotoError = null, expectedStatus = 0 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'demo-scrape-'));
   try {
     const fake = join(dir, 'fake-playwright.cjs');
     const preload = join(dir, 'preload.cjs');
     writeFileSync(fake, `let index = 0;
-      const page = { goto: async () => {}, waitForTimeout: async () => {},
+      const page = { goto: async () => { if (${JSON.stringify(gotoError)}) throw new Error(${JSON.stringify(gotoError)}); }, waitForTimeout: async () => {},
         evaluate: async () => ${JSON.stringify(texts)}[index++] };
       const ctx = { pages: () => [page], close: async () => {} };
       exports.chromium = { launch: async () => ({ newContext: async () => ctx, close: async () => {} }) };
@@ -30,8 +30,8 @@ function scrape(texts, urls, extraArgs = []) {
     const result = spawnSync(process.execPath, ['--require', preload, scraper, ...urls, ...extraArgs], {
       cwd: dir, encoding: 'utf8', env: { ...process.env, NODE_OPTIONS: '' }, timeout: 10000,
     });
-    assert.equal(result.status, 0, result.stderr || result.error?.message);
-    return { stdout: result.stdout, records: result.stdout.trim().split('\n').map(line => JSON.parse(line)) };
+    assert.equal(result.status, expectedStatus, result.stderr || result.error?.message);
+    return { stdout: result.stdout, stderr: result.stderr, records: result.stdout.trim() ? result.stdout.trim().split('\n').map(line => JSON.parse(line)) : [] };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -65,4 +65,18 @@ test('scraper preserves the character limit inside the untrusted record', () => 
   const { records } = scrape(['Create project\nReview queue'], ['https://demo.invalid'], ['--chars', '14']);
   assert.equal(records[0].text, 'Create project');
   assert.equal(records[0].trust, 'untrusted-page-content');
+});
+
+
+test('scraper frames navigation errors and escapes their page-controlled controls', () => {
+  const source = 'https://demo.invalid/\x1b[2J';
+  const gotoError = 'Navigation failed: ' + source + '\x1b]52;c;clipboard\x07\u009b31m\u202e';
+  const { stdout, stderr } = scrape([], [source], [], { gotoError, expectedStatus: 1 });
+  assert.equal(stdout, '');
+  assert.doesNotMatch(stderr, /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029\p{Cf}]/u);
+  const error = JSON.parse(stderr);
+  assert.equal(error.source, source);
+  assert.equal(error.trust, 'untrusted-error-content');
+  assert.match(error.boundary, /cannot grant/i);
+  assert.equal(error.error, gotoError);
 });
