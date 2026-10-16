@@ -48,10 +48,12 @@ Then try *"Which aictrl organizations can I use?"* (`list_organizations`).
 ## What the tools may do
 
 Read-only tools (`get_started`, `list_organizations`, `query_context`,
-`list_workflows`, `get_workflow`, `get_workflow_run`, `list_tasks`,
-`get_task_execution`) run without a per-call confirmation. Tools that change
-state prompt first: `update_backlog` (creates or updates backlog tasks),
-`approve_workflow_step` (a rejection cancels the run), `cancel_workflow_run`.
+`list_workflows`, `get_workflow`, `list_workflow_runs`, `get_workflow_run`,
+`list_tasks`, `get_task_execution`, `list_pr_findings`) run without a per-call
+confirmation. Tools that change state prompt first: `update_backlog`
+(creates or updates backlog tasks),
+`approve_workflow_step` (a rejection cancels the run), `cancel_workflow_run`,
+`record_finding_verdict` (persists review-finding judgments).
 `start_workflow` and `start_task` start work that a published workflow may
 turn into GitHub side effects, only within that workflow's configured gates
 and policy. Access is limited to organizations you are a member of; any other
