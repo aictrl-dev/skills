@@ -10,6 +10,11 @@ import { join, resolve } from 'node:path';
 import { ROOT } from './public-catalog.mjs';
 
 const PACKAGE_PATHS = ['.codex-plugin', '.mcp.json', 'skills', 'assets/icon.svg'];
+// Skills the OpenAI portal rejected; they stay in Claude and Codex installs.
+// recording-product-demo captures and reuses authenticated browser sessions
+// (its login helper works around Google's automation block) and can upload
+// media, which the portal flags as access-control circumvention.
+const PORTAL_EXCLUDED_SKILLS = Object.freeze(['recording-product-demo']);
 
 function argument(name) {
   const prefix = `--${name}=`;
@@ -26,6 +31,7 @@ const output = resolve(argument('out') ?? `aictrl-codex-plugin-${manifest.versio
 const stage = mkdtempSync(join(tmpdir(), 'aictrl-openai-plugin-'));
 try {
   for (const path of PACKAGE_PATHS) cpSync(join(ROOT, path), join(stage, path), { recursive: true });
+  for (const skill of PORTAL_EXCLUDED_SKILLS) rmSync(join(stage, 'skills', skill), { recursive: true });
   writeFileSync(
     join(stage, '.codex-plugin/plugin.json'),
     `${JSON.stringify({ ...manifest, name: appName }, null, 2)}\n`,
