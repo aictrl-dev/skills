@@ -49,8 +49,8 @@ deploy.
 The exact ChatGPT web portal rehearsal passed all five positive and three
 negative cases of the then-current case set on 2026-07-22 using the dedicated
 reviewer identity. In 1.2.0, P3 was replaced by the code-review verdict case,
-which has been rehearsed against production MCP (2026-10-16) but not yet on
-ChatGPT web. It included
+which passed against production MCP on 2026-10-16
+([record](./mcp-rehearsal-2026-10-16.md)) but has not yet run on ChatGPT web. It included
 the repeatable backlog update and started or reused a single bounded workflow
 run without approving the manual gate. See the dated
 [reproduction record](./rehearsal-2026-07-22.md).

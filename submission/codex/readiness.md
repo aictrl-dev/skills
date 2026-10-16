@@ -33,6 +33,7 @@
   The 2026-07-22 [web rehearsal](./rehearsal-2026-07-22.md) passed the
   `v1.1.0-beta.2` case set; the 1.2.0 P3 (code-review verdict) still needs a
   ChatGPT web run. It passed against production MCP on 2026-10-16.
+  Evidence: [2026-10-16 production MCP rehearsal](./mcp-rehearsal-2026-10-16.md).
 - [ ] The no-MFA portal reviewer account completes dynamic registration and PKCE from clean ChatGPT web and mobile sessions.
 - [x] The connected fixture workflow reaches pause, unchanged-revision approval,
   completion, and result retrieval.

@@ -95,7 +95,7 @@ the wrong aictrl.dev OAuth identity. Reconnect before continuing.
 
 ## Run the cases
 
-Use the exact prompts in [`test-cases.md`](./test-cases.md), in order P1–P5 and
+Use the exact prompts in [`test-cases.md` at `v1.1.0-beta.2`](https://github.com/aictrl-dev/skills/blob/v1.1.0-beta.2/submission/codex/test-cases.md), in order P1–P5 and
 then N1–N3. Use a fresh chat for every case and explicitly attach `Aictrl.dev`
 before sending the prompt, including the negative cases.
 
