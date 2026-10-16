@@ -50,51 +50,31 @@
             {
               "description": "Discover organizations and workflows",
               "prompt": "List my aictrl.dev organizations and show the published workflows available across them. Identify the organization that owns implement-code-change.",
-              "tools_triggered": [
-                "list_organizations",
-                "list_workflows"
-              ],
+              "tools_triggered": "list_organizations, list_workflows",
               "expected_behavior": "Calls `list_organizations` and `list_workflows` without changing any project or workflow data. Returns only organizations and published workflows accessible to the reviewer and identifies `Plugin Reviewer` as the owner of `implement-code-change`."
             },
             {
               "description": "Search connected code",
               "prompt": "In my Plugin Reviewer organization, search the connected code for implement-code-change and show the matching file path.",
-              "tools_triggered": [
-                "list_organizations",
-                "query_context"
-              ],
+              "tools_triggered": "list_organizations, query_context",
               "expected_behavior": "Calls `list_organizations` and `query_context` in the `code` domain without changing repository or project data. Returns `.aictrl/workflows/implement-code-change.yaml` as the matching file."
             },
             {
               "description": "Judge a recorded code-review finding",
               "prompt": "In my Plugin Reviewer organization, list the code-review findings on aictrl-dev/aictrl-plugin-reviewer-fixture pull request 4. Using the code snippet and description returned with the finding about the JSDoc step order not matching the code, record a TRUE verdict with action FIX at the reviewed commit 8587f86996681be971fae71e9d3bf547a4efb778, citing src/labels.mjs as evidence.",
-              "tools_triggered": [
-                "list_organizations",
-                "list_pr_findings",
-                "record_finding_verdict"
-              ],
+              "tools_triggered": "list_organizations, list_pr_findings, record_finding_verdict",
               "expected_behavior": "Calls `list_organizations`, `list_pr_findings`, and `record_finding_verdict`; writes one verdict with an observed / root-cause / proof reasoning chain bound to the given commit, and does not post to GitHub. No other tool is needed: the public catalog returns neither file contents nor a head SHA, so the prompt pins the commit the finding was reviewed at, where the mismatch is real (the PR's later head commit fixed it), and the verdict relies on the returned snippet and description. Lists the recorded findings with their exact IDs, then confirms the verdict was stored for the JSDoc-order finding, with the commit and evidence verified, while the finding stays open."
             },
             {
               "description": "Apply a repeatable backlog update",
               "prompt": "In my Plugin Reviewer organization, find \"OpenAI plugin reviewer fixture task\" under \"Publishing OpenAI Codex Plugin\" and reset it to a draft, low-complexity story tagged openai-review-fixture. Keep its existing title and description.",
-              "tools_triggered": [
-                "list_organizations",
-                "query_context",
-                "update_backlog"
-              ],
+              "tools_triggered": "list_organizations, query_context, update_backlog",
               "expected_behavior": "Calls `list_organizations`, `query_context`, and `update_backlog`; writes only the repeatable fixture values requested by the prompt. Updates only the dedicated fixture task and returns its task and epic identifiers with `draft` status."
             },
             {
               "description": "Inspect and start a bounded workflow",
               "prompt": "In my Plugin Reviewer organization, inspect implement-code-change, show its inputs, side effects, and manual gate, then start it for aictrl-dev/aictrl-plugin-reviewer-fixture issue 1 using the stable idempotency key openai-plugin-review-fixture-v1. Show the initial run status and do not approve the gate.",
-              "tools_triggered": [
-                "list_organizations",
-                "list_workflows",
-                "get_workflow",
-                "start_workflow",
-                "get_workflow_run"
-              ],
+              "tools_triggered": "list_organizations, list_workflows, get_workflow, start_workflow, get_workflow_run",
               "expected_behavior": "Calls `list_organizations`, `list_workflows`, `get_workflow`, `start_workflow`, and `get_workflow_run`; starts or reuses exactly one run and does not approve its gate. Shows the workflow's declared bounds and reports the run ID, version, current stage, and status without approving repository writes."
             }
           ],
