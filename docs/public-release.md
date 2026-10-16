@@ -70,6 +70,14 @@ tests pass. Portal-issued challenge values, reviewer credentials, OAuth
 secrets, and recovery codes are operational secrets and must not be committed
 or stored in release evidence.
 
+For the OpenAI plugin portal (platform.openai.com/plugins), build the upload
+ZIP with `npm run package:openai -- --name=<portal app id>`. The portal binds
+an upload to the existing listing by its `app-...` identifier, so the script
+writes that name into the ZIP's manifest only; the repository keeps `aictrl`
+for Codex installs. Reviewer test cases ship in `extensions.com.openai.review`
+(`tools_triggered` is a comma-separated string), and reviewer credentials are
+entered in the portal's Review details, never in the package.
+
 Use `submission/codex/readiness.md` as the Codex submission gate and
 `submission/opencode/ecosystem.md` for the OpenCode upstream sequence. Neither
 submission nor approval counts as publication; close the vendor issue only

@@ -20,6 +20,7 @@
     "smoke:codex": "node scripts/smoke-codex-public.mjs",
     "smoke:opencode": "node scripts/smoke-opencode-public.mjs",
     "smoke:production-mcp": "node scripts/smoke-production-mcp-public.mjs",
+    "package:openai": "node scripts/package-openai-plugin.mjs",
     "prepublishOnly": "npm test && npm run validate"
   },
   "keywords": ["opencode", "agent-skills", "sdlc", "code-review", "workflow"],
