@@ -36,11 +36,40 @@ async function ephemeralPort() {
 }
 
 async function startHarness(t) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const cleanups = [];
+    const cleanup = async () => {
+      for (const fn of cleanups.splice(0).reverse()) await fn();
+    };
+    try {
+      const harness = await startHarnessAttempt({ after: fn => cleanups.push(fn) });
+      t.after(cleanup);
+      return harness;
+    } catch (error) {
+      await cleanup();
+      // Only the child's confirmed bind collision is retryable; all other startup failures surface.
+      if (!error.bindCollision || attempt === 3) throw error;
+    }
+  }
+}
+
+async function startHarnessAttempt(t) {
   const fixture = mkdtempSync(path.join(tmpdir(), 'ux-response-headers-'));
+  let child;
+  t.after(async () => {
+    if (child?.pid && child.exitCode === null && child.signalCode === null) {
+      const stopped = new Promise(resolve => child.once('exit', resolve));
+      child.kill('SIGTERM');
+      const killer = setTimeout(() => child.kill('SIGKILL'), 1000);
+      await stopped;
+      clearTimeout(killer);
+    }
+    rmSync(fixture, { recursive: true, force: true });
+  });
   const hook = path.join(fixture, 'trusted-playwright-preload.cjs');
   writeFileSync(hook, preload);
   const port = await ephemeralPort();
-  const child = spawn(process.execPath, ['--require', hook, serverScript], {
+  child = spawn(process.execPath, ['--require', hook, serverScript], {
     cwd: fixture, stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       PATH: '', HOME: fixture, TMPDIR: fixture, TMP: fixture, TEMP: fixture,
@@ -51,16 +80,6 @@ async function startHarness(t) {
   });
   let stderr = '';
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-8192); });
-  t.after(async () => {
-    if (child.exitCode === null && child.signalCode === null) {
-      const stopped = new Promise(resolve => child.once('exit', resolve));
-      child.kill('SIGTERM');
-      const killer = setTimeout(() => child.kill('SIGKILL'), 1000);
-      await stopped;
-      clearTimeout(killer);
-    }
-    rmSync(fixture, { recursive: true, force: true });
-  });
   await new Promise((resolve, reject) => {
     let output = '';
     const timer = setTimeout(() => reject(new Error(`Harness startup timed out: ${stderr}`)), 5000);
@@ -70,7 +89,12 @@ async function startHarness(t) {
       if (output.includes(`ux harness on ${port}`)) ready();
     });
     child.once('error', error => { clearTimeout(timer); reject(error); });
-    child.once('exit', code => { clearTimeout(timer); reject(new Error(`Harness exited ${code}: ${stderr}`)); });
+    child.once('close', code => {
+      clearTimeout(timer);
+      const error = new Error(`Harness exited ${code}: ${stderr}`);
+      error.bindCollision = code === 1 && stderr.includes(`ERROR: listen EADDRINUSE: address already in use 127.0.0.1:${port}`);
+      reject(error);
+    });
   });
   const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
   const token = readFileSync(path.join(fixture, `ux-harness-${uid}`, `${port}.token`), 'utf8');
