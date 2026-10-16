@@ -668,7 +668,7 @@ Verdict: PASS. Pending (human): interactive run through the installed plugin in 
   network/session access.
 - Repository checks: `npm test` **PASS** (45 passed, 0 failed, 47 optional
   browser skips); `npm run validate` **PASS** (17 skills); generated checksum
-  manifest matches. Fresh-agent behavior remains unverified.
+  manifest matches. The full fresh-agent matrix remains unverified.
 
 ### Review remediation for untrusted evidence boundaries (2026-10-16)
 
@@ -693,7 +693,7 @@ Verdict: PASS. Pending (human): interactive run through the installed plugin in 
 - Documented migration from banner/raw-text stdout to JSONL `record.text` and
   nullable runtime-error source (`null` before navigation). Added synthetic
   launch-error framing/escaping coverage and made tests independent of cwd.
-- From `/tmp`, the existing scraper suite failed 0/8 before the path correction;
+- From `/tmp`, the existing scraper suite had 0 passed / 8 failed before the path correction;
   fixed focused tests (including policy mirror) passed 10/10. `npm test` passed
   51 tests, 0 failed, 47 optional browser skips. Validation, generated checksums,
   syntax, and whitespace checks passed. Fake-browser children use a minimal env.
