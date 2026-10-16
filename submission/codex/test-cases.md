@@ -22,10 +22,10 @@ account described in `reviewer-fixture.md`.
 
 ### P3 — Judge a recorded code-review finding
 
-- Prompt: `In my Plugin Reviewer organization, list the code-review findings on aictrl-dev/aictrl-plugin-reviewer-fixture pull request 4. Read src/labels.mjs at the pull request's current head, then record a TRUE verdict with action DEFER on the finding about the JSDoc step order not matching the code, citing the file you read.`
+- Prompt: `In my Plugin Reviewer organization, list the code-review findings on aictrl-dev/aictrl-plugin-reviewer-fixture pull request 4. Using the code snippet returned with the finding about the JSDoc step order not matching the code, record a TRUE verdict with action DEFER at commit 4c5f0ba6d5be34ccdfe5c19c986d47e44b4e1d3c, citing src/labels.mjs as evidence.`
 - Fixture/account: the portal demo account and open fixture pull request #4 with its recorded review findings, documented in `reviewer-fixture.md`.
-- Expected behavior: calls `list_organizations`, `list_pr_findings`, and `record_finding_verdict`; writes one verdict with an observed / root-cause / proof reasoning chain and the full 40-character head SHA, and does not post to GitHub.
-- Expected result: lists the recorded findings with their exact IDs, then confirms the verdict was stored for the JSDoc-order finding while the finding stays open.
+- Expected behavior: calls `list_organizations`, `list_pr_findings`, and `record_finding_verdict`; writes one verdict with an observed / root-cause / proof reasoning chain bound to the given commit, and does not post to GitHub. No other tool is needed: the public catalog returns neither file contents nor a head SHA, so the prompt pins the fixture's commit and the verdict relies on the returned snippet.
+- Expected result: lists the recorded findings with their exact IDs, then confirms the verdict was stored for the JSDoc-order finding, with the commit and evidence verified, while the finding stays open.
 
 ### P4 — Apply a repeatable backlog update
 
