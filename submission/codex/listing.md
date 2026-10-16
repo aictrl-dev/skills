@@ -74,11 +74,14 @@ schemas, and `readOnlyHint`, `openWorldHint`, `destructiveHint`, and
 `idempotentHint` annotations must match deployed behavior.
 
 The sixteen-tool contract is pinned to backend commit
-[`d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c`](https://github.com/aictrl-dev/aictrl/commit/d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c),
-deployed by [run 38885607809](https://github.com/aictrl-dev/aictrl/actions/runs/38885607809).
+[`12a866d437dcb238f39e491f38597ea8583ece69`](https://github.com/aictrl-dev/aictrl/commit/12a866d437dcb238f39e491f38597ea8583ece69),
+deployed by [run 38956595560](https://github.com/aictrl-dev/aictrl/actions/runs/38956595560).
 `record_finding_verdict` is a write with `readOnlyHint: false`,
-`destructiveHint: false`, and `openWorldHint: true`; its public annotations do
-not declare `idempotentHint`. The two code-review tools' published
+`destructiveHint: true`, and `openWorldHint: true`: a FALSE verdict on an open
+minor or nit finding dismisses it and the verdict replaces the latest one. Its
+public annotations do not declare `idempotentHint`. `start_workflow` is also
+`destructiveHint: true` (with `idempotentHint: true`), because a run can update
+existing resources that cancelling it does not undo. The two code-review tools' published
 `organization_id` property omits `minLength`, and `list_pr_findings` omits
 top-level `additionalProperties`. These are explicit metadata exceptions, not
 a claim that the published schema rejects unknown inputs or that handler-side

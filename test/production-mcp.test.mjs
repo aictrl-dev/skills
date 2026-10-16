@@ -10,7 +10,7 @@ import {
 } from '../scripts/public-catalog.mjs';
 
 function catalog() {
-  // Independently authored from deployed aictrl d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c:
+  // Independently authored from deployed aictrl 12a866d437dcb238f39e491f38597ea8583ece69:
   // server/mcp/{workflow-tools,code-review-public-tools,tools/code-review}.ts.
   // Do not derive fixture annotations/schemas/names from the smoke contract.
   const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
@@ -20,6 +20,8 @@ function catalog() {
   const readOpenWorld = { ...read, openWorldHint: true };
   const readOpenWorldIdempotent = { ...readOpenWorld, idempotentHint: true };
   const createIdempotent = { ...create, idempotentHint: true };
+  const updateOpenWorld = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
+  const updateOpenWorldIdempotent = { ...updateOpenWorld, idempotentHint: true };
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
   const reviewOrg = { type: 'string', description: 'Call list_organizations for the owning organization.' };
   const id = (description) => ({ type: 'string', minLength: 1, description });
@@ -89,7 +91,7 @@ function catalog() {
       organization_id: org,
       workflow_id: id('Workflow'),
     }, ['organization_id', 'workflow_id']),
-    definition('start_workflow', createIdempotent, {
+    definition('start_workflow', updateOpenWorldIdempotent, {
       organization_id: org,
       workflow_id: id('Workflow'),
       idempotency_key: { type: 'string', minLength: 8, maxLength: 200 },
@@ -151,7 +153,7 @@ function catalog() {
       organization_id: reviewOrg, repository, pr,
       include_history: { type: 'boolean' }, include_obsolete: { type: 'boolean' },
     }, ['organization_id', 'repository', 'pr']),
-    definition('record_finding_verdict', create, {
+    definition('record_finding_verdict', updateOpenWorld, {
       organization_id: reviewOrg, repository, pr,
       finding_id: { type: 'string' },
       verdict: { type: 'string', enum: ['TRUE', 'FALSE', 'UNCERTAIN'] },
@@ -203,7 +205,7 @@ function rpcResult(id, result, eventStream = false) {
 test('accepts exactly the public catalog with approved schemas and safety annotations', () => {
   assert.deepEqual(
     Object.keys(PUBLIC_MCP_ANNOTATIONS),
-    ['read', 'update', 'readIdempotent', 'readOpenWorld', 'readOpenWorldIdempotent', 'create', 'createIdempotent'],
+    ['read', 'update', 'readIdempotent', 'readOpenWorld', 'readOpenWorldIdempotent', 'create', 'createIdempotent', 'updateOpenWorld', 'updateOpenWorldIdempotent'],
   );
   assert.equal(catalog().length, 16);
   assert.doesNotThrow(() => assertProductionCatalog(catalog()));
@@ -269,7 +271,8 @@ for (const [name, change] of [
   ['list_workflow_runs', { readOnlyHint: false }],
   ['list_pr_findings', { destructiveHint: true }],
   ['record_finding_verdict', { readOnlyHint: true }],
-  ['record_finding_verdict', { destructiveHint: true }],
+  ['record_finding_verdict', { destructiveHint: false }],
+  ['start_workflow', { destructiveHint: false }],
   ['record_finding_verdict', { openWorldHint: false }],
   ['record_finding_verdict', { idempotentHint: true }],
 ]) {

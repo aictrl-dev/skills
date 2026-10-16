@@ -12,6 +12,8 @@ export const PUBLIC_MCP_ANNOTATIONS = Object.freeze({
   readOpenWorldIdempotent: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }),
   create: Object.freeze({ readOnlyHint: false, destructiveHint: false, openWorldHint: true }),
   createIdempotent: Object.freeze({ readOnlyHint: false, destructiveHint: false, openWorldHint: true, idempotentHint: true }),
+  updateOpenWorld: Object.freeze({ readOnlyHint: false, destructiveHint: true, openWorldHint: true }),
+  updateOpenWorldIdempotent: Object.freeze({ readOnlyHint: false, destructiveHint: true, openWorldHint: true, idempotentHint: true }),
 });
 export const EXPECTED_PUBLIC_MCP_TOOLS = Object.freeze([
   'query_context',
