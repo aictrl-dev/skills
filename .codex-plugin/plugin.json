@@ -21,7 +21,7 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "AICtrl",
-    "shortDescription": "Engineering skills and controlled workflows",
+    "shortDescription": "Engineering skills & workflows",
     "longDescription": "Use essential engineering skills locally, then hand implementation work to versioned AICtrl workflows with approvals, evidence, history, and policy controls.",
     "developerName": "aictrl.dev",
     "category": "Productivity",
@@ -31,6 +31,7 @@
       "MCP"
     ],
     "websiteURL": "https://aictrl.dev",
+    "supportURL": "https://aictrl.dev/support",
     "privacyPolicyURL": "https://aictrl.dev/privacy",
     "termsOfServiceURL": "https://aictrl.dev/terms",
     "defaultPrompt": [
