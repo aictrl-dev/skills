@@ -51,13 +51,17 @@ Claude marketplace entry; regenerate `CHECKSUMS.sha256`; merge; then publish a
 GitHub release tagged exactly `v<version>`. The release workflow re-runs the
 package and production OAuth-boundary checks before publishing npm through OIDC.
 
-Verify the result from an unauthenticated clean environment:
+Verify the result from an unauthenticated clean environment. Install the exact
+released version, not a dist-tag: a pre-release (`1.2.0-beta.1`) publishes on
+`beta` and a stable release on `latest`, and `dist-tags` must show `$VERSION`
+on the matching tag.
 
 ```bash
+VERSION=<released version, e.g. 1.2.0>
 npm view @aictrl/opencode version dist-tags --json
-npx @aictrl/opencode@beta --project .
+npx "@aictrl/opencode@$VERSION" --project .
 opencode mcp list
-npx @aictrl/opencode@beta --project . --uninstall
+npx "@aictrl/opencode@$VERSION" --project . --uninstall
 ```
 
 Claude and Codex consume the same tagged repository root. Publish or submit

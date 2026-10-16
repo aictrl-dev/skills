@@ -27,7 +27,7 @@ codex plugin add aictrl@aictrl-public
 
 **OpenCode plugin package**
 ```bash
-npx @aictrl/opencode@beta
+npx @aictrl/opencode@latest
 opencode mcp auth aictrl
 ```
 

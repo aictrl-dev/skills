@@ -19,13 +19,15 @@ submission; upstream policy is external and may change.
 ## Preconditions
 
 ```bash
+VERSION=<released version, e.g. 1.2.0>
 npm view @aictrl/opencode version dist-tags --json
-npx @aictrl/opencode@beta --project .
+npx "@aictrl/opencode@$VERSION" --project .
 opencode mcp list
-npx @aictrl/opencode@beta --project . --uninstall
+npx "@aictrl/opencode@$VERSION" --project . --uninstall
 ```
 
-Record package version/integrity, `beta` dist-tag, clean install, canonical MCP
+Record package version/integrity, the dist-tag it was published on (`latest`
+for a stable release, `beta` for a pre-release), clean install, canonical MCP
 URL, OAuth-required boundary, uninstall result, and UTC time.
 
 ## Upstream issue
