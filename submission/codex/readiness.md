@@ -28,9 +28,11 @@
 - [x] Historical protected production tests covered the then-current thirteen-tool public catalog (contract widened in #36, including `idempotentHint`). Evidence: on 2026-09-03, the first green `Production MCP catalog contract` run on `main` after #36 merged ([run 33811081604](https://github.com/aictrl-dev/skills/actions/runs/33811081604)). This receipt does not verify the current sixteen-tool catalog.
 - [ ] Protected authenticated production tests verify the current sixteen-tool catalog, complete approved schema metadata and safety annotations, organization authorization, and redaction on `main`. The contract is pinned to deployed backend [`d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c`](https://github.com/aictrl-dev/aictrl/commit/d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c) ([deployment run 38885607809](https://github.com/aictrl-dev/aictrl/actions/runs/38885607809)); actual protected production verification remains pending. The earlier [failing run 38883597608](https://github.com/aictrl-dev/skills/actions/runs/38883597608) established the stale thirteen-tool allow-list, not a passing sixteen-tool receipt. Local fixtures and unauthenticated HTTP 401 responses do not satisfy this control.
 - [x] The fixture repository is connected to its least-privilege aictrl.dev organization, `implement-code-change@1.0.0` is active there, and the protected Git workflow is published as repository-owned workflow version 2.
-- [x] All five positive and three negative portal cases pass on ChatGPT web
+- [ ] All five positive and three negative portal cases pass on ChatGPT web
   using the dedicated reviewer identity.
-  Evidence: [2026-07-22 web rehearsal](./rehearsal-2026-07-22.md).
+  The 2026-07-22 [web rehearsal](./rehearsal-2026-07-22.md) passed the
+  `v1.1.0-beta.2` case set; the 1.2.0 P3 (code-review verdict) still needs a
+  ChatGPT web run. It passed against production MCP on 2026-10-16.
 - [ ] The no-MFA portal reviewer account completes dynamic registration and PKCE from clean ChatGPT web and mobile sessions.
 - [x] The connected fixture workflow reaches pause, unchanged-revision approval,
   completion, and result retrieval.
