@@ -13,12 +13,13 @@ const configurations = [
   { type: 'youtube' },
 ];
 
-function fixture(t, upload, { failCloud = false, failHttp = false, credentials = true, unavailableCloud = false } = {}) {
+function fixture(t, upload, { failCloud = false, failHttp = false, credentials = true, unavailableCloud = false, emptyEvents = false } = {}) {
   const cwd = mkdtempSync(join(tmpdir(), 'publish-upload-'));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const build = join(cwd, 'demo');
   const bin = join(cwd, 'bin');
   const eventsFile = join(cwd, 'events.jsonl');
+  if (emptyEvents) writeFileSync(eventsFile, '');
   mkdirSync(bin);
   mkdirSync(join(build, 'out'), { recursive: true });
   writeFileSync(join(build, 'out/final.mp4'), 'video');
@@ -53,7 +54,7 @@ function fixture(t, upload, { failCloud = false, failHttp = false, credentials =
       YT_REFRESH_TOKEN: credentials ? 'test-refresh-secret' : '',
     },
   });
-  const events = () => existsSync(eventsFile) ? readFileSync(eventsFile, 'utf8').trim().split('\n').map(JSON.parse) : [];
+  const events = () => existsSync(eventsFile) ? readFileSync(eventsFile, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse) : [];
   return { build, run, events };
 }
 
@@ -122,6 +123,11 @@ const invalidConfigurations = [
   { type: 'gcs' }, { type: 'gcs', path: 's3://demo-bucket/path' },
   { type: 'gcs', path: 'gs:///path' }, { type: 'gcs', path: 'gs://bad bucket/path' },
   { type: 's3', path: 'gs://demo-bucket/path' }, { type: 's3', path: 's3:///path' },
+  { type: 's3', path: 's3://192.168.1.1/demos' }, { type: 'gcs', path: 'gs://192.168.1.1/demos' },
+  { type: 's3', path: 's3://xn--invalid/demos' }, { type: 's3', path: 's3://sthree-invalid/demos' },
+  { type: 's3', path: 's3://amzn-s3-demo-invalid/demos' }, { type: 'gcs', path: 'gs://goog-demo/demos' },
+  { type: 'gcs', path: 'gs://my-google-demo/demos' }, { type: 'gcs', path: 'gs://my-g00gle-demo/demos' },
+  { type: 'gcs', path: 'gs://Bucket/demos' }, { type: 's3', path: 's3://Bucket/demos' },
   { type: 'youtube', privacy: 'friends' }, { type: 'youtube', privacy: 7 },
   { type: 'youtube', title: {} }, { type: 'youtube', description: 3 },
 ];
@@ -171,4 +177,47 @@ test('publish: unavailable cloud CLI reports an actionable spawn error', (t) => 
   assert.match(result.stderr, /gcloud failed:[\s\S]*ENOENT/);
   assert.doesNotMatch(result.stderr, /TypeError|Cannot read/);
   assertPrivateOutput(result);
+});
+
+for (const config of [
+  { type: 'gcs', path: 'gs://demo-bucket/デモ/café/🎬' },
+  { type: 's3', path: 's3://demo-accesspoint-45ee794a89a74c61a0b56b317be53c6f-s3alias/デモ/🎬' },
+  { type: 'gcs', path: 'gs://999.12.34.56/demos' },
+  { type: 's3', path: 's3://999.12.34.56/demos' },
+]) {
+  test(`publish: local checks preserve literal supported destination ${config.path}`, (t) => {
+    const f = fixture(t, config);
+    const result = f.run('--upload');
+    assert.equal(result.status, 0, result.stderr);
+    const command = f.events().find((event) => event.type === (config.type === 'gcs' ? 'gcloud' : 'aws'));
+    assert.ok(command.args.includes(config.path));
+  });
+}
+
+for (const type of ['gcs', 's3']) {
+  test(`publish: ${type} destination logs escape controls while argv preserves Unicode and literal bytes`, (t) => {
+    const destination = `${type === 'gcs' ? 'gs' : 's3'}://demo-bucket/デモ/\u001b[31m\t\u007f\u0085\u202e🎬\u{e0001}`;
+    const f = fixture(t, { type, path: destination });
+    const result = f.run('--upload');
+    assert.equal(result.status, 0, result.stderr);
+    const command = f.events().find((event) => event.type === (type === 'gcs' ? 'gcloud' : 'aws'));
+    assert.ok(command.args.includes(destination));
+    for (const prefix of [`[pub] uploading to ${type}: `, '[pub] uploaded to ']) {
+      const line = result.stdout.split('\n').find((entry) => entry.startsWith(prefix));
+      assert.ok(line);
+      assert.doesNotMatch(line, /[\u0000-\u001f\u007f-\u009f\p{Cf}]/u);
+      assert.equal(JSON.parse(line.slice(prefix.length)), destination);
+    }
+  });
+}
+
+test('publish: rejected configuration leaves a pre-existing empty event log empty', (t) => {
+  const f = fixture(t, { type: 'other' }, { emptyEvents: true });
+  assert.equal(f.run('--upload').status, 1);
+  assert.deepEqual(f.events(), []);
+});
+
+test('publish: shipped example config keeps upload disabled', () => {
+  const config = JSON.parse(readFileSync(join(ROOT, 'skills/recording-product-demo/templates/demo.config.example.json'), 'utf8'));
+  assert.equal(config.publish.upload, null);
 });

@@ -29,6 +29,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { isIP } = require('net');
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
@@ -57,7 +58,13 @@ if (UPLOAD) {
     const bucketPattern = upload.type === 'gcs'
       ? /^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/
       : /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
-    if (!bucket || !bucketPattern.test(bucket) || bucket.split('.').some((part) => !part || part.length > 63)) {
+    // Local checks cover syntax and selected reserved names, not provider authority.
+    // S3 data-plane destinations also accept access-point aliases such as -s3alias.
+    const reserved = bucket && (upload.type === 'gcs'
+      ? bucket.startsWith('goog') || bucket.includes('google') || bucket.includes('g00gle')
+      : /^(xn--|sthree-|amzn-s3-demo-)/.test(bucket));
+    if (!bucket || !bucketPattern.test(bucket) || bucket.split('.').some((part) => !part || part.length > 63)
+      || isIP(bucket) === 4 || reserved) {
       usageError(`${upload.type} upload needs publish.upload.path with a valid ${scheme}://bucket[/prefix] destination.`);
     }
   } else if (upload.type === 'youtube') {
@@ -72,6 +79,13 @@ if (UPLOAD) {
   } else {
     usageError('Unknown upload provider; publish.upload.type must be gcs, s3, or youtube.');
   }
+}
+
+function displayDestination(destination) {
+  // JSON escapes C0 controls; also escape C1, format controls and line separators.
+  // Keep ordinary Unicode visible and preserve the original CLI argument.
+  return JSON.stringify(destination).replace(/[\u007f-\u009f\p{Cf}\u2028\u2029]/gu, (character) =>
+    character.split('').map((unit) => `\\u${unit.charCodeAt(0).toString(16).padStart(4, '0')}`).join(''));
 }
 
 const FINAL = path.join(BUILD, 'out/final.mp4');
@@ -187,8 +201,11 @@ To build and upload, use \`node publish.cjs --build demo --upload\` with one of:
 
 Existing automation must add \`--upload\` to retain uploads. Use it only for an
 already authorized destination and visibility; creating a local demo alone does
-not authorize publishing. The script displays the provider/destination and
-YouTube visibility before transmission, without printing credentials.
+not authorize publishing. With \`--upload\`, local syntax and selected reserved-name
+checks run before media processing; providers remain authoritative for complete
+naming rules, destination existence and permissions. S3 access-point aliases are
+allowed as data-plane destinations. The script displays a JSON-escaped destination
+or YouTube visibility before transmission, without printing credentials.
 `);
 console.log('[pub] embed.html, PUBLISH.md');
 
@@ -199,17 +216,17 @@ console.log('[pub] embed.html, PUBLISH.md');
     return;
   }
   if (upload.type === 'gcs') {
-    console.log('[pub] uploading to gcs:', upload.path);
+    console.log('[pub] uploading to gcs:', displayDestination(upload.path));
     // Expand the former shell glob ourselves: upload contents, not the enclosing
     // publish directory, and keep paths (including spaces/metacharacters) literal.
     const sources = fs.readdirSync(PUB).filter((name) => !name.startsWith('.')).sort()
       .map((name) => path.join(PUB, name));
     run('gcloud', ['storage', 'cp', '-r', ...sources, upload.path]);
-    console.log('[pub] uploaded to', upload.path);
+    console.log('[pub] uploaded to', displayDestination(upload.path));
   } else if (upload.type === 's3') {
-    console.log('[pub] uploading to s3:', upload.path);
+    console.log('[pub] uploading to s3:', displayDestination(upload.path));
     run('aws', ['s3', 'cp', PUB, upload.path, '--recursive']);
-    console.log('[pub] uploaded to', upload.path);
+    console.log('[pub] uploaded to', displayDestination(upload.path));
   } else if (upload.type === 'youtube') {
     const { YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN } = process.env;
     if (!YT_CLIENT_ID || !YT_CLIENT_SECRET || !YT_REFRESH_TOKEN) {
