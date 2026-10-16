@@ -7,6 +7,11 @@ on 2026-07-22. It records the production setup, observable results, safety
 bounds, and exact steps required to reproduce the run. Mobile verification is
 out of scope for this record and remains a separate submission-readiness item.
 
+> **Scope (2026-10-16):** this record covers the case set released in
+> `v1.1.0-beta.2`, where P3 inspected the backlog epic. In 1.2.0, P3 became the
+> code-review verdict case, which this record does not cover. To reproduce this
+> record, use `test-cases.md` from the `v1.1.0-beta.2` tag.
+
 ## Scope and environment
 
 - Surface: ChatGPT Work on the web in Google Chrome on Linux.
@@ -90,7 +95,7 @@ the wrong aictrl.dev OAuth identity. Reconnect before continuing.
 
 ## Run the cases
 
-Use the exact prompts in [`test-cases.md`](./test-cases.md), in order P1–P5 and
+Use the exact prompts in [`test-cases.md` at `v1.1.0-beta.2`](https://github.com/aictrl-dev/skills/blob/v1.1.0-beta.2/submission/codex/test-cases.md), in order P1–P5 and
 then N1–N3. Use a fresh chat for every case and explicitly attach `Aictrl.dev`
 before sending the prompt, including the negative cases.
 

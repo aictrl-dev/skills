@@ -24,7 +24,7 @@ remaining readiness controls pass.
 
 - The reviewer account can see only its intended aictrl.dev organization and the fixture repository.
 - The private `Plugin Reviewer` backlog contains an active `Publishing OpenAI Codex Plugin` epic and one dedicated `OpenAI plugin reviewer fixture task`; no production backlog is used.
-- Fixture [PR #4](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/pull/4) stays open at head `4c5f0ba6d5be34ccdfe5c19c986d47e44b4e1d3c` with its recorded review findings, including the open MINOR `JSDoc step order (trim then lowercase) mismatches code` finding used by P3.
+- Fixture [PR #4](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/pull/4) stays open at head `4c5f0ba6d5be34ccdfe5c19c986d47e44b4e1d3c` with its recorded review findings, including the open MINOR `JSDoc step order (trim then lowercase) mismatches code` finding used by P3. That finding was reviewed at commit `8587f86996681be971fae71e9d3bf547a4efb778`, where the mismatch is real; head `4c5f0ba` fixed it, so P3 judges it at `8587f86`.
 - The GitHub integration may create a feature branch and pull request but cannot merge or deploy.
 - The repository-owned workflow is reviewed through protected `main`; plugin installation never provisions it.
 - Credentials, recovery codes, OAuth tokens, GitHub installation tokens, domain challenges, and reviewer sessions never enter this repository or release evidence.
@@ -47,7 +47,10 @@ deploy.
 ## Rehearsal evidence
 
 The exact ChatGPT web portal rehearsal passed all five positive and three
-negative cases on 2026-07-22 using the dedicated reviewer identity. It included
+negative cases of the then-current case set on 2026-07-22 using the dedicated
+reviewer identity. In 1.2.0, P3 was replaced by the code-review verdict case,
+which passed against production MCP on 2026-10-16
+([record](./mcp-rehearsal-2026-10-16.md)) but has not yet run on ChatGPT web. It included
 the repeatable backlog update and started or reused a single bounded workflow
 run without approving the manual gate. See the dated
 [reproduction record](./rehearsal-2026-07-22.md).
