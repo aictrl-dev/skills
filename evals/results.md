@@ -693,3 +693,21 @@ criteria were updated; a fresh interactive recording was not run.
   `npm test`: 63 passed, 0 failed, 47 optional browser skips. Validation,
   generated checksums, syntax, and whitespace checks passed. Fixture children
   use a minimal environment. No live browser or external upload was performed.
+
+## recording-product-demo private sessions — 2026-10-16
+
+Method: browser stub and synthetic cookies under umask 000, stacked on the trusted
+dependency change (#66). No real credentials, sessions or interactive login used.
+
+| Criterion | Result |
+|-----------|--------|
+| Original session regression baseline | RED: 7 failed, 1 passed |
+| Private session regression tests | PASS: 8/8 |
+| Combined dependency and session regression tests after rebase | PASS: 28/28 |
+| Standard `npm test` after rebase | PASS: 69 passed, 0 failed, 47 optional browser skips |
+| `npm run validate`, recording-script syntax, checksum comparison, diff whitespace | PASS |
+
+The tests observe directory modes before browser launch and file mode at the
+initial write, atomic replacement, unsafe path rejection, shared ancestor
+preservation, and cleanup/browser closure on persistence failure. POSIX mode
+assertions do not establish Windows ACL guarantees; Windows capture is rejected.
