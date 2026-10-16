@@ -8,7 +8,7 @@ import { ROOT } from '../scripts/public-catalog.mjs';
 
 const publish = join(ROOT, 'skills/recording-product-demo/scripts/publish.cjs');
 
-function fixture(t, { buildName = 'demo', destination = 'gs://test-bucket/demos', failUpload = false } = {}) {
+function fixture(t, { buildName = 'demo', destination = 'gs://test-bucket/demos', uploadType = 'gcs', failUpload = false, unavailableCloud = false } = {}) {
   const cwd = mkdtempSync(join(tmpdir(), 'publish-shell-'));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const build = join(cwd, buildName);
@@ -23,7 +23,7 @@ function fixture(t, { buildName = 'demo', destination = 'gs://test-bucket/demos'
   writeFileSync(join(build, 'out/voice/narration-full.stt.json'), JSON.stringify({
     words: [{ type: 'word', text: 'Demo', start: 0, end: 1 }],
   }));
-  writeFileSync(join(build, 'demo.config.json'), JSON.stringify({ publish: { upload: { type: 'gcs', path: destination } } }));
+  writeFileSync(join(build, 'demo.config.json'), JSON.stringify({ publish: { upload: { type: uploadType, path: destination } } }));
   const stub = (name, body) => writeFileSync(join(bin, name), `#!${process.execPath}\n${body}`, { mode: 0o755 });
   stub('ffmpeg', `require('fs').writeFileSync(process.argv.at(-1), 'generated media');`);
   stub('ffprobe', `console.log(process.argv.at(-1).endsWith('main.mp4') ? '5' : '8');`);
@@ -45,6 +45,7 @@ function fixture(t, { buildName = 'demo', destination = 'gs://test-bucket/demos'
   `;
   stub('gcloud', cloudStub);
   stub('aws', cloudStub);
+  if (unavailableCloud) writeFileSync(join(bin, 'gcloud'), '#!/nonexistent-publish-test-interpreter\n', { mode: 0o755 });
   const run = (...args) => spawnSync(process.execPath, [publish, '--build', build, ...args], {
     cwd,
     encoding: 'utf8',
@@ -107,4 +108,35 @@ test('publish: GCS failure reports stderr and exits nonzero', (t) => {
   assert.equal(f.calls().length, 1);
   assert.match(result.stderr, /gcloud failed:[\s\S]*stub upload denied/);
   assert.doesNotMatch(result.stdout, /uploaded to/);
+});
+
+test('publish: unavailable GCS executable reports spawn failure without null-stderr TypeError', (t) => {
+  const f = fixture(t, { unavailableCloud: true });
+  const result = f.run();
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /gcloud failed:[\s\S]*ENOENT/);
+  assert.doesNotMatch(result.stderr, /TypeError|Cannot read/);
+  assert.deepEqual(f.calls(), []);
+});
+
+for (const [uploadType, destination] of [
+  ['gcs', '--log-http'], ['s3', '--endpoint-url=https://example.invalid'],
+  ['gcs', 'gs:///prefix'], ['s3', 's3:///prefix'],
+]) {
+  test(`publish: rejects ${uploadType} option-like or bucketless destination ${destination} before processing`, (t) => {
+    const f = fixture(t, { uploadType, destination });
+    const result = f.run();
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /upload.*destination/i);
+    assert.deepEqual(f.calls(), []);
+    assert.equal(existsSync(join(f.build, 'out/publish')), false);
+  });
+}
+
+test('publish: --skip-upload keeps invalid upload destinations local', (t) => {
+  const f = fixture(t, { destination: '--log-http' });
+  const result = f.run('--skip-upload');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.calls(), []);
+  assert.equal(existsSync(join(f.build, 'out/publish/demo.mp4')), true);
 });

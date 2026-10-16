@@ -52,6 +52,9 @@ node --test test/recording-product-demo-publish-shell.test.mjs
       cannot execute commands; spaces stay in single arguments; publish-kit
       contents retain their destination layout, including recursive assets;
       `--skip-upload` invokes no cloud command and upload failures exit nonzero.
+      Missing cloud executables report spawn errors without null-stderr failures;
+      option-like/bucketless GCS/S3 destinations fail before processing, while
+      skipped uploads remain local even with invalid destinations.
 
 ## Agent-level check (one fresh session)
 
