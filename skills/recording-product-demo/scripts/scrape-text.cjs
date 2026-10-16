@@ -5,6 +5,8 @@
  * Usage:
  *   node scrape-text.cjs <url> [<url>...] [--profile <dir> | --state <auth-state.json>] [--chars 3500]
  *
+ * --chars counts Unicode code points after blank-line normalization.
+ *
  * Gotcha: 'networkidle' never fires on pages holding an SSE/websocket stream —
  * this script uses domcontentloaded + a fixed settle wait instead.
  */
@@ -68,7 +70,7 @@ if (!urls.length) {
       source: url,
       trust: 'untrusted-page-content',
       boundary: evidenceBoundary,
-      text: text.replace(/\n{2,}/g, '\n').slice(0, CHARS),
+      text: Array.from(text.replace(/\n{2,}/g, '\n')).slice(0, CHARS).join(''),
     };
     console.log(terminalJson(evidence));
   }

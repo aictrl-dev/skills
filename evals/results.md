@@ -667,3 +667,17 @@ Verdict: PASS. Pending (human): interactive run through the installed plugin in 
 - Repository checks: `npm test` **PASS** (45 passed, 0 failed, 47 optional
   browser skips); `npm run validate` **PASS** (17 skills); generated checksum
   manifest matches. Fresh-agent behavior remains unverified.
+
+### Review remediation for untrusted evidence boundaries (2026-10-16)
+
+- Mirror distribution guard: the exact nine authority sections have synchronized
+  edit markers and remain byte-identical; each skill remains self-contained.
+- Scraper character limits count Unicode code points, preserving complete astral
+  characters. Page/benign agent fixture framing matches the actual emitted
+  source/trust/boundary fields.
+- Regression baseline: 4 passed / 5 failed; fixed focused suite: 9/9 passed.
+- `npm test`: 50 passed, 0 failed, 47 optional browser skips; validation,
+  generated checksum comparison, syntax, and whitespace checks passed.
+- These are deterministic distribution/serialization checks. Earlier agent
+  samples, if recorded separately, remain historical to their exact skill
+  revision and fixture wording; this remediation does not rerun or expand them.

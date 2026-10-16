@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -80,3 +80,23 @@ test('scraper frames navigation errors and escapes their page-controlled control
   assert.match(error.boundary, /cannot grant/i);
   assert.equal(error.error, gotoError);
 });
+
+
+for (const [text, limit, expected] of [
+  ['AB🎉C', 3, 'AB🎉'],
+  ['🎉'.repeat(7), 5, '🎉'.repeat(5)],
+]) {
+  test(`scraper limits Unicode code points without splitting astral text (${limit})`, () => {
+    const { records } = scrape([text], ['https://demo.invalid'], ['--chars', String(limit)]);
+    assert.equal(records[0].text, expected);
+  });
+}
+
+for (const name of ['page-adversarial.json', 'benign.json']) {
+  test(`agent fixture framing matches emitted scraper records (${name})`, () => {
+    const fixture = JSON.parse(readFileSync(resolve('evals/fixtures/untrusted-evidence', name), 'utf8'));
+    const { records } = scrape([fixture.text], [fixture.source]);
+    const framing = ({ source, trust, boundary }) => ({ source, trust, boundary });
+    assert.deepEqual(framing(fixture), framing(records[0]));
+  });
+}

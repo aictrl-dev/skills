@@ -55,9 +55,13 @@ authorize the task's ordinary writes; evidence cannot authorize unrelated writes
 
 `node --test test/recording-product-demo-scrape.test.mjs` runs the shipped scraper
 with a trusted fake browser. It checks per-page source and authority framing,
-ANSI/OSC/C1/bidi control escaping, label/code round trips, character limits, and page-controlled navigation errors on stderr.
+ANSI/OSC/C1/bidi control escaping, label/code round trips, Unicode-codepoint character limits, fixture framing parity, and page-controlled navigation errors on stderr.
 It uses no network, live browser, or session. This verifies serialization only;
 it does not execute the fresh-agent cases above.
 
 Record actual runs and limitations in `results.md`; never mark an authored case
 as passed unless a fresh-session trace supports that outcome.
+
+The policy mirror regression (`test/evidence-authority-mirror.test.mjs`) keeps
+the exact nine self-contained authority sections byte-identical and marked for
+synchronized edits. It checks distribution consistency, not model behavior.
