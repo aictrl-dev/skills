@@ -6,13 +6,14 @@ import { ROOT, readJson } from '../scripts/public-catalog.mjs';
 import { inspectReleasePublication } from '../scripts/verify-release-publication.mjs';
 
 const metadata = readJson('package.json');
+const expectedDistTag = metadata.version.includes('-') ? 'beta' : 'latest';
 
 test('release tag must exactly match the shared package version', () => {
   const valid = spawnSync(process.execPath, [
     join(ROOT, 'scripts/resolve-release-target.mjs'), `v${metadata.version}`,
   ], { encoding: 'utf8' });
   assert.equal(valid.status, 0);
-  assert.match(valid.stdout, /^package_spec=\.\ndist_tag=beta\n$/);
+  assert.equal(valid.stdout, `package_spec=.\ndist_tag=${expectedDistTag}\n`);
 
   const invalid = spawnSync(process.execPath, [
     join(ROOT, 'scripts/resolve-release-target.mjs'), 'v0.0.0',

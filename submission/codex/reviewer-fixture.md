@@ -24,6 +24,7 @@ remaining readiness controls pass.
 
 - The reviewer account can see only its intended aictrl.dev organization and the fixture repository.
 - The private `Plugin Reviewer` backlog contains an active `Publishing OpenAI Codex Plugin` epic and one dedicated `OpenAI plugin reviewer fixture task`; no production backlog is used.
+- Fixture [PR #4](https://github.com/aictrl-dev/aictrl-plugin-reviewer-fixture/pull/4) stays open at head `4c5f0ba6d5be34ccdfe5c19c986d47e44b4e1d3c` with its recorded review findings, including the open MINOR `JSDoc step order (trim then lowercase) mismatches code` finding used by P3.
 - The GitHub integration may create a feature branch and pull request but cannot merge or deploy.
 - The repository-owned workflow is reviewed through protected `main`; plugin installation never provisions it.
 - Credentials, recovery codes, OAuth tokens, GitHub installation tokens, domain challenges, and reviewer sessions never enter this repository or release evidence.
@@ -37,6 +38,7 @@ Before every reviewer run:
 3. Confirm fixture issue #1 remains open and matches the current baseline.
 4. Confirm the reviewer account and repository connection remain least-privilege.
 5. Confirm P5's stable idempotency key resolves to exactly one run and record the default-branch SHA and UTC start time outside the prompt.
+6. Confirm fixture PR #4 is open at its recorded head and P3's finding is still `open`. P3 records only a TRUE verdict, which appends judgment history without dismissing the finding; never use a FALSE verdict there, because FALSE on a MINOR finding dismisses it and consumes the fixture.
 
 The workflow validates that exact revision and pauses before writes. The portal
 case stops after reporting the initial run state; it does not approve, merge, or

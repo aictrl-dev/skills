@@ -20,12 +20,12 @@ account described in `reviewer-fixture.md`.
 - Expected behavior: calls `list_organizations` and `query_context` in the `code` domain without changing repository or project data.
 - Expected result: returns `.aictrl/workflows/implement-code-change.yaml` as the matching file.
 
-### P3 — Inspect a stable private epic
+### P3 — Judge a recorded code-review finding
 
-- Prompt: `In my Plugin Reviewer organization, show the epic "Publishing OpenAI Codex Plugin" and its tasks.`
-- Fixture/account: the portal demo account and the dedicated private backlog fixture documented in `reviewer-fixture.md`.
-- Expected behavior: calls `list_organizations` and `query_context` in the `backlog` domain.
-- Expected result: returns the active epic and its draft task `OpenAI plugin reviewer fixture task` without exposing another organization's backlog.
+- Prompt: `In my Plugin Reviewer organization, list the code-review findings on aictrl-dev/aictrl-plugin-reviewer-fixture pull request 4. Read src/labels.mjs at the pull request's current head, then record a TRUE verdict with action DEFER on the finding about the JSDoc step order not matching the code, citing the file you read.`
+- Fixture/account: the portal demo account and open fixture pull request #4 with its recorded review findings, documented in `reviewer-fixture.md`.
+- Expected behavior: calls `list_organizations`, `list_pr_findings`, and `record_finding_verdict`; writes one verdict with an observed / root-cause / proof reasoning chain and the full 40-character head SHA, and does not post to GitHub.
+- Expected result: lists the recorded findings with their exact IDs, then confirms the verdict was stored for the JSDoc-order finding while the finding stays open.
 
 ### P4 — Apply a repeatable backlog update
 
