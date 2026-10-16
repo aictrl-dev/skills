@@ -32,7 +32,7 @@ function fixture(t) {
         : script === 'scrape-text.cjs' ? ['https://example.test'] : [];
       return spawnSync(process.execPath, [path.join(skill, 'scripts', script), ...(args ?? defaults)], {
         cwd: target, encoding: 'utf8', timeout: 5000,
-        env: { ...process.env, NODE_PATH: nodePath, NODE_OPTIONS: '', HOME: root },
+        env: { NODE_PATH: nodePath, NODE_OPTIONS: '', HOME: root },
       });
     },
   };
@@ -103,5 +103,24 @@ for (const script of ['login.cjs', 'scrape-text.cjs']) {
     assert.equal(r.status, 64, r.stderr);
     assert.match(r.stderr, /Usage:/);
     assert.doesNotMatch(r.stdout, /DEPENDENCY_LOADED/);
+  });
+}
+
+
+for (const withCore of [false, true]) {
+  test(`trusted dependency invalid main preserves Node diagnostics (core fallback ${withCore ? 'present' : 'absent'})`, (t) => {
+    const f = fixture(t);
+    const broken = path.join(f.skill, 'node_modules', 'playwright');
+    mkdirSync(broken, { recursive: true });
+    writeFileSync(path.join(broken, 'package.json'), JSON.stringify({ name: 'playwright', main: './missing.js' }));
+    if (withCore) f.install(f.skill, 'playwright-core', marker('FALLBACK_EXECUTED'));
+    const r = f.run('scrape-text.cjs');
+    assert.equal(r.error, undefined);
+    assert.notEqual(r.status, 0);
+    assert.doesNotMatch(r.stdout, /FALLBACK_EXECUTED/);
+    assert.match(r.stderr, /MODULE_NOT_FOUND/);
+    assert.match(r.stderr, /playwright[/\\]missing\.js/);
+    assert.match(r.stderr, /valid "main" entry/);
+    assert.doesNotMatch(r.stderr, /Playwright was not found/);
   });
 }

@@ -51,7 +51,8 @@ node --test test/recording-product-demo-dependencies.test.mjs
 - [ ] **Trusted dependencies**: step 5 passes for login, scraping and recording:
       planted CWD packages never execute; trusted skill/NODE_PATH installs and
       playwright-core work; broken installs preserve original errors; missing
-      packages give actionable trusted setup guidance; usage is validated first.
+      packages give actionable trusted setup guidance; usage is validated first for
+      login and scraping.
 
 ## Agent-level check (one fresh session)
 
