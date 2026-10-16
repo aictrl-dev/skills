@@ -20,7 +20,7 @@ function catalog() {
   const readOpenWorld = { ...read, openWorldHint: true };
   const readOpenWorldIdempotent = { ...readOpenWorld, idempotentHint: true };
   const createIdempotent = { ...create, idempotentHint: true };
-  const updateOpenWorld = { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
+  const updateOpenWorld = { ...create, destructiveHint: true };
   const updateOpenWorldIdempotent = { ...updateOpenWorld, idempotentHint: true };
   const org = { type: 'string', minLength: 1, description: 'ID from list_organizations.' };
   const reviewOrg = { type: 'string', description: 'Call list_organizations for the owning organization.' };
