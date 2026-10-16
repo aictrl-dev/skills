@@ -9,10 +9,22 @@ function owned(stat, target) {
   }
 }
 
+function trustedDirectory(stat, target) {
+  if (stat.isSymbolicLink()) throw new Error(`Session path contains a symlink: ${target}. Use a real, dedicated directory.`);
+  if (!stat.isDirectory()) throw new Error(`Session path is not a directory: ${target}. Choose a dedicated directory.`);
+  if (typeof process.getuid !== 'function' || (stat.uid !== 0 && stat.uid !== process.getuid())) {
+    throw new Error(`Session ancestor is not owned by root or the current user: ${target}. Choose a path with trusted ancestors.`);
+  }
+  if ((stat.mode & 0o022) && !(stat.mode & 0o1000)) {
+    throw new Error(`Session ancestor is writable by other users without the sticky bit: ${target}. Choose a trusted path; shared ancestors will not be chmodded.`);
+  }
+}
+
 function directoryChain(target, create) {
   const absolute = path.resolve(target);
   const root = path.parse(absolute).root;
   let current = root;
+  trustedDirectory(fs.lstatSync(root), root);
   for (const part of absolute.slice(root.length).split(path.sep).filter(Boolean)) {
     current = path.join(current, part);
     let stat;
@@ -20,9 +32,13 @@ function directoryChain(target, create) {
       if (error.code !== 'ENOENT' || !create) throw error;
       fs.mkdirSync(current, { mode: 0o700 });
       stat = fs.lstatSync(current);
+      // mkdir's mode is filtered by umask. Only adjust a directory we just created and own.
+      if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error(`New session directory was replaced: ${current}`);
+      owned(stat, current);
+      fs.chmodSync(current, 0o700);
+      stat = fs.lstatSync(current);
     }
-    if (stat.isSymbolicLink()) throw new Error(`Session path contains a symlink: ${current}. Use a real, dedicated directory.`);
-    if (!stat.isDirectory()) throw new Error(`Session path is not a directory: ${current}. Choose a dedicated directory.`);
+    trustedDirectory(stat, current);
   }
   return absolute;
 }
@@ -48,6 +64,9 @@ function stateDestination(target) {
   if (stat.isSymbolicLink()) throw new Error(`Session state is a symlink: ${absolute}. Choose a regular file in a private directory.`);
   if (!stat.isFile()) throw new Error(`Session state is not a regular file: ${absolute}. Choose a regular file in a private directory.`);
   owned(stat, absolute);
+  if ((stat.mode & 0o777) !== 0o600) {
+    throw new Error(`Session state must have mode 0600: ${absolute}. Review the file and set chmod 600, or choose a fresh state path.`);
+  }
   return absolute;
 }
 
@@ -67,16 +86,27 @@ function writeSessionState(target, state) {
   const temporary = path.join(path.dirname(destination), `.session-${randomUUID()}.json`);
   const descriptor = fs.openSync(temporary, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
   try {
+    let writeError;
     try {
+      fs.fchmodSync(descriptor, 0o600); // restore owner bits stripped by a restrictive umask before writing
       fs.writeFileSync(descriptor, JSON.stringify(state));
       fs.fsyncSync(descriptor);
+    } catch (error) {
+      writeError = error;
+      throw error;
     } finally {
-      fs.closeSync(descriptor);
+      try { fs.closeSync(descriptor); } catch (error) {
+        if (!writeError) throw error;
+        console.error('[login] ERROR: session file close failed:', error.message);
+      }
     }
     stateDestination(destination);
     fs.renameSync(temporary, destination);
-  } finally {
-    fs.rmSync(temporary, { force: true });
+  } catch (error) {
+    try { fs.rmSync(temporary, { force: true }); } catch (cleanupError) {
+      throw new Error(`${error.message}; temporary session cleanup failed for ${temporary}: ${cleanupError.message}`, { cause: error });
+    }
+    throw error;
   }
 }
 

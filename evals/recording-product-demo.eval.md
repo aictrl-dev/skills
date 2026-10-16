@@ -76,6 +76,8 @@ Record results in evals/results.md (date, pass/fail per criterion).
 Run `node --test test/recording-product-demo-sessions.test.mjs`. It uses synthetic
 state and a browser stub under umask 000: directory modes before launch, file
 modes on the initial write, atomic replacement, shared ancestor preservation,
-symlink/foreign-owner rejection, and failed-write cleanup/browser closure.
+symlink/foreign-owner rejection, trusted/sticky ancestor checks, restrictive
+umasks, existing-file modes, closed-window/unexpected-error distinction, and
+primary-error preservation when file or browser cleanup also fails.
 POSIX assertions are skipped on Windows; the login helper explicitly rejects
 Windows capture rather than claiming mode bits establish ACL protection.

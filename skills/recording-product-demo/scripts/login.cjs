@@ -56,6 +56,7 @@ const { chromium } = loadPlaywright();
     args: ['--disable-blink-features=AutomationControlled', '--window-size=1700,1000'],
     ignoreDefaultArgs: ['--enable-automation'],
   });
+  let primaryError;
   try {
     const page = ctx.pages()[0] || (await ctx.newPage());
     await page.goto(URL, { waitUntil: 'domcontentloaded' });
@@ -69,8 +70,9 @@ const { chromium } = loadPlaywright();
       await new Promise((r) => setTimeout(r, 2000));
       let visible = false;
       try {
-        visible = await page.locator(`text=${EXPECT}`).first().isVisible().catch(() => false);
-      } catch {
+        visible = await page.locator(`text=${EXPECT}`).first().isVisible();
+      } catch (error) {
+        if (!page.isClosed()) throw error;
         console.log('[login] FAILED: window was closed before login completed');
         process.exitCode = 2;
         return;
@@ -87,11 +89,17 @@ const { chromium } = loadPlaywright();
 
     const state = await ctx.storageState();
     writeSessionState(statePath, state); // private from its first write; NEVER commit
-    console.log('[login] SUCCESS: state saved to', statePath, '(mode 0600)');
-    console.log('[login] profile (cookies+localStorage+IndexedDB):', profileDir);
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    await ctx.close();
+    try { await ctx.close(); } catch (error) {
+      if (!primaryError && !process.exitCode) throw error;
+      console.error('[login] ERROR: browser cleanup failed:', error.message);
+    }
   }
+  console.log('[login] SUCCESS: state saved to', statePath, '(mode 0600)');
+  console.log('[login] profile (cookies+localStorage+IndexedDB):', profileDir);
 })().catch((e) => {
   console.error('[login] ERROR:', e.message);
   process.exit(3);
