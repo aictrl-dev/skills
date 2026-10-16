@@ -12,17 +12,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-function resolvePlaywright() {
-  const candidates = [
-    path.join(process.cwd(), 'node_modules', 'playwright'),
-    'playwright',
-  ];
-  for (const c of candidates) {
-    try { return require(c); } catch { /* next */ }
-  }
-  throw new Error('playwright not found — run `npm i -D playwright && npx playwright install chromium` in the host repo');
-}
-const { chromium } = resolvePlaywright();
+const { loadPlaywright } = require('./playwright.cjs');
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
@@ -38,6 +28,8 @@ if (!urls.length) {
   console.error('Usage: node scrape-text.cjs <url> [<url>...] [--profile dir | --state file]');
   process.exit(64);
 }
+
+const { chromium } = loadPlaywright();
 
 (async () => {
   let browser = null, ctx;

@@ -653,3 +653,24 @@ Method: a fresh agent followed `skills/design-review/SKILL.md` and `reference/ru
 | No hallucinated elements | PASS |
 
 Verdict: PASS. Pending (human): interactive run through the installed plugin in a fresh client session.
+
+## recording-product-demo trusted dependencies — 2026-10-16
+
+Method: isolated temporary skill/target directories and harmless marker packages;
+no browser, credentials or network required by the new regressions.
+
+| Criterion | Result |
+|-----------|--------|
+| Regression baseline on the original implementation | RED: 17 failed, 3 passed |
+| Target CWD package never executes in login, scrape or recording | PASS |
+| Trusted skill-adjacent and explicit NODE_PATH installs work | PASS |
+| Absent Playwright supports trusted playwright-core | PASS |
+| Missing package guidance and original broken-install diagnostics | PASS |
+| Login and scrape validate usage before loading dependencies | PASS |
+| New dependency test file | PASS: 20/20, no skips |
+| Standard `npm test` | PASS: 61 passed, 0 failed, 47 optional browser skips |
+| `npm run validate`, recording-script syntax, checksum comparison, diff whitespace | PASS |
+
+The existing optional browser-enabled plaintext-combobox regression reproduces on
+baseline and is unrelated to this change. Agent-level boot/journey trust review
+criteria were updated; a fresh interactive recording was not run.
