@@ -22,9 +22,9 @@
   "interface": {
     "displayName": "AICtrl",
     "shortDescription": "Engineering skills & workflows",
-    "longDescription": "Use essential engineering skills locally, then hand implementation work to versioned AICtrl workflows with approvals, evidence, history, and policy controls.",
+    "longDescription": "aictrl brings engineering skills and controlled delivery workflows to software teams that use aictrl.dev.\n\nWhat it does:\n- Skills that run in your session: turn requests into implementation-ready issues, review specs, implement changes and prepare pull requests, review code at the current head revision, judge and reply to review findings, run root-cause analyses, plan measurements, polish UI, test agent usability, author and run workflows, and explain changes.\n- An aictrl.dev connector (OAuth) that lets you search connected repository context, update your project backlog, list and inspect published workflows, start a workflow run after you confirm its inputs and side effects, follow run status, approve or cancel gated steps, start PR Explanation or Code Review tasks, and record verdicts on code-review findings.\n\nWho it is for: software engineers and engineering leads whose organization has connected GitHub repositories to aictrl.dev.\n\nLimitations: the connector only sees the organizations, repositories, and workflows your aictrl.dev account can access. It does not push code itself; repository changes happen only inside workflow runs, which perform only the side effects their published definition declares and wait at gated steps for explicit approval. The skills work without an account; connector features need an aictrl.dev organization.",
     "developerName": "aictrl.dev",
-    "category": "Productivity",
+    "category": "Developer Tools",
     "capabilities": [
       "Read",
       "Write",
