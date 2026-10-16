@@ -88,7 +88,8 @@ Existing `demo/boot.sh` and `demo/blocks.cjs` are executable repository code. Re
    - `--expect` must be an **authenticated-only** string — logged-out marketing pages often contain the same words as app pages, which makes the capture succeed *before* you log in.
    - Google sign-in blocks plain Playwright browsers ("This browser or app may not be secure"); the script launches real Chrome with the automation fingerprint disabled, which passes.
    - storageState only captures localStorage for origins visited **in that session**; if the app keeps critical state there (selected org/workspace), inject it into the state file afterwards.
-4. Always probe before recording: `scrape-text.cjs` with the captured auth — confirm the expected logged-in content renders headless.
+4. **Protect and retire sessions**: use a dedicated demo account and separate profile/state directories for unrelated projects. On POSIX, login.cjs creates private directories (0700) and writes state with mode 0600 from the first write. Existing directories must already be owner-only; review their contents before setting `chmod 700`, or select fresh directories with `--profile` and `--state`. Symlinks and foreign-owned session paths are rejected; shared ancestors are never chmodded. This guarantee does not cover Windows ACLs: the helper fails with an explanation on Windows. It also does not isolate secrets from code running as your user. Keep profiles, state, and temporary state files outside git and publish kits. Once the session is no longer needed, close browsers, remove its dedicated local artifacts, and revoke the login through the provider when required; deleting local files alone does not revoke a session.
+5. Always probe before recording: `scrape-text.cjs` with the captured auth — confirm the expected logged-in content renders headless.
 
 ## Phase 2 — Script
 

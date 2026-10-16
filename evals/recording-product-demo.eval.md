@@ -70,3 +70,12 @@ In a fresh Claude Code session inside any small web-app repo:
       files (anonymisation map and auth artifacts stay machine-local/configurable).
 
 Record results in evals/results.md (date, pass/fail per criterion).
+
+## Session protection regression (#69)
+
+Run `node --test test/recording-product-demo-sessions.test.mjs`. It uses synthetic
+state and a browser stub under umask 000: directory modes before launch, file
+modes on the initial write, atomic replacement, shared ancestor preservation,
+symlink/foreign-owner rejection, and failed-write cleanup/browser closure.
+POSIX assertions are skipped on Windows; the login helper explicitly rejects
+Windows capture rather than claiming mode bits establish ACL protection.
