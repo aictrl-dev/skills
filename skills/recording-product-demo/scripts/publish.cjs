@@ -2,7 +2,10 @@
  * it to a configured destination.
  *
  * Usage:
- *   node publish.cjs [--build demo] [--config demo/demo.config.json] [--skip-upload]
+ *   node publish.cjs [--build demo] [--config demo/demo.config.json] [--upload | --skip-upload]
+ *
+ * Builds locally by default, even with an upload destination configured.
+ * Existing automation that needs uploads must add --upload.
  *
  * Produces in <build>/out/publish/:
  *   demo.mp4          faststart remux of final.mp4 (plays before fully downloaded)
@@ -13,17 +16,20 @@
  *   embed.html        responsive same-origin <video> snippet
  *   PUBLISH.md        what to do next (YouTube / LinkedIn / website guidance)
  *
- * Upload (config.publish.upload):
+ * Explicit --upload destination (config.publish.upload):
  *   null                                  → kit only (default)
  *   {"type":"gcs","path":"gs://bucket/dir"}   → gcloud storage cp (gcloud CLI required)
  *   {"type":"s3","path":"s3://bucket/dir"}    → aws s3 cp (aws CLI required)
  *   {"type":"youtube","privacy":"unlisted"}   → YouTube Data API resumable upload;
  *       needs env YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN (one-time
  *       OAuth provisioning on the channel; see PUBLISH.md for the steps)
+ * GCS requires a trusted gcloud executable that can be launched directly;
+ * Windows .cmd shims are unsupported.
  */
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { isIP } = require('net');
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
@@ -32,7 +38,55 @@ function arg(name, def) {
 const BUILD = path.resolve(arg('build', path.join(process.cwd(), 'demo')));
 const CONFIG_PATH = arg('config', path.join(BUILD, 'demo.config.json'));
 const config = fs.existsSync(CONFIG_PATH) ? JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) : {};
+const UPLOAD = process.argv.includes('--upload');
 const SKIP_UPLOAD = process.argv.includes('--skip-upload');
+const upload = config.publish?.upload;
+
+function usageError(message) {
+  console.error(`[pub] ERROR: ${message}`);
+  process.exit(1);
+}
+if (UPLOAD && SKIP_UPLOAD) usageError('--upload and --skip-upload cannot be combined.');
+if (UPLOAD) {
+  if (!upload || typeof upload !== 'object' || Array.isArray(upload)) {
+    usageError('--upload needs a publish.upload object with a supported provider.');
+  }
+  if (upload.type === 'gcs' || upload.type === 's3') {
+    const scheme = upload.type === 'gcs' ? 'gs' : 's3';
+    const location = typeof upload.path === 'string' && upload.path.match(new RegExp(`^${scheme}://([^/]+)(?:/.*)?$`));
+    const bucket = location && location[1];
+    const bucketPattern = upload.type === 'gcs'
+      ? /^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/
+      : /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
+    // Local checks cover syntax and selected reserved names, not provider authority.
+    // S3 data-plane destinations also accept access-point aliases such as -s3alias.
+    const reserved = bucket && (upload.type === 'gcs'
+      ? bucket.startsWith('goog') || bucket.includes('google') || bucket.includes('g00gle')
+      : /^(xn--|sthree-|amzn-s3-demo-)/.test(bucket));
+    if (!bucket || !bucketPattern.test(bucket) || bucket.split('.').some((part) => !part || part.length > 63)
+      || isIP(bucket) === 4 || reserved) {
+      usageError(`${upload.type} upload needs publish.upload.path with a valid ${scheme}://bucket[/prefix] destination.`);
+    }
+  } else if (upload.type === 'youtube') {
+    if (upload.privacy !== undefined && !['public', 'private', 'unlisted'].includes(upload.privacy)) {
+      usageError('YouTube upload privacy must be public, private, or unlisted.');
+    }
+    for (const field of ['title', 'description']) {
+      if (upload[field] !== undefined && typeof upload[field] !== 'string') {
+        usageError(`YouTube upload ${field} must be a string.`);
+      }
+    }
+  } else {
+    usageError('Unknown upload provider; publish.upload.type must be gcs, s3, or youtube.');
+  }
+}
+
+function displayDestination(destination) {
+  // JSON escapes C0 controls; also escape C1, format controls and line separators.
+  // Keep ordinary Unicode visible and preserve the original CLI argument.
+  return JSON.stringify(destination).replace(/[\u007f-\u009f\p{Cf}\u2028\u2029]/gu, (character) =>
+    character.split('').map((unit) => `\\u${unit.charCodeAt(0).toString(16).padStart(4, '0')}`).join(''));
+}
 
 const FINAL = path.join(BUILD, 'out/final.mp4');
 const STT = path.join(BUILD, 'out/voice/narration-full.stt.json');
@@ -46,7 +100,7 @@ fs.mkdirSync(PUB, { recursive: true });
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...opts });
   if (r.status !== 0) {
-    console.error(`[pub] ERROR: ${cmd} failed:\n${r.stderr.toString().slice(-1200)}`);
+    console.error(`[pub] ERROR: ${cmd} failed:\n${r.error ? r.error.message : r.stderr.toString().slice(-1200)}`);
     process.exit(1);
   }
   return r.stdout.toString();
@@ -121,6 +175,10 @@ Upload demo.mp4 (Unlisted if it's for embedding only), attach captions.srt.
 For privacy-friendly site embeds use \`https://www.youtube-nocookie.com/embed/<ID>?rel=0\`
 with \`referrerpolicy="no-referrer"\` and \`loading="lazy"\`.
 
+## Cloud CLI requirements
+GCS automation requires a trusted, directly launchable \`gcloud\` executable on
+PATH. Windows \`.cmd\` shims are unsupported.
+
 ## LinkedIn (company page)
 Do NOT post a YouTube link — feed ranking punishes outbound links and a link
 renders as a static preview. Upload the MP4 natively (consider a 60–90s teaser
@@ -130,29 +188,52 @@ cut), attach captions.srt, put the full-video link in the FIRST COMMENT.
 Set \`publish.upload = {"type":"youtube","privacy":"unlisted"}\` in
 demo.config.json and provision once: create an OAuth client (YouTube Data API
 v3, scope youtube.upload), obtain a refresh token for the channel, export
-YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN, re-run publish.cjs.
+YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN, re-run publish.cjs with \`--upload\`.
+
+## Explicit upload / automation migration
+\`node publish.cjs --build demo\` builds locally even when \`publish.upload\` is configured.
+\`--skip-upload\` also remains local-only; do not combine it with \`--upload\`.
+To build and upload, use \`node publish.cjs --build demo --upload\` with one of:
+
+- \`{"type":"gcs","path":"gs://your-bucket/demos"}\`
+- \`{"type":"s3","path":"s3://your-bucket/demos"}\`
+- \`{"type":"youtube","privacy":"unlisted"}\` (visibility defaults to unlisted)
+
+Existing automation must add \`--upload\` to retain uploads. Use it only for an
+already authorized destination and visibility; creating a local demo alone does
+not authorize publishing. With \`--upload\`, local syntax and selected reserved-name
+checks run before media processing; providers remain authoritative for complete
+naming rules, destination existence and permissions. S3 access-point aliases are
+allowed as data-plane destinations. The script displays a JSON-escaped destination
+or YouTube visibility before transmission, without printing credentials.
 `);
 console.log('[pub] embed.html, PUBLISH.md');
 
 // ---- 4. optional upload ----
-const upload = config.publish?.upload;
 (async () => {
-  if (!upload || SKIP_UPLOAD) {
-    console.log(`[pub] kit ready: ${PUB}${upload ? ' (upload skipped)' : ' (no upload configured)'}`);
+  if (!UPLOAD) {
+    console.log(`[pub] kit ready: ${PUB}${SKIP_UPLOAD ? ' (upload skipped)' : ' (local only; use --upload to publish)'}`);
     return;
   }
   if (upload.type === 'gcs') {
-    run('gcloud', ['storage', 'cp', '-r', PUB + path.sep + '*', upload.path], { shell: true });
-    console.log('[pub] uploaded to', upload.path);
+    console.log('[pub] uploading to gcs:', displayDestination(upload.path));
+    // Expand the former shell glob ourselves: upload contents, not the enclosing
+    // publish directory, and keep paths (including spaces/metacharacters) literal.
+    const sources = fs.readdirSync(PUB).filter((name) => !name.startsWith('.')).sort()
+      .map((name) => path.join(PUB, name));
+    run('gcloud', ['storage', 'cp', '-r', ...sources, upload.path]);
+    console.log('[pub] uploaded to', displayDestination(upload.path));
   } else if (upload.type === 's3') {
+    console.log('[pub] uploading to s3:', displayDestination(upload.path));
     run('aws', ['s3', 'cp', PUB, upload.path, '--recursive']);
-    console.log('[pub] uploaded to', upload.path);
+    console.log('[pub] uploaded to', displayDestination(upload.path));
   } else if (upload.type === 'youtube') {
     const { YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN } = process.env;
     if (!YT_CLIENT_ID || !YT_CLIENT_SECRET || !YT_REFRESH_TOKEN) {
       console.error('[pub] ERROR: youtube upload needs YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN (see PUBLISH.md)');
       process.exit(1);
     }
+    console.log(`[pub] uploading to YouTube (visibility: ${upload.privacy || 'unlisted'})`);
     const tokRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
