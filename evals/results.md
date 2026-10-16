@@ -654,6 +654,48 @@ Method: a fresh agent followed `skills/design-review/SKILL.md` and `reference/ru
 
 Verdict: PASS. Pending (human): interactive run through the installed plugin in a fresh client session.
 
+## recording-product-demo trusted dependencies — 2026-10-16
+
+Method: isolated temporary skill/target directories and harmless marker packages;
+no browser, credentials or network required by the new regressions.
+This table records the historical 20-test revision, before the two invalid-main
+regressions in the review follow-up below; its counts are the runs actually observed.
+
+| Criterion | Result |
+|-----------|--------|
+| Regression baseline on the original implementation | RED: 17 failed, 3 passed |
+| Target CWD package never executes in login, scrape or recording | PASS |
+| Trusted skill-adjacent and explicit NODE_PATH installs work | PASS |
+| Absent Playwright supports trusted playwright-core | PASS |
+| Missing package guidance and original broken-install diagnostics | PASS |
+| Login and scrape validate usage before loading dependencies | PASS |
+| New dependency test file | PASS: 20/20, no skips (before the two invalid-main regressions below) |
+| Standard `npm test` | PASS: 61 passed, 0 failed, 47 optional browser skips |
+| `npm run validate`, recording-script syntax, checksum comparison, diff whitespace | PASS |
+
+The existing optional browser-enabled plaintext-combobox regression reproduces on
+baseline and is unrelated to this change. Agent-level boot/journey trust review
+criteria were updated; a fresh interactive recording was not run.
+
+## recording-product-demo trusted dependency review (2026-10-16)
+
+- The claimed invalid-main fallback was not reproduced. On Node 20.20.2 and
+  24.21.0, a trusted package with `main: "./missing.js"` raises MODULE_NOT_FOUND
+  for the absolute missing file, with package.json `path` and `requestPath`
+  `playwright`; the existing loader preserves that diagnostic with or without
+  a sibling core installation. Two new passing regressions lock this behavior;
+  the production fallback predicate is unchanged. Node 22 was not available
+  locally; the existing Node 22 CI job runs the dependency tests.
+- Canonical absolute `PLAYWRIGHT_CLI` setup covers full/core packages through
+  NODE_PATH and beside/above the skill without NODE_PATH. Search-scope guidance
+  now names skill ancestors, NODE_PATH, and Node global folders; the vendored
+  placement limitation remains explicit. Usage-before-load coverage is stated
+  only for login and scraping.
+- QA: 22/22 dependency tests passed on both available Node versions; full
+  `npm test`: 63 passed, 0 failed, 47 optional browser skips. Validation,
+  generated checksums, syntax, and whitespace checks passed. Fixture children
+  use a minimal environment. No live browser or external upload was performed.
+
 ## Untrusted evidence boundary hardening (issue 67, 2026-10-16)
 
 - Added fresh-session adversarial PR/comment, malicious page, benign literal

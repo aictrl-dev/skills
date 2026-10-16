@@ -39,6 +39,9 @@ node --test test/recording-product-demo-publish-shell.test.mjs
 
 # 6. upload opt-in and fail-fast config checks (stub cloud/media and mock HTTP)
 node --test test/recording-product-demo-upload.test.mjs
+
+# 7. trusted dependency loading (stub packages only; no browser or network)
+node --test test/recording-product-demo-dependencies.test.mjs
 ```
 
 ## Pass criteria (all must hold)
@@ -50,7 +53,7 @@ node --test test/recording-product-demo-upload.test.mjs
       contains a mux invocation with `-ss 1.5` (t0 head-trim from take-meta),
       `-t 8.34` (narrationEnd + 1.4), and a `crop=1536:864` → `scale=1920:1080`
       filter chain (viewport → output from take-meta).
-- [ ] **Syntax**: step 3 exits 0 for all six .cjs scripts and the Python splitter.
+- [ ] **Syntax**: step 3 exits 0 for every .cjs script and the Python splitter.
 - [ ] **Config contract**: step 4 exits 0, including the template's null upload default.
 - [ ] **Literal GCS arguments**: step 5 passes — build/destination shell syntax
       cannot execute commands; spaces stay in single arguments; publish-kit
@@ -68,6 +71,12 @@ node --test test/recording-product-demo-upload.test.mjs
       preserving S3 access-point aliases, non-IP numeric names and Unicode object
       prefixes. Destination logs escape controls while CLI arguments stay literal.
 
+- [ ] **Trusted dependencies**: step 7 passes for login, scraping and recording:
+      planted CWD packages never execute; trusted skill/NODE_PATH installs and
+      playwright-core work; broken installs preserve original errors; missing
+      packages give actionable trusted setup guidance; usage is validated first for
+      login and scraping.
+
 Local checks cover syntax and selected naming restrictions from [S3 naming rules](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html)
 and [GCS naming rules](https://docs.cloud.google.com/storage/docs/buckets#naming).
 [S3 access-point aliases](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-naming.html)
@@ -81,6 +90,10 @@ In a fresh Claude Code session inside any small web-app repo:
   `/recording-product-demo`
 - [ ] The agent checks prerequisites (ElevenLabs key, ffmpeg, Playwright) before
       doing anything else, and reports what's missing instead of failing midway.
+- [ ] Playwright setup and card rendering use a trusted installation. The agent
+      acknowledges that vendoring the skill in an untrusted repo is not isolation.
+- [ ] Existing boot/journey code and its imports are reviewed before execution;
+      the journey is reviewed before receiving an authenticated browser context.
 - [ ] Phase 0 produces `demo/boot.sh` + `demo/demo.config.json` (not ad-hoc
       shell history), and the boot script health-checks before returning.
 - [ ] The agent does NOT hardcode operator-identifying values into committed

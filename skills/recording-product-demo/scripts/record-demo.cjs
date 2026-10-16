@@ -36,17 +36,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-function resolvePlaywright() {
-  const candidates = [
-    path.join(process.cwd(), 'node_modules', 'playwright'), // host repo
-    'playwright', // anywhere on the resolution path
-  ];
-  for (const c of candidates) {
-    try { return require(c); } catch { /* next */ }
-  }
-  throw new Error('playwright not found — run `npm i -D playwright && npx playwright install chromium` in the host repo');
-}
-const { chromium } = resolvePlaywright();
+const { loadPlaywright } = require('./playwright.cjs');
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
@@ -71,6 +61,8 @@ const expandHome = (p) => (p && p.startsWith('~') ? path.join(os.homedir(), p.sl
 const timeline = JSON.parse(fs.readFileSync(TIMELINE, 'utf8'));
 const B = [...timeline.map((s) => s.start), timeline[timeline.length - 1].end];
 console.log('[rec] boundaries:', B.map((b) => b.toFixed(1)).join(' '));
+
+const { chromium } = loadPlaywright();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

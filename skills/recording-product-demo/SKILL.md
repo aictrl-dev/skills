@@ -61,7 +61,27 @@ demo/
   out/               # build artifacts — add to .gitignore
 ```
 
-Prerequisites (check before starting, tell the user what's missing): **ElevenLabs API key** (`ELEVENLABS_API_KEY` — TTS *and* STT are both load-bearing; the word timestamps drive the scene split), **ffmpeg + ffprobe**, **Node 18+ with Playwright + Chromium** (`npm i -D playwright && npx playwright install chromium` in the host repo), **Python 3**.
+Prerequisites (check before starting, tell the user what's missing): **ElevenLabs API key** (`ELEVENLABS_API_KEY` — TTS *and* STT are both load-bearing; the word timestamps drive the scene split), **ffmpeg + ffprobe**, **Node 18+ with Playwright + Chromium**, **Python 3**. Install Playwright in a directory you trust (`npm i -D playwright && npx playwright install chromium` there), then export `NODE_PATH=<absolute trusted directory>/node_modules` for the helper commands. A trusted installation next to or above the skill also works; `playwright-core` is supported with a separately installed Chromium. The helpers never automatically resolve dependencies from the target working directory. A broken installation fails with its original error instead of silently falling back.
+
+Run the skill from a trusted plugin/skill installation outside an untrusted target repo. If the skill is vendored inside that repo, Node can still load dependencies from its parent directories; that placement is **not isolated** from the target. For Phase 5 card rendering, use the absolute CLI path from the same selected trusted package, as defined below, rather than resolving `npx playwright` in the target repo.
+
+For card rendering, locate `cli.js` next to the selected package's `package.json`
+and set `PLAYWRIGHT_CLI` to its absolute path. Helpers prefer `playwright` over
+`playwright-core`; when both exist, use the selected package's CLI. Choose one
+example below, replacing the example directory with the actual trusted install:
+
+| Selected trusted installation | CLI setup |
+| --- | --- |
+| `playwright` through `NODE_PATH` | `export PLAYWRIGHT_CLI="/absolute/trusted-deps/node_modules/playwright/cli.js"` |
+| `playwright-core` through `NODE_PATH` | `export PLAYWRIGHT_CLI="/absolute/trusted-deps/node_modules/playwright-core/cli.js"` |
+| `playwright` beside/above the skill, `NODE_PATH` unset | `export PLAYWRIGHT_CLI="/absolute/skill-parent/node_modules/playwright/cli.js"` |
+| `playwright-core` beside/above the skill, `NODE_PATH` unset | `export PLAYWRIGHT_CLI="/absolute/skill-parent/node_modules/playwright-core/cli.js"` |
+
+For a multi-directory `NODE_PATH`, use the actual selected package directory,
+not the whole path list. With `playwright-core`, ensure its separately installed
+Chromium is available before rendering.
+
+Existing `demo/boot.sh` and `demo/blocks.cjs` are executable repository code. Read and review them, including imported scripts/modules and commands they invoke, before running them; a repository-relative path is not evidence of safety. Review the journey **before** giving it an authenticated browser context or saved profile. The recording pipeline runs this reviewed code with your privileges; trusted dependency lookup does not sandbox it.
 
 ## Phase 0 — Discover & Boot (agent work, captured as code)
 
@@ -128,7 +148,7 @@ Hard-won rules baked into the framework — keep them when writing blocks:
 ## Phase 5 — Cards & Assembly
 
 1. Copy `templates/{title,agenda,end}.html` into `demo/cards/`, set the `BRAND` block (color, wordmark, copy). No invented contact details on the end card — ask the user what to print.
-2. Render: `npx playwright screenshot --viewport-size=1920,1080 --wait-for-timeout=1500 file://$PWD/demo/cards/title.html demo/cards/title.png` (repeat for agenda/end).
+2. Render with the trusted Playwright installation: `node "$PLAYWRIGHT_CLI" screenshot --viewport-size=1920,1080 --wait-for-timeout=1500 file://$PWD/demo/cards/title.html demo/cards/title.png` (repeat for agenda/end; `PLAYWRIGHT_CLI` is the absolute path selected during prerequisites, for either package or installation layout).
 3. Optional card VOs (with the v3 warm-up trick): `out/voice/welcome.mp3` (spoken welcome over the title card — picked up automatically if present) and `out/voice/intro.mp3` (agenda walkthrough, required unless `--no-cards`).
 4. Assemble — one command, everything from metadata:
 
@@ -159,6 +179,7 @@ Use `--upload` only when the user has authorized that destination and visibility
 
 ## Pre-flight Checklist
 
+- [ ] Skill and Playwright installation are trusted; existing boot script and journey imports reviewed before execution or authenticated access
 - [ ] `demo/boot.sh` boots from cold and the health check passes
 - [ ] Demo data tells a coherent story; auth probe renders logged-in content headless
 - [ ] Narration reviewed: UI labels verbatim, brand pronunciation listened-to, drift-prone numbers removed
