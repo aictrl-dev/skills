@@ -73,12 +73,15 @@ test('Codex submission requires the exact public MCP catalog', () => {
     'list_workflows',
     'get_workflow',
     'start_workflow',
+    'list_workflow_runs',
     'get_workflow_run',
     'approve_workflow_step',
     'cancel_workflow_run',
     'list_tasks',
     'start_task',
     'get_task_execution',
+    'list_pr_findings',
+    'record_finding_verdict',
     'get_started',
   ]);
 });

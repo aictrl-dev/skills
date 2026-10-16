@@ -10,6 +10,7 @@ export const PUBLIC_MCP_ANNOTATIONS = Object.freeze({
   readIdempotent: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true }),
   readOpenWorld: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: true }),
   readOpenWorldIdempotent: Object.freeze({ readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true }),
+  create: Object.freeze({ readOnlyHint: false, destructiveHint: false, openWorldHint: true }),
   createIdempotent: Object.freeze({ readOnlyHint: false, destructiveHint: false, openWorldHint: true, idempotentHint: true }),
 });
 export const EXPECTED_PUBLIC_MCP_TOOLS = Object.freeze([
@@ -19,12 +20,15 @@ export const EXPECTED_PUBLIC_MCP_TOOLS = Object.freeze([
   'list_workflows',
   'get_workflow',
   'start_workflow',
+  'list_workflow_runs',
   'get_workflow_run',
   'approve_workflow_step',
   'cancel_workflow_run',
   'list_tasks',
   'start_task',
   'get_task_execution',
+  'list_pr_findings',
+  'record_finding_verdict',
   'get_started',
 ]);
 export const EXPECTED_SKILLS = Object.freeze([

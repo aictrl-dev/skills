@@ -58,17 +58,34 @@ Require exactly these production tools:
 4. `list_workflows`
 5. `get_workflow`
 6. `start_workflow`
-7. `get_workflow_run`
-8. `approve_workflow_step`
-9. `cancel_workflow_run`
-10. `list_tasks`
-11. `start_task`
-12. `get_task_execution`
-13. `get_started`
+7. `list_workflow_runs`
+8. `get_workflow_run`
+9. `approve_workflow_step`
+10. `cancel_workflow_run`
+11. `list_tasks`
+12. `start_task`
+13. `get_task_execution`
+14. `list_pr_findings`
+15. `record_finding_verdict`
+16. `get_started`
 
 Scan again after any server change. Tool names, descriptions, input/output
 schemas, and `readOnlyHint`, `openWorldHint`, `destructiveHint`, and
 `idempotentHint` annotations must match deployed behavior.
+
+The sixteen-tool contract is pinned to backend commit
+[`d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c`](https://github.com/aictrl-dev/aictrl/commit/d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c),
+deployed by [run 38885607809](https://github.com/aictrl-dev/aictrl/actions/runs/38885607809).
+`record_finding_verdict` is a write with `readOnlyHint: false`,
+`destructiveHint: false`, and `openWorldHint: true`; its public annotations do
+not declare `idempotentHint`. The two code-review tools' published
+`organization_id` property omits `minLength`, and `list_pr_findings` omits
+top-level `additionalProperties`. These are explicit metadata exceptions, not
+a claim that the published schema rejects unknown inputs or that handler-side
+authorization is optional. Keep every other tool's existing strict contract.
+
+The catalog smoke lists the verdict tool but never invokes it: runtime probes
+remain `list_organizations`, no-org `list_workflows`, and the denied-org read.
 
 ## Skills, prompts, and tests
 

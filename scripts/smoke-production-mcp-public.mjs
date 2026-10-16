@@ -15,6 +15,7 @@ const {
   readOpenWorld,
   readOpenWorldIdempotent,
   update,
+  create,
   createIdempotent,
 } = PUBLIC_MCP_ANNOTATIONS;
 
@@ -47,7 +48,12 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
   start_workflow: {
     annotations: createIdempotent,
     required: ['organization_id', 'workflow_id', 'idempotency_key'],
-    properties: ['organization_id', 'workflow_id', 'idempotency_key', 'inputs'],
+    properties: ['organization_id', 'workflow_id', 'idempotency_key', 'inputs', 'repository_id'],
+  },
+  list_workflow_runs: {
+    annotations: read,
+    required: ['organization_id'],
+    properties: ['organization_id', 'issue_id', 'epic_id', 'workflow_id', 'status', 'started_by', 'since', 'until', 'needs_attention', 'cursor', 'limit'],
   },
   get_workflow_run: {
     annotations: read,
@@ -57,7 +63,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
   approve_workflow_step: {
     annotations: update,
     required: ['organization_id', 'run_id', 'decision', 'expected_revision'],
-    properties: ['organization_id', 'run_id', 'decision', 'expected_revision', 'note'],
+    properties: ['organization_id', 'run_id', 'decision', 'expected_revision', 'expected_digest', 'note', 'expected_gate'],
   },
   cancel_workflow_run: {
     annotations: update,
@@ -78,6 +84,19 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     annotations: readIdempotent,
     required: ['organization_id', 'execution_id'],
     properties: ['organization_id', 'execution_id'],
+  },
+  list_pr_findings: {
+    annotations: read,
+    required: ['organization_id', 'repository', 'pr'],
+    properties: ['organization_id', 'repository', 'pr', 'include_history', 'include_obsolete'],
+    additionalProperties: 'omitted',
+    organizationMinLength: 'omitted',
+  },
+  record_finding_verdict: {
+    annotations: create,
+    required: ['organization_id', 'repository', 'pr', 'finding_id', 'verdict', 'reasoning', 'judged_at_sha'],
+    properties: ['organization_id', 'repository', 'pr', 'finding_id', 'verdict', 'action', 'reason', 'reasoning', 'evidence', 'judged_at_sha'],
+    organizationMinLength: 'omitted',
   },
   get_started: {
     annotations: readOpenWorld,
@@ -110,11 +129,15 @@ export function assertProductionCatalog(tools) {
     assert.ok(tool.description.trim(), `${name} has an empty description.`);
     assert.deepEqual(tool.annotations, contract.annotations, `${name} annotations drifted.`);
     assert.equal(tool.inputSchema?.type, 'object', `${name} input schema is not an object.`);
-    assert.equal(
-      tool.inputSchema?.additionalProperties,
-      false,
-      `${name} must reject unknown top-level inputs.`,
-    );
+    // Pin the deployed omission for list_pr_findings only; retain the strict
+    // false contract for every other tool rather than weakening all schemas.
+    if (contract.additionalProperties === 'omitted') {
+      assert.equal(Object.hasOwn(tool.inputSchema, 'additionalProperties'), false,
+        `${name} must omit additionalProperties to match its deployed schema.`);
+    } else {
+      assert.equal(tool.inputSchema?.additionalProperties, false,
+        `${name} must reject unknown top-level inputs.`);
+    }
     assert.deepEqual(tool.inputSchema?.required, contract.required, `${name} required inputs drifted.`);
     assert.deepEqual(
       Object.keys(tool.inputSchema?.properties ?? {}).sort(),
@@ -132,6 +155,7 @@ export function assertProductionCatalog(tools) {
   assertContextSchema(toolByName(tools, 'query_context').inputSchema);
   assertBacklogSchema(toolByName(tools, 'update_backlog').inputSchema);
   assertWorkflowSchemas(tools);
+  assertCodeReviewSchemas(tools);
 }
 
 export async function scanProductionMcp({
@@ -194,7 +218,12 @@ function assertSharedOrganizationSchemas(tools) {
     if (!Object.hasOwn(tool.inputSchema.properties, 'organization_id')) continue;
     const organization = tool.inputSchema.properties.organization_id;
     assert.equal(organization.type, 'string', `${tool.name}.organization_id must be a string.`);
-    assert.equal(organization.minLength, 1, `${tool.name}.organization_id must be non-empty.`);
+    if (EXPECTED_TOOL_CONTRACTS[tool.name].organizationMinLength === 'omitted') {
+      assert.equal(Object.hasOwn(organization, 'minLength'), false,
+        `${tool.name}.organization_id must omit minLength to match its deployed schema.`);
+    } else {
+      assert.equal(organization.minLength, 1, `${tool.name}.organization_id must be non-empty.`);
+    }
     assert.match(
       organization.description ?? '',
       /list_organizations/,
@@ -239,14 +268,99 @@ function assertWorkflowSchemas(tools) {
   assert.equal(start.properties.idempotency_key.minLength, 8);
   assert.equal(start.properties.idempotency_key.maxLength, 200);
   assert.equal(start.properties.inputs.additionalProperties, true);
+  assert.deepEqual(schemaShape(start.properties.repository_id), { type: 'string' });
+
+  const runs = toolByName(tools, 'list_workflow_runs').inputSchema;
+  const identifier = { type: 'string', minLength: 1, maxLength: 200 };
+  assert.deepEqual(schemaShape(runs), {
+    type: 'object',
+    properties: {
+      organization_id: { type: 'string', minLength: 1 },
+      issue_id: identifier,
+      epic_id: identifier,
+      workflow_id: { type: 'string', minLength: 1 },
+      status: { type: 'array', minItems: 1, maxItems: 9, items: { type: 'string', enum: [
+        'queued', 'running', 'pausing', 'cancelling', 'completed', 'failed', 'cancelled', 'paused', 'needs_approval',
+      ] } },
+      started_by: identifier,
+      since: { type: 'string', format: 'date-time' },
+      until: { type: 'string', format: 'date-time' },
+      needs_attention: { type: 'boolean' },
+      cursor: { type: 'string', minLength: 1, maxLength: 2048 },
+      limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+    },
+    required: ['organization_id'],
+    additionalProperties: false,
+  }, 'list_workflow_runs schema drifted.');
 
   const approve = toolByName(tools, 'approve_workflow_step').inputSchema;
   assert.deepEqual(approve.properties.decision.enum, ['approve', 'reject']);
   assert.equal(approve.properties.expected_revision.pattern, '^[0-9a-fA-F]{40}$');
+  assert.deepEqual(schemaShape(approve.properties.expected_digest), { type: 'string', pattern: '^[0-9a-fA-F]{64}$' });
+  assert.deepEqual(schemaShape(approve.properties.expected_gate), {
+    type: 'object',
+    properties: {
+      after_wave: { type: 'integer', minimum: 1 },
+      gate_index: { type: 'integer', minimum: 0 },
+    },
+    required: ['after_wave', 'gate_index'],
+    additionalProperties: false,
+  });
   assert.equal(approve.properties.note.maxLength, 2000);
 
   const cancel = toolByName(tools, 'cancel_workflow_run').inputSchema;
   assert.equal(cancel.properties.reason.maxLength, 2000);
+}
+
+// Schema descriptions are separately required above. These structural checks
+// pin the wire metadata from aictrl d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c:
+// server/mcp/workflow-tools.ts, code-review-public-tools.ts and tools/code-review.ts.
+// Keep omissions explicit: the smoke verifies published metadata, not stronger
+// handler-side Zod validation or a claim that listing schemas reject extra keys.
+function assertCodeReviewSchemas(tools) {
+  const organization = { type: 'string' };
+  const repository = { type: 'object', properties: {
+    full_name: { type: 'string' },
+    platform: { type: 'string', enum: ['github', 'gitlab', 'bitbucket', 'azure-devops'] },
+  }, required: ['full_name', 'platform'] };
+  const pr = { type: 'object', properties: {
+    number: { type: 'integer' }, url: { type: 'string' },
+  }, required: ['number', 'url'] };
+  assert.deepEqual(schemaShape(toolByName(tools, 'list_pr_findings').inputSchema), {
+    type: 'object',
+    properties: {
+      organization_id: organization, repository, pr,
+      include_history: { type: 'boolean' }, include_obsolete: { type: 'boolean' },
+    },
+    required: ['organization_id', 'repository', 'pr'],
+  }, 'list_pr_findings schema drifted.');
+  assert.deepEqual(schemaShape(toolByName(tools, 'record_finding_verdict').inputSchema), {
+    type: 'object',
+    properties: {
+      organization_id: organization, repository, pr,
+      finding_id: { type: 'string' },
+      verdict: { type: 'string', enum: ['TRUE', 'FALSE', 'UNCERTAIN'] },
+      action: { type: 'string', enum: ['FIX', 'DEFER', 'IGNORE'] },
+      reason: { type: 'string' },
+      reasoning: { type: 'object', properties: {
+        observed: { type: 'string' }, root_cause: { type: 'string' }, proof: { type: 'string' },
+      }, required: ['observed', 'root_cause', 'proof'], additionalProperties: false },
+      evidence: { type: 'array', maxItems: 10, items: { type: 'object', properties: {
+        file: { type: 'string', maxLength: 500 }, line: { type: 'integer', minimum: 1 },
+      }, required: ['file'], additionalProperties: false } },
+      judged_at_sha: { type: 'string' },
+    },
+    required: ['organization_id', 'repository', 'pr', 'finding_id', 'verdict', 'reasoning', 'judged_at_sha'],
+    additionalProperties: false,
+  }, 'record_finding_verdict schema drifted.');
+}
+
+function schemaShape(value) {
+  if (Array.isArray(value)) return value.map(schemaShape);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => key !== 'description')
+    .map(([key, child]) => [key, schemaShape(child)]));
 }
 
 function toolByName(tools, name) {
