@@ -282,25 +282,27 @@ for (const [name, change] of [
 }
 
 test('rejects catalog, schema, annotation, description, and custom-UI drift', () => {
-  const extra = [...catalog(), catalog()[0]];
+  const extra = catalog();
+  extra.push(extra.find((tool) => tool.name === 'query_context'));
   assert.throws(() => assertProductionCatalog(extra), /public catalog contract/);
   const unknown = [...catalog(), definition('unexpected_write', { readOnlyHint: false }, {}, [])];
   assert.throws(() => assertProductionCatalog(unknown), /public catalog contract/);
 
   const schema = catalog();
-  schema[3].inputSchema.required = ['organization_id'];
+  schema.find((tool) => tool.name === 'list_workflows').inputSchema.required = ['organization_id'];
   assert.throws(() => assertProductionCatalog(schema), /required inputs drifted/);
 
   const annotation = catalog();
-  annotation[6].annotations = { ...annotation[6].annotations, readOnlyHint: false };
+  const workflowRun = annotation.find((tool) => tool.name === 'get_workflow_run');
+  workflowRun.annotations = { ...workflowRun.annotations, readOnlyHint: false };
   assert.throws(() => assertProductionCatalog(annotation), /annotations drifted/);
 
   const description = catalog();
-  description[0].description = '';
+  description.find((tool) => tool.name === 'query_context').description = '';
   assert.throws(() => assertProductionCatalog(description), /empty description/);
 
   const ui = catalog();
-  ui[0]._meta = { 'openai/outputTemplate': 'ui://unexpected' };
+  ui.find((tool) => tool.name === 'query_context')._meta = { 'openai/outputTemplate': 'ui://unexpected' };
   assert.throws(() => assertProductionCatalog(ui), /custom UI/);
 });
 
