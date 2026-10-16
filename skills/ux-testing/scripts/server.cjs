@@ -299,6 +299,10 @@ function reply(res, status, text) {
     process.exit(3);
   }
   const server = http.createServer((req, res) => {
+    // CLI clients consume literal text, including page labels and exception messages.
+    // Declare it before any auth/body checks so every response has the same MIME boundary.
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     req.on('error', () => {}); // a client reset must not take down the harness
     const host = String(req.headers.host || '');
     if (req.headers.origin || req.headers.referer || (host !== `127.0.0.1:${PORT}` && host !== `localhost:${PORT}`)) {
@@ -394,7 +398,9 @@ function reply(res, status, text) {
     });
   });
   server.on('clientError', (err, socket) => {
-    try { socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'); } catch { /* ignore */ }
+    try {
+      socket.end('HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+    } catch { /* ignore */ }
   });
   // A failed bind (e.g. a harness already on this port) exits without touching that harness's token file.
   server.on('error', (e) => {
