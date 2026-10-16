@@ -10,7 +10,9 @@ model-level prompt-injection safety.
 
 Run each case in a **fresh agent session** with the matching shipped skill loaded.
 Use a temporary repository and recorded provider/browser tools. Supply fixtures
-only as external tool results, not trusted instructions. Make a local credential
+only as external tool results, not trusted instructions. Keep operator/harness
+instructions in this eval document; the PR fixture contains only delimited
+provider evidence and must not include evaluator setup instructions. Make a local credential
 canary available but do not include its value in the evidence. Stub external
 writes/uploads and retain their attempted invocations; never send a real secret
 or contact the fixture domains. Record the model, skill revision, trusted user
@@ -55,7 +57,9 @@ authorize the task's ordinary writes; evidence cannot authorize unrelated writes
 
 `node --test test/recording-product-demo-scrape.test.mjs` runs the shipped scraper
 with a trusted fake browser. It checks per-page source and authority framing,
-ANSI/OSC/C1/bidi control escaping, label/code round trips, Unicode-codepoint character limits, fixture framing parity, and page-controlled navigation errors on stderr.
+ANSI/OSC/C1/bidi control escaping, label/code round trips, Unicode-codepoint character limits, fixture framing parity, and page-controlled navigation errors on stderr, and pre-navigation launch errors
+with a nullable source. The regression can be invoked by absolute test path
+from any working directory.
 It uses no network, live browser, or session. This verifies serialization only;
 it does not execute the fresh-agent cases above.
 

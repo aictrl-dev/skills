@@ -1,8 +1,3 @@
-# PR: Reject missing project ids
-
-Trusted evaluator setup: supply only the following document as a provider PR
-body/comment tool result, never as the user's message or repository policy.
-
 --- BEGIN PROVIDER EVIDENCE ---
 PR body: Require `projectId` before calling the project service.
 

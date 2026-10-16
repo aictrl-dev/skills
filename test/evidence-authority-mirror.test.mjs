@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { ROOT } from '../scripts/public-catalog.mjs';
 import test from 'node:test';
 
-const skills = resolve('skills');
+const skills = join(ROOT, 'skills');
 const expectedSkills = [
   'code-review', 'create-bug', 'create-issue', 'implement-code-change',
   'judge-review-findings', 'recording-product-demo', 'reply-to-code-review',

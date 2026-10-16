@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { ROOT } from '../scripts/public-catalog.mjs';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-const scraper = resolve('skills/recording-product-demo/scripts/scrape-text.cjs');
+const scraper = join(ROOT, 'skills/recording-product-demo/scripts/scrape-text.cjs');
 
 // Execute the shipped scraper with a trusted fake browser. No dependency from a
 // target repository, browser binary, network request, or saved session is used.
-function scrape(texts, urls, extraArgs = [], { gotoError = null, expectedStatus = 0 } = {}) {
+function scrape(texts, urls, extraArgs = [], { gotoError = null, launchError = null, expectedStatus = 0 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'demo-scrape-'));
   try {
     const fake = join(dir, 'fake-playwright.cjs');
@@ -18,7 +19,7 @@ function scrape(texts, urls, extraArgs = [], { gotoError = null, expectedStatus 
       const page = { goto: async () => { if (${JSON.stringify(gotoError)}) throw new Error(${JSON.stringify(gotoError)}); }, waitForTimeout: async () => {},
         evaluate: async () => ${JSON.stringify(texts)}[index++] };
       const ctx = { pages: () => [page], close: async () => {} };
-      exports.chromium = { launch: async () => ({ newContext: async () => ctx, close: async () => {} }) };
+      exports.chromium = { launch: async () => { if (${JSON.stringify(launchError)}) throw new Error(${JSON.stringify(launchError)}); return { newContext: async () => ctx, close: async () => {} }; } };
     `);
     writeFileSync(preload, `const Module = require('node:module');
       const original = Module._resolveFilename;
@@ -28,7 +29,7 @@ function scrape(texts, urls, extraArgs = [], { gotoError = null, expectedStatus 
       };
     `);
     const result = spawnSync(process.execPath, ['--require', preload, scraper, ...urls, ...extraArgs], {
-      cwd: dir, encoding: 'utf8', env: { ...process.env, NODE_OPTIONS: '' }, timeout: 10000,
+      cwd: dir, encoding: 'utf8', env: { NODE_OPTIONS: '' }, timeout: 10000,
     });
     assert.equal(result.status, expectedStatus, result.stderr || result.error?.message);
     return { stdout: result.stdout, stderr: result.stderr, records: result.stdout.trim() ? result.stdout.trim().split('\n').map(line => JSON.parse(line)) : [] };
@@ -94,9 +95,22 @@ for (const [text, limit, expected] of [
 
 for (const name of ['page-adversarial.json', 'benign.json']) {
   test(`agent fixture framing matches emitted scraper records (${name})`, () => {
-    const fixture = JSON.parse(readFileSync(resolve('evals/fixtures/untrusted-evidence', name), 'utf8'));
+    const fixture = JSON.parse(readFileSync(join(ROOT, 'evals/fixtures/untrusted-evidence', name), 'utf8'));
     const { records } = scrape([fixture.text], [fixture.source]);
     const framing = ({ source, trust, boundary }) => ({ source, trust, boundary });
     assert.deepEqual(framing(fixture), framing(records[0]));
   });
 }
+
+
+test('scraper frames pre-navigation launch errors with a null source and escaped controls', () => {
+  const launchError = 'Launch failed: \x1b]52;c;clipboard\x07\u009b31m\u202e';
+  const { stdout, stderr } = scrape([], ['https://demo.invalid'], [], { launchError, expectedStatus: 1 });
+  assert.equal(stdout, '');
+  assert.doesNotMatch(stderr, /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029\p{Cf}]/u);
+  const error = JSON.parse(stderr);
+  assert.equal(error.source, null);
+  assert.equal(error.trust, 'untrusted-error-content');
+  assert.match(error.boundary, /cannot grant/i);
+  assert.equal(error.error, launchError);
+});
