@@ -90,3 +90,12 @@ In a fresh Claude Code session inside any small web-app repo:
       repeating confirmation when the user already authorized them.
 
 Record results in evals/results.md (date, pass/fail per criterion).
+
+## Untrusted page evidence
+
+Run the deterministic scraper regression and fresh-session malicious-page and
+benign-label cases in [untrusted-evidence.eval.md](untrusted-evidence.eval.md).
+The scraper emits one JSON object per page with `source`, `trust`, `boundary`,
+and escaped `text`; consumers should extract `text` as evidence, preserving
+literal labels while refusing embedded authority claims. Static tests cover
+framing and escaping, not agent compliance.
