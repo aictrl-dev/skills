@@ -72,21 +72,21 @@ test('publish: GCS receives explicit sources and preserves kit layout with build
   mkdirSync(join(f.build, 'out/publish/extra-assets'), { recursive: true });
   writeFileSync(join(f.build, 'out/publish/extra-assets/logo.svg'), '<svg/>');
   writeFileSync(join(f.build, 'out/publish/.private'), 'not part of the existing upload glob');
-  assertLiteralUpload(f, f.run());
+  assertLiteralUpload(f, f.run('--upload'));
   assert.equal(readFileSync(join(f.uploaded, 'extra-assets/logo.svg'), 'utf8'), '<svg/>');
   assert.match(readFileSync(join(f.uploaded, 'captions.srt'), 'utf8'), /Demo/);
 });
 
 test('publish: shell syntax in GCS destination stays literal', (t) => {
   const f = fixture(t, { destination: 'gs://test-bucket/demo; touch DESTINATION_MARKER' });
-  const result = f.run();
+  const result = f.run('--upload');
   assert.equal(existsSync(join(f.cwd, 'DESTINATION_MARKER')), false, 'destination must never execute a shell command');
   assertLiteralUpload(f, result);
 });
 
 test('publish: shell syntax in build directory stays literal', (t) => {
   const f = fixture(t, { buildName: 'demo; touch BUILD_MARKER; #' });
-  const result = f.run();
+  const result = f.run('--upload');
   assert.equal(existsSync(join(f.cwd, 'BUILD_MARKER')), false, 'build path must never execute a shell command');
   assertLiteralUpload(f, result);
 });
@@ -103,7 +103,7 @@ test('publish: --skip-upload builds the kit without invoking a cloud executable'
 
 test('publish: GCS failure reports stderr and exits nonzero', (t) => {
   const f = fixture(t, { failUpload: true });
-  const result = f.run();
+  const result = f.run('--upload');
   assert.equal(result.status, 1);
   assert.equal(f.calls().length, 1);
   assert.match(result.stderr, /gcloud failed:[\s\S]*stub upload denied/);
@@ -112,7 +112,7 @@ test('publish: GCS failure reports stderr and exits nonzero', (t) => {
 
 test('publish: unavailable GCS executable reports spawn failure without null-stderr TypeError', (t) => {
   const f = fixture(t, { unavailableCloud: true });
-  const result = f.run();
+  const result = f.run('--upload');
   assert.equal(result.status, 1);
   assert.match(result.stderr, /gcloud failed:[\s\S]*ENOENT/);
   assert.doesNotMatch(result.stderr, /TypeError|Cannot read/);
@@ -125,7 +125,7 @@ for (const [uploadType, destination] of [
 ]) {
   test(`publish: rejects ${uploadType} option-like or bucketless destination ${destination} before processing`, (t) => {
     const f = fixture(t, { uploadType, destination });
-    const result = f.run();
+    const result = f.run('--upload');
     assert.equal(result.status, 1);
     assert.match(result.stderr, /upload.*destination/i);
     assert.deepEqual(f.calls(), []);

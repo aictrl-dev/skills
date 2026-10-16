@@ -129,7 +129,17 @@ node scripts/assemble.cjs --build demo
 node scripts/publish.cjs --build demo
 ```
 
-Builds `out/publish/`: faststart `demo.mp4` (upload this to YouTube), `demo-720p.mp4` (self-hosting / LinkedIn native upload), `poster.jpg`, **`captions.srt`** (from the STT timestamps — social feeds autoplay muted, captions are non-negotiable), `embed.html`, and `PUBLISH.md` with channel-specific guidance (incl.: post LinkedIn video natively, never as a YouTube link). If `publish.upload` is configured (`gcs` / `s3` / `youtube` — see PUBLISH.md for the one-time OAuth provisioning), it uploads too.
+Builds `out/publish/`: faststart `demo.mp4` (upload this to YouTube), `demo-720p.mp4` (self-hosting / LinkedIn native upload), `poster.jpg`, **`captions.srt`** (from the STT timestamps — social feeds autoplay muted, captions are non-negotiable), `embed.html`, and `PUBLISH.md` with channel-specific guidance (incl.: post LinkedIn video natively, never as a YouTube link). This command remains local even if `publish.upload` is configured. The template defaults to `"upload": null`.
+
+To build and upload to an authorized destination and visibility:
+
+```bash
+node scripts/publish.cjs --build demo --upload
+```
+
+Set `publish.upload` to one of `{"type":"gcs","path":"gs://your-bucket/demos"}`, `{"type":"s3","path":"s3://your-bucket/demos"}`, or `{"type":"youtube","privacy":"unlisted"}`. YouTube defaults to unlisted; public/private are explicit alternatives. See generated `PUBLISH.md` for the one-time OAuth provisioning. With `--upload`, the script checks configuration shape, local destination syntax and selected reserved names before media processing, then displays the JSON-escaped destination/provider or YouTube visibility before transmission without printing credentials. Providers remain authoritative for complete naming rules, destination existence and permissions; S3 access-point aliases remain allowed as data-plane destinations. Unicode object prefixes stay literal in CLI arguments.
+
+Use `--upload` only when the user has authorized that destination and visibility. A request to create a local demo or kit alone does not authorize publishing; existing authorization needs no repeated confirmation. `--skip-upload` remains an explicit local-only option and cannot be combined with `--upload`. **Automation migration:** existing callers that require uploading must add `--upload`; configured uploads no longer happen during a routine local rebuild.
 
 ## Pre-flight Checklist
 
