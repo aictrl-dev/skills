@@ -15,8 +15,9 @@ const {
   readOpenWorld,
   readOpenWorldIdempotent,
   update,
-  create,
   createIdempotent,
+  updateOpenWorld,
+  updateOpenWorldIdempotent,
 } = PUBLIC_MCP_ANNOTATIONS;
 
 const EXPECTED_TOOL_CONTRACTS = Object.freeze({
@@ -46,7 +47,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     properties: ['organization_id', 'workflow_id'],
   },
   start_workflow: {
-    annotations: createIdempotent,
+    annotations: updateOpenWorldIdempotent,
     required: ['organization_id', 'workflow_id', 'idempotency_key'],
     properties: ['organization_id', 'workflow_id', 'idempotency_key', 'inputs', 'repository_id'],
   },
@@ -93,7 +94,7 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     organizationMinLength: 'omitted',
   },
   record_finding_verdict: {
-    annotations: create,
+    annotations: updateOpenWorld,
     required: ['organization_id', 'repository', 'pr', 'finding_id', 'verdict', 'reasoning', 'judged_at_sha'],
     properties: ['organization_id', 'repository', 'pr', 'finding_id', 'verdict', 'action', 'reason', 'reasoning', 'evidence', 'judged_at_sha'],
     organizationMinLength: 'omitted',
@@ -313,7 +314,7 @@ function assertWorkflowSchemas(tools) {
 }
 
 // Schema descriptions are separately required above. These structural checks
-// pin the wire metadata from aictrl d3f8b1d51268260aeae3f2bf8049a962c3fc3c5c:
+// pin the wire metadata from aictrl 12a866d437dcb238f39e491f38597ea8583ece69:
 // server/mcp/workflow-tools.ts, code-review-public-tools.ts and tools/code-review.ts.
 // Keep omissions explicit: the smoke verifies published metadata, not stronger
 // handler-side Zod validation or a claim that listing schemas reject extra keys.
