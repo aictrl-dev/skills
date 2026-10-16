@@ -27,6 +27,8 @@ function fixture(t, { buildName = 'demo', destination = 'gs://test-bucket/demos'
   const stub = (name, body) => writeFileSync(join(bin, name), `#!${process.execPath}\n${body}`, { mode: 0o755 });
   stub('ffmpeg', `require('fs').writeFileSync(process.argv.at(-1), 'generated media');`);
   stub('ffprobe', `console.log(process.argv.at(-1).endsWith('main.mp4') ? '5' : '8');`);
+  // Keep the harmless injection probe available without exposing ambient tools.
+  stub('touch', `for (const file of process.argv.slice(2)) require('fs').writeFileSync(file, 'marker');`);
   const cloudStub = `
     const fs = require('fs');
     const path = require('path');
@@ -46,7 +48,7 @@ function fixture(t, { buildName = 'demo', destination = 'gs://test-bucket/demos'
   const run = (...args) => spawnSync(process.execPath, [publish, '--build', build, ...args], {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CLOUD_LOG: cloudLog, UPLOADED: uploaded, FAIL_UPLOAD: failUpload ? '1' : '0' },
+    env: { PATH: bin, CLOUD_LOG: cloudLog, UPLOADED: uploaded, FAIL_UPLOAD: failUpload ? '1' : '0' },
   });
   const calls = () => existsSync(cloudLog) ? readFileSync(cloudLog, 'utf8').trim().split('\n').map(JSON.parse) : [];
   return { cwd, build, destination, uploaded, run, calls };
