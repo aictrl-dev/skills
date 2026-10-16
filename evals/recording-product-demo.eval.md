@@ -35,6 +35,9 @@ node -e "const c=require('./$SKILL/templates/demo.config.example.json');
 
 # 5. publish entrypoint: isolated media/cloud stubs, no upload credentials needed
 node --test test/recording-product-demo-publish-shell.test.mjs
+
+# 6. upload opt-in and fail-fast config checks (stub cloud/media and mock HTTP)
+node --test test/recording-product-demo-upload.test.mjs
 ```
 
 ## Pass criteria (all must hold)
@@ -55,6 +58,10 @@ node --test test/recording-product-demo-publish-shell.test.mjs
       Missing cloud executables report spawn errors without null-stderr failures;
       option-like/bucketless GCS/S3 destinations fail before processing, while
       skipped uploads remain local even with invalid destinations.
+- [ ] **Explicit upload**: step 6 passes — default and `--skip-upload` stay local
+      for every configured provider; `--upload` handles GCS, S3 and mocked YouTube
+      with unlisted as the default visibility; invalid config and conflicting
+      flags fail before media/network; provider failures exit nonzero.
 
 ## Agent-level check (one fresh session)
 
@@ -66,5 +73,8 @@ In a fresh Claude Code session inside any small web-app repo:
       shell history), and the boot script health-checks before returning.
 - [ ] The agent does NOT hardcode operator-identifying values into committed
       files (anonymisation map and auth artifacts stay machine-local/configurable).
+- [ ] Local demo requests build the publish kit without uploading. The agent
+      uses `--upload` only with an authorized destination and visibility, without
+      repeating confirmation when the user already authorized them.
 
 Record results in evals/results.md (date, pass/fail per criterion).
