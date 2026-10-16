@@ -142,7 +142,11 @@ const upload = config.publish?.upload;
     return;
   }
   if (upload.type === 'gcs') {
-    run('gcloud', ['storage', 'cp', '-r', PUB + path.sep + '*', upload.path], { shell: true });
+    // Expand the former shell glob ourselves: upload contents, not the enclosing
+    // publish directory, and keep paths (including spaces/metacharacters) literal.
+    const sources = fs.readdirSync(PUB).filter((name) => !name.startsWith('.')).sort()
+      .map((name) => path.join(PUB, name));
+    run('gcloud', ['storage', 'cp', '-r', ...sources, upload.path]);
     console.log('[pub] uploaded to', upload.path);
   } else if (upload.type === 's3') {
     run('aws', ['s3', 'cp', PUB, upload.path, '--recursive']);

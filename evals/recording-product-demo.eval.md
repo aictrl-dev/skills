@@ -32,6 +32,9 @@ python3 -m py_compile $SKILL/scripts/split-narration.py
 node -e "const c=require('./$SKILL/templates/demo.config.example.json');
   for (const k of ['app','auth','brand','voice','record','publish'])
     if (!(k in c)) { console.error('missing', k); process.exit(1); }"
+
+# 5. publish entrypoint: isolated media/cloud stubs, no upload credentials needed
+node --test test/recording-product-demo-publish-shell.test.mjs
 ```
 
 ## Pass criteria (all must hold)
@@ -45,6 +48,10 @@ node -e "const c=require('./$SKILL/templates/demo.config.example.json');
       filter chain (viewport → output from take-meta).
 - [ ] **Syntax**: step 3 exits 0 for all six .cjs scripts and the Python splitter.
 - [ ] **Config contract**: step 4 exits 0.
+- [ ] **Literal GCS arguments**: step 5 passes — build/destination shell syntax
+      cannot execute commands; spaces stay in single arguments; publish-kit
+      contents retain their destination layout, including recursive assets;
+      `--skip-upload` invokes no cloud command and upload failures exit nonzero.
 
 ## Agent-level check (one fresh session)
 
