@@ -22,7 +22,7 @@ const {
 
 const EXPECTED_TOOL_CONTRACTS = Object.freeze({
   query_context: {
-    annotations: read,
+    annotations: readOpenWorld,
     required: ['organization_id', 'domain', 'action'],
     properties: ['organization_id', 'domain', 'action', 'query', 'params', 'version'],
   },

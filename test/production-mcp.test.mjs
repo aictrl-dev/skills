@@ -67,7 +67,7 @@ function catalog() {
   };
 
   const definitions = [
-    definition('query_context', read, {
+    definition('query_context', readOpenWorld, {
       organization_id: org,
       domain: { type: 'string', enum: ['code', 'system', 'issues', 'backlog', 'skills', 'stack'] },
       action: { type: 'string' },
