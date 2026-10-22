@@ -118,17 +118,19 @@ the MCP connection is in [SETUP.md](SETUP.md).
 
 ### Optional third-party services and keys
 
-Two skills can call a third-party service with a key you supply. Nothing runs
-on install; the scripts below read a key only when you run that step of the
-skill, send it only to the service named, and never print, log or store it.
+Two skills can send data to a third-party service, only in the steps below and
+only when you run them. Nothing runs on install. A key is read only for its
+step, sent only to the service named in that row, and never printed, logged or
+stored.
 No other skill sends data to a third-party service; the browser-based skills
 (ui-polish, ux-testing) load only the app URL you give them.
 
 | Skill | Step | Service and what is sent | Environment variables read |
 | --- | --- | --- | --- |
 | [recording-product-demo](skills/recording-product-demo/SKILL.md) | Voiceover (`tts-oneshot.cjs`, `split-narration.py`) | [ElevenLabs](https://elevenlabs.io) (`api.elevenlabs.io`): the narration script, and the generated audio for speech-to-text timing | `ELEVENLABS_API_KEY` (or a file named by `ELEVENLABS_ENV_FILE`); optional `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL`, `ELEVENLABS_STT_LANG` |
-| [recording-product-demo](skills/recording-product-demo/SKILL.md) | YouTube upload (`publish.cjs --upload`, opt-in) | Google (`oauth2.googleapis.com`, `www.googleapis.com`): the rendered MP4, title and description, uploaded to your own channel | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` |
-| [ux-testing](skills/ux-testing/SKILL.md) | Simulated users (optional; agent testers need no key) | [TypeSafe](https://typesafe.ai) (`api.typesafe.ai`), or an endpoint you set: the page state and candidate actions for each simulated step | `TYPESAFE_API_KEY`, or `UX_SIM_ENDPOINT` + `UX_SIM_API_KEY` + `UX_SIM_MODEL` |
+| [recording-product-demo](skills/recording-product-demo/SKILL.md) | Upload to YouTube (`publish.cjs --upload` with `publish.upload.type` `youtube`, opt-in) | Google (`oauth2.googleapis.com`, `www.googleapis.com`): the rendered MP4, title and description, uploaded to your own channel | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` |
+| [recording-product-demo](skills/recording-product-demo/SKILL.md) | Upload to a bucket (`publish.cjs --upload` with `publish.upload.type` `gcs` or `s3`, opt-in) | Google Cloud Storage or Amazon S3, through your own `gcloud storage cp` or `aws s3 cp`: the whole publish kit (MP4s, poster, captions, embed page, `PUBLISH.md`) to the bucket path you configure | None: the CLI uses its own signed-in credentials |
+| [ux-testing](skills/ux-testing/SKILL.md) | Simulated users (optional; agent testers need no key) | [TypeSafe](https://typesafe.ai) (`api.typesafe.ai`), or an endpoint you set: the page state and candidate actions for each simulated step | `TYPESAFE_API_KEY` (optional `UX_SIM_MODEL` overrides the default model), or `UX_SIM_ENDPOINT` + `UX_SIM_API_KEY` + `UX_SIM_MODEL` |
 
 Without these variables the skills still run: recording-product-demo stops
 before the voiceover or upload step and says which key is missing, and
