@@ -1,0 +1,53 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Plan and build",
+      "description": "Turn a problem into a clear issue, review the specification and implement the change.",
+      "skills": [
+        "create-issue",
+        "create-bug",
+        "spec-review",
+        "implement-code-change"
+      ]
+    },
+    {
+      "title": "Review changes",
+      "description": "Review code, judge findings, explain the change and prepare the pull request.",
+      "skills": [
+        "code-review",
+        "judge-review-findings",
+        "reply-to-code-review",
+        "explain-change",
+        "create-pr"
+      ]
+    },
+    {
+      "title": "Design and test",
+      "description": "Review a design, polish an interface and test whether people can use it.",
+      "skills": [
+        "design-review",
+        "ui-polish",
+        "ux-testing"
+      ]
+    },
+    {
+      "title": "Run workflows",
+      "description": "Define an aictrl workflow and run it through the connected service.",
+      "skills": [
+        "create-workflow",
+        "execute-workflow"
+      ]
+    },
+    {
+      "title": "Investigate and share",
+      "description": "Find a failure's cause, plan how to measure an outcome and record a product demonstration.",
+      "skills": [
+        "root-cause-analysis",
+        "measurement-plan",
+        "recording-product-demo"
+      ]
+    }
+  ]
+}
