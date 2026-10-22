@@ -10,6 +10,11 @@
   "homepage": "https://aictrl.dev",
   "repository": "https://github.com/aictrl-dev/skills",
   "license": "MIT",
+  "icon": "./assets/icon-512.png",
+  "documentationUrl": "https://aictrl.dev/docs/plugin-setup",
+  "supportUrl": "https://aictrl.dev/support",
+  "privacyPolicyUrl": "https://aictrl.dev/privacy",
+  "termsOfServiceUrl": "https://aictrl.dev/terms",
   "keywords": ["engineering", "sdlc", "code-review", "github", "workflow", "agent-skills"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json"
