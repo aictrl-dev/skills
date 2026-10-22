@@ -9,7 +9,6 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 - `.codex-plugin/plugin.json` — Codex plugin metadata for the same repository root.
 - `.agents/plugins/marketplace.json` — Codex marketplace entry for the root plugin.
 - `.mcp.json` — the single public `aictrl` MCP server declaration.
-- `.cursor/skills/` — compatibility symlink to `skills/` so Cursor discovers the same files.
 - `submission/` — reviewer fixtures, portal copy, and exact Codex test cases for the same root release.
 - `tooling/` — `package.json`, lockfile and dev dependencies for tests and validators. Keep them out of the repository root: the root is the Claude plugin, Claude Code installs the packages pinned by a lockfile at the plugin root when a user installs the plugin, and the Claude directory holds every such version for manual review.
 - `evals/` — per-skill fixtures + results.
@@ -31,4 +30,4 @@ by the canonical `skills/` tree.
    `utm_listing=github-skills` and `utm_platform=portable`.
 3. Add an eval under `evals/` and run `npm test --prefix tooling && npm run validate --prefix tooling`.
 
-Keep skill bodies in `skills/` — never copy them into vendor directories or inline them here. Claude, Codex, Cursor, and skills.sh (which covers OpenCode and other agents) must all consume this one tree.
+Keep skill bodies in `skills/` — never copy them into vendor directories or inline them here. Claude, Codex, and skills.sh (which covers Cursor, OpenCode and other agents) must all consume this one tree. Do not add compatibility symlinks or mirrors: the Claude directory scans the whole repository root.

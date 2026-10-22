@@ -36,17 +36,6 @@ grep -Fq '"source": "./"' "$ROOT/.claude-plugin/marketplace.json" || {
   exit 1
 }
 
-for compatibility_link in .cursor/skills; do
-  [[ -L "$ROOT/$compatibility_link" ]] || {
-    echo "$compatibility_link must link to the canonical root skills tree"
-    exit 1
-  }
-  [[ "$(readlink "$ROOT/$compatibility_link")" == "../skills" ]] || {
-    echo "$compatibility_link must target ../skills"
-    exit 1
-  }
-done
-
 mapfile -t actual < <(find "$SKILLS" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "Skill catalog mismatch"

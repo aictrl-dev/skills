@@ -12,7 +12,6 @@ skills/
   <skill-name>/
     SKILL.md                # the skill itself (frontmatter + instructions)
     reference/              # optional supporting docs (rubrics, etc.)
-.cursor/skills/             # symlink → ../skills (Cursor discovers here)
 tooling/                    # package.json + lockfile for tests and validators (never at the root)
 evals/
   <skill-name>.eval.md      # pass criteria for the skill

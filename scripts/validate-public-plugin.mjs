@@ -64,7 +64,9 @@ for (const forbidden of ['package.json', 'package-lock.json', 'npm-shrinkwrap.js
   check(!existsSync(join(ROOT, forbidden)), `Plugin root must not contain ${forbidden}; keep tooling in tooling/`);
 }
 
-for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills', '.opencode/skills']) {
+// The Claude directory scans the whole plugin root, so a mirror or compatibility symlink makes every skill file
+// (and every review hold on it) appear twice. Cursor and OpenCode install from skills/ via npx skills add.
+for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills', '.opencode/skills', '.cursor/skills']) {
   check(!existsSync(join(ROOT, duplicate)), `Generated skill mirror is forbidden: ${duplicate}`);
 }
 for (const required of [

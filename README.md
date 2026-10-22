@@ -121,7 +121,11 @@ the MCP connection is in [SETUP.md](SETUP.md).
 Two skills can send data to a third-party service, only in the steps below and
 only when you run them. Nothing runs on install. A key is read only for its
 step, sent only to the service named in that row, and never printed, logged or
-stored.
+stored. Each key belongs to the service it is sent to: the ElevenLabs key goes
+only to ElevenLabs, the Google credentials only to Google, the TypeSafe key only
+to TypeSafe, and a custom simulator key only to the endpoint you set alongside
+it. The bundled aictrl MCP server never receives any of them.
+
 No other skill sends data to a third-party service; the browser-based skills
 (ui-polish, ux-testing) load only the app URL you give them.
 
