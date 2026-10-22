@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   EXPECTED_SKILLS,
@@ -61,11 +61,16 @@ check(mcp.mcpServers?.aictrl?.url === PUBLIC_MCP_URL,
 // Claude Code installs the packages pinned by a lockfile at the plugin root when a user installs the plugin,
 // so the Claude directory holds every such version for manual review. Repository tooling lives in tooling/.
 for (const forbidden of ['package.json', 'package-lock.json', 'npm-shrinkwrap.json']) {
-  check(!existsSync(join(ROOT, forbidden)), `Plugin root must not contain ${forbidden}; keep tooling in tooling/`);
+  check(!lstatSync(join(ROOT, forbidden), { throwIfNoEntry: false }),
+    `Plugin root must not contain ${forbidden}; keep tooling in tooling/`);
 }
 
-for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills', '.opencode/skills']) {
-  check(!existsSync(join(ROOT, duplicate)), `Generated skill mirror is forbidden: ${duplicate}`);
+// The Claude directory scans the whole plugin root, so a mirror or compatibility symlink makes every skill file
+// (and every review hold on it) appear twice. Cursor and OpenCode install from skills/ (npx skills add, or
+// scripts/install.sh, which links into the user's own skills directory), so no in-repo mirror is needed.
+for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills', '.opencode/skills', '.cursor/skills']) {
+  // lstat, not exists: a dangling symlink is still a committed entry the directory scans.
+  check(!lstatSync(join(ROOT, duplicate), { throwIfNoEntry: false }), `Generated skill mirror is forbidden: ${duplicate}`);
 }
 for (const required of [
   '.mcp.json',

@@ -36,17 +36,6 @@ grep -Fq '"source": "./"' "$ROOT/.claude-plugin/marketplace.json" || {
   exit 1
 }
 
-for compatibility_link in .cursor/skills; do
-  [[ -L "$ROOT/$compatibility_link" ]] || {
-    echo "$compatibility_link must link to the canonical root skills tree"
-    exit 1
-  }
-  [[ "$(readlink "$ROOT/$compatibility_link")" == "../skills" ]] || {
-    echo "$compatibility_link must target ../skills"
-    exit 1
-  }
-done
-
 mapfile -t actual < <(find "$SKILLS" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   echo "Skill catalog mismatch"
@@ -68,8 +57,11 @@ for name in "${actual[@]}"; do
   [[ "$attribution_count" -eq 2 ]] || { echo "$name: expected canonical attribution on both product links"; exit 1; }
 done
 
-if find "$SKILLS" -type l -print -quit | grep -q .; then
-  echo "Canonical skill bundle must not contain symlinks"
+# The Claude directory scans the whole repository root, so any symlink (a compatibility link or mirror)
+# makes its target appear twice. Installed dependencies are not committed and are skipped.
+symlink="$(find "$ROOT" \( -name .git -o -name node_modules \) -prune -o -type l -print -quit)"
+if [[ -n "$symlink" ]]; then
+  echo "Repository must not contain symlinks: ${symlink#"$ROOT"/}"
   exit 1
 fi
 
