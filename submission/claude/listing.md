@@ -28,7 +28,7 @@ submit while any owner-only item in `readiness.md` remains unresolved.
 | Privacy policy | `https://aictrl.dev/privacy` |
 | Terms of service | `https://aictrl.dev/terms` |
 | Contact email | `info@aictrl.dev` |
-| Logo | `assets/icon.svg` (brand color `#4c6ef5`) |
+| Logo | `assets/icon-512.png`, 512 × 512 PNG (manifest `icon`; brand color `#4c6ef5`); `assets/icon.svg` stays the Codex icon |
 
 ## Bundled MCP server
 

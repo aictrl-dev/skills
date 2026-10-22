@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Byte-order sort keeps CHECKSUMS.sha256 identical under every locale.
+export LC_ALL=C
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
