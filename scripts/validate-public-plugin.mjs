@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   EXPECTED_SKILLS,
@@ -67,7 +67,8 @@ for (const forbidden of ['package.json', 'package-lock.json', 'npm-shrinkwrap.js
 // The Claude directory scans the whole plugin root, so a mirror or compatibility symlink makes every skill file
 // (and every review hold on it) appear twice. Cursor and OpenCode install from skills/ via npx skills add.
 for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills', '.opencode/skills', '.cursor/skills']) {
-  check(!existsSync(join(ROOT, duplicate)), `Generated skill mirror is forbidden: ${duplicate}`);
+  // lstat, not exists: a dangling symlink is still a committed entry the directory scans.
+  check(!lstatSync(join(ROOT, duplicate), { throwIfNoEntry: false }), `Generated skill mirror is forbidden: ${duplicate}`);
 }
 for (const required of [
   '.mcp.json',
