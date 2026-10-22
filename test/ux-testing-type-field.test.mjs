@@ -8,7 +8,7 @@ import { ROOT } from '../scripts/public-catalog.mjs';
 // namedFields() is what the harness's `type --field "<label>"` resolves against. It drives a real page, so it needs
 // Playwright with Chromium, which this package does not depend on; point NODE_PATH at a node_modules that has it.
 // Without it these tests skip instead of failing.
-const require = createRequire(join(ROOT, 'package.json'));
+const require = createRequire(join(ROOT, 'tooling/package.json'));
 const { namedFields } = require(join(ROOT, 'skills/ux-testing/scripts/common.cjs'));
 
 function loadChromium() {

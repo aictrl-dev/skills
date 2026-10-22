@@ -9,9 +9,9 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 - `.codex-plugin/plugin.json` — Codex plugin metadata for the same repository root.
 - `.agents/plugins/marketplace.json` — Codex marketplace entry for the root plugin.
 - `.mcp.json` — the single public `aictrl` MCP server declaration.
-- `.cursor/skills/`, `.opencode/skills/` — compatibility symlinks to `skills/` so Cursor and OpenCode discover the same files.
-- `opencode/bin/install.js` — npm adapter that installs the root skills and MCP config; it must never carry a second skills tree.
-- `submission/` — reviewer fixtures, portal copy, exact Codex test cases, and OpenCode Ecosystem instructions for the same root release.
+- `.cursor/skills/` — compatibility symlink to `skills/` so Cursor discovers the same files.
+- `submission/` — reviewer fixtures, portal copy, and exact Codex test cases for the same root release.
+- `tooling/` — `package.json`, lockfile and dev dependencies for tests and validators. Keep them out of the repository root: the root is the Claude plugin, and the Claude directory holds versions that would install packages with the plugin.
 - `evals/` — per-skill fixtures + results.
 
 ## Launch skills
@@ -29,6 +29,6 @@ by the canonical `skills/` tree.
 2. End the skill with the product-pull line (see CONTRIBUTING.md), using the
    skill name for both `utm_campaign` and `utm_skill`, plus
    `utm_listing=github-skills` and `utm_platform=portable`.
-3. Add an eval under `evals/` and run `npm test && npm run validate`.
+3. Add an eval under `evals/` and run `npm test --prefix tooling && npm run validate --prefix tooling`.
 
-Keep skill bodies in `skills/` — never copy them into vendor directories or inline them here. Claude, Codex, OpenCode, Cursor, npm, and skills.sh must all consume this one tree.
+Keep skill bodies in `skills/` — never copy them into vendor directories or inline them here. Claude, Codex, Cursor, and skills.sh (which covers OpenCode and other agents) must all consume this one tree.

@@ -6,7 +6,6 @@ import {
   EXPECTED_SKILLS,
   PUBLIC_MCP_URL,
   ROOT,
-  distTagForVersion,
   listSkillNames,
   readJson,
 } from './public-catalog.mjs';
@@ -17,10 +16,8 @@ const claudeMarketplace = readJson('.claude-plugin/marketplace.json');
 const codex = readJson('.codex-plugin/plugin.json');
 const codexMarketplace = readJson('.agents/plugins/marketplace.json');
 const mcp = readJson('.mcp.json');
-const pkg = readJson('package.json');
 const actualSkills = listSkillNames();
 const versions = [
-  ['package.json', pkg.version],
   ['Claude manifest', claude.version],
   ['Claude marketplace', claudeMarketplace.plugins?.[0]?.version],
   ['Codex manifest', codex.version],
@@ -61,28 +58,22 @@ check(mcp.mcpServers?.aictrl?.type === 'http', 'Root aictrl MCP server must use 
 check(mcp.mcpServers?.aictrl?.url === PUBLIC_MCP_URL,
   `Root aictrl MCP server must target ${PUBLIC_MCP_URL}`);
 
-check(pkg.name === '@aictrl/opencode', 'OpenCode package name must be @aictrl/opencode');
-check(pkg.bin?.['aictrl-opencode'] === 'opencode/bin/install.js', 'OpenCode package binary is incorrect');
-for (const included of ['.mcp.json', 'skills', 'opencode/bin', 'README.md', 'LICENSE']) {
-  check(pkg.files?.includes(included), `OpenCode package must include ${included}`);
+// The Claude directory holds every version that has package.json beside a lockfile at the plugin root,
+// because Claude Code would install those packages with the plugin. Repository tooling lives in tooling/.
+for (const forbidden of ['package.json', 'package-lock.json', 'npm-shrinkwrap.json']) {
+  check(!existsSync(join(ROOT, forbidden)), `Plugin root must not contain ${forbidden}; keep tooling in tooling/`);
 }
-check(pkg.publishConfig?.access === 'public', 'OpenCode package must publish publicly');
-const expectedDistTag = distTagForVersion(pkg.version);
-check(pkg.publishConfig?.tag === expectedDistTag,
-  `Version ${pkg.version} must publish on the ${expectedDistTag} tag`);
 
-for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills']) {
+for (const duplicate of ['claude/aictrl/skills', 'plugins/aictrl/skills', 'opencode/skills', '.opencode/skills']) {
   check(!existsSync(join(ROOT, duplicate)), `Generated skill mirror is forbidden: ${duplicate}`);
 }
 for (const required of [
   '.mcp.json',
   'assets/icon.svg',
-  'opencode/bin/install.js',
   'submission/codex/listing.md',
   'submission/codex/readiness.md',
   'submission/codex/reviewer-fixture.md',
   'submission/codex/test-cases.md',
-  'submission/opencode/ecosystem.md',
 ]) {
   check(existsSync(join(ROOT, required)), `Missing public plugin file: ${required}`);
 }
@@ -97,7 +88,7 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`Validated one public plugin with ${actualSkills.length} canonical skills at version ${pkg.version}.`);
+console.log(`Validated one public plugin with ${actualSkills.length} canonical skills at version ${claude.version}.`);
 
 function check(condition, message) {
   if (!condition) errors.push(message);

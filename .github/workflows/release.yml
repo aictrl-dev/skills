@@ -1,0 +1,35 @@
+name: Verify public release
+
+# The plugin ships from Git: Claude, Codex and skills.sh read the tagged repository root, so a release
+# publishes nothing. This job proves the tagged commit passes the same gates as main.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tooling/package-lock.json
+      - run: npm ci --prefix tooling
+      - run: npm test --prefix tooling
+      - run: npm run validate --prefix tooling
+      - name: Verify release checksums
+        run: diff -u CHECKSUMS.sha256 <(./scripts/generate-checksums.sh)
+      - name: Verify the release tag matches the plugin version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(node -p "require('./.claude-plugin/plugin.json').version")"
+          [[ "$RELEASE_TAG" == "v$version" ]] || {
+            echo "Release tag $RELEASE_TAG does not match plugin version v$version"
+            exit 1
+          }

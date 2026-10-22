@@ -14,7 +14,7 @@ const script = join(ROOT, 'skills/ui-polish/scripts/measure.cjs');
 const fixtures = join(ROOT, 'evals/fixtures/ui-polish/noise');
 
 function browserMissing() {
-  const require = createRequire(join(ROOT, 'package.json'));
+  const require = createRequire(join(ROOT, 'tooling/package.json'));
   for (const name of ['playwright', 'playwright-core']) {
     try {
       const { chromium } = require(name);

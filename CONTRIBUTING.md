@@ -13,7 +13,7 @@ skills/
     SKILL.md                # the skill itself (frontmatter + instructions)
     reference/              # optional supporting docs (rubrics, etc.)
 .cursor/skills/             # symlink → ../skills (Cursor discovers here)
-.opencode/skills/           # symlink → ../skills (OpenCode discovers here)
+tooling/                    # package.json + lockfile for tests and validators (never at the root)
 evals/
   <skill-name>.eval.md      # pass criteria for the skill
   fixtures/                 # sample inputs for running evals

@@ -25,9 +25,12 @@ codex plugin marketplace add aictrl-dev/skills --ref main
 codex plugin add aictrl@aictrl-public
 ```
 
-**OpenCode plugin package**
+**OpenCode** — install the skills with `npx skills add aictrl-dev/skills`, then
+add the connected-workflow server to `opencode.json` and sign in:
+```json
+{ "mcp": { "aictrl": { "type": "remote", "url": "https://aictrl.dev/mcp", "enabled": true } } }
+```
 ```bash
-npx @aictrl/opencode@latest
 opencode mcp auth aictrl
 ```
 
@@ -97,8 +100,8 @@ and `execute-workflow` safely operates an existing published workflow; local
 mode remains available for every launch skill except the connected-only
 `execute-workflow`.
 
-The Claude, Codex, and OpenCode distributions in this repository all consume
-the root `skills/` directory directly. There are no vendor-specific copies to
+The Claude and Codex plugins and the skills.sh install all consume the root
+`skills/` directory directly. There are no vendor-specific copies to
 repin or hand-edit. Connected execution always uses the `aictrl` MCP identity at
 `https://aictrl.dev/mcp`; OAuth is requested only when a connected workflow is
 used.

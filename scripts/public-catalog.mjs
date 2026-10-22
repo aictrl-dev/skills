@@ -65,11 +65,3 @@ export function readJson(relativePath, root = ROOT) {
   return JSON.parse(readFileSync(join(root, relativePath), 'utf8'));
 }
 
-/**
- * npm dist-tag a version publishes on: a semver pre-release goes to `beta`,
- * anything else to `latest`. Build metadata after `+` may contain hyphens and
- * does not make a version a pre-release.
- */
-export function distTagForVersion(version) {
-  return version.split('+')[0].includes('-') ? 'beta' : 'latest';
-}
