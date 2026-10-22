@@ -39,20 +39,17 @@ test('Codex reviewer pack contains exactly five positive and three negative case
 });
 
 test('publication copy uses the unified repository and shared version', () => {
-  const pkg = readJson('package.json');
+  const { version } = readJson('.claude-plugin/plugin.json');
   const listing = submission('codex/listing.md');
   const notes = submission('codex/release-notes.md');
-  const ecosystem = submission('opencode/ecosystem.md');
 
   assert.match(listing, /root `skills\/` tree/);
   assert.match(listing, /https:\/\/aictrl\.dev\/mcp/);
   assert.match(listing, /\| Plugin name \| `aictrl\.dev` \|/);
   assert.match(listing, /install ID stays\s+`aictrl`/);
-  assert.match(notes, new RegExp(pkg.version.replaceAll('.', '\\.')));
+  assert.match(notes, new RegExp(version.replaceAll('.', '\\.')));
   assert.match(notes, /Essential, local-first/);
-  assert.match(ecosystem, /https:\/\/github\.com\/aictrl-dev\/skills/);
-  assert.doesNotMatch(ecosystem, /aictrl-dev\/aictrl-plugin\/tree/);
-  for (const text of [listing, notes, ecosystem]) {
+  for (const text of [listing, notes]) {
     assert.doesNotMatch(text, /plugins\/aictrl\/skills|eight generated skills/i);
   }
 });

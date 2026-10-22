@@ -1,0 +1,22 @@
+{
+  "name": "@aictrl/skills-tooling",
+  "private": true,
+  "description": "Test and validation tooling for the aictrl public skills repository; not part of the plugin",
+  "type": "module",
+  "scripts": {
+    "test": "cd .. && node --test test/*.test.mjs",
+    "validate": "cd .. && ./scripts/validate-skills.sh && node scripts/validate-public-plugin.mjs",
+    "smoke:claude": "cd .. && node scripts/smoke-claude-public.mjs",
+    "smoke:codex": "cd .. && node scripts/smoke-codex-public.mjs",
+    "smoke:production-mcp": "cd .. && node scripts/smoke-production-mcp-public.mjs",
+    "package:openai": "cd .. && node scripts/package-openai-plugin.mjs"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@mermaid-js/mermaid-cli": "11.16.0",
+    "puppeteer": "24.43.1"
+  }
+}

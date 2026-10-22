@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import test, { after } from 'node:test';
 import { ROOT } from '../scripts/public-catalog.mjs';
 
@@ -14,7 +14,7 @@ const script = join(ROOT, 'skills/ui-polish/scripts/measure.cjs');
 const fixtures = join(ROOT, 'evals/fixtures/ui-polish/noise');
 
 function browserMissing() {
-  const require = createRequire(join(ROOT, 'package.json'));
+  const require = createRequire(join(ROOT, 'tooling/package.json'));
   for (const name of ['playwright', 'playwright-core']) {
     try {
       const { chromium } = require(name);
@@ -24,6 +24,9 @@ function browserMissing() {
   return 'Playwright is not installed; set NODE_PATH to a node_modules with playwright and Chromium to run the ui-polish measure tests';
 }
 const skip = browserMissing();
+// measure.cjs resolves Playwright from above the skill or NODE_PATH; tooling/ is neither, so hand the child the same
+// install browserMissing() probes.
+const childEnv = { ...process.env, NODE_PATH: [join(ROOT, 'tooling/node_modules'), process.env.NODE_PATH].filter(Boolean).join(delimiter) };
 
 const work = mkdtempSync(join(tmpdir(), 'aictrl-ui-polish-'));
 after(() => rmSync(work, { recursive: true, force: true }));
@@ -34,7 +37,7 @@ function measure(targets, args = [], { cwd = ROOT } = {}) {
 }
 function measurePaths(files, args = [], { cwd = ROOT } = {}) {
   const out = join(work, `run-${++runs}`);
-  const result = spawnSync(process.execPath, [script, ...files, '--offline', '--out', out, ...args], { cwd, encoding: 'utf8', timeout: 120000 });
+  const result = spawnSync(process.execPath, [script, ...files, '--offline', '--out', out, ...args], { cwd, encoding: 'utf8', timeout: 120000, env: childEnv });
   const file = join(out, 'measure.json');
   return { ...result, out, report: existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null };
 }

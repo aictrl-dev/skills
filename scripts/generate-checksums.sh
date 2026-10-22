@@ -10,8 +10,6 @@ find \
   .codex-plugin \
   .mcp.json \
   assets \
-  opencode/bin \
-  package.json \
   README.md \
   SETUP.md \
   LICENSE \

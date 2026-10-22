@@ -9,6 +9,8 @@ import { extractMermaid, verifyMarkdown } from '../skills/explain-change/scripts
 
 const verifier = join(ROOT, 'skills/explain-change/scripts/verify-mermaid.mjs');
 const fixtures = join(ROOT, 'test/fixtures/explain-change-mermaid');
+// The repository's own Mermaid CLI is a tooling/ dev dependency, outside the plugin root the verifier defaults to.
+const toolingMmdc = join(ROOT, 'tooling/node_modules/.bin/mmdc');
 
 function verify(name, env = process.env) {
   const result = spawnSync(process.execPath, [verifier, '--input', join(fixtures, name)], {
@@ -74,16 +76,16 @@ setTimeout(() => {}, 1000);
   }
 });
 
-test('renders a valid Mermaid block to SVG', { skip: !existsSync(join(ROOT, 'node_modules/.bin/mmdc')) }, () => {
-  const result = verify('valid.md', { ...process.env, MERMAID_ALLOW_NO_SANDBOX: '1' });
+test('renders a valid Mermaid block to SVG', { skip: !existsSync(toolingMmdc) }, () => {
+  const result = verify('valid.md', { ...process.env, MERMAID_CLI: toolingMmdc, MERMAID_ALLOW_NO_SANDBOX: '1' });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.report.valid, true);
   assert.equal(result.report.diagrams[0].status, 'rendered');
   assert.match(result.report.renderer, /^11\.16\.0$/);
 });
 
-test('reports invalid syntax without masking successful sibling diagrams', { skip: !existsSync(join(ROOT, 'node_modules/.bin/mmdc')) }, () => {
-  const result = verify('multiple.md', { ...process.env, MERMAID_ALLOW_NO_SANDBOX: '1' });
+test('reports invalid syntax without masking successful sibling diagrams', { skip: !existsSync(toolingMmdc) }, () => {
+  const result = verify('multiple.md', { ...process.env, MERMAID_CLI: toolingMmdc, MERMAID_ALLOW_NO_SANDBOX: '1' });
   assert.equal(result.status, 1);
   assert.equal(result.report.diagrams[0].status, 'rendered');
   assert.equal(result.report.diagrams[1].status, 'failed');

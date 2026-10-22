@@ -17,13 +17,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+          cache-dependency-path: tooling/package-lock.json
+      - run: npm ci --prefix tooling
       - name: Install browser for Mermaid render validation
+        working-directory: tooling
         run: npx puppeteer browsers install chrome
       - name: Test public distribution contracts
-        run: npm test
+        run: npm test --prefix tooling
       - name: Validate catalog, plugin metadata, portability, and secrets
-        run: npm run validate
+        run: npm run validate --prefix tooling
       - name: Verify release checksums are current
         run: diff -u CHECKSUMS.sha256 <(./scripts/generate-checksums.sh)
 
@@ -35,12 +37,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+          cache-dependency-path: tooling/package-lock.json
+      - run: npm ci --prefix tooling
       - run: npm install --global @anthropic-ai/claude-code@2.1.210
       - name: Test Claude marketplace install, reinstall, and uninstall
         env:
           AICTRL_CLAUDE_MARKETPLACE_SOURCE: ${{ github.event.pull_request.head.repo.full_name || github.repository }}@${{ github.head_ref || github.ref_name }}
-        run: npm run smoke:claude
+        run: npm run smoke:claude --prefix tooling
 
   codex-clean-install:
     runs-on: ubuntu-latest
@@ -50,25 +53,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+          cache-dependency-path: tooling/package-lock.json
+      - run: npm ci --prefix tooling
       - run: npm install --global @openai/codex@0.144.4
       - name: Test Codex root marketplace install, upgrade, and uninstall
-        run: npm run smoke:codex
-
-  opencode-clean-install:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm install --global opencode-ai@1.18.1
-      - name: Test packed OpenCode install, OAuth boundary, and uninstall
-        env:
-          AICTRL_OPENCODE_CONNECTIVITY_ORIGIN: https://sandbox.aictrl.dev
-        run: npm run smoke:opencode
+        run: npm run smoke:codex --prefix tooling
 
   production-mcp:
     name: Production MCP catalog contract
@@ -82,8 +71,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+          cache-dependency-path: tooling/package-lock.json
+      - run: npm ci --prefix tooling
       - name: Verify authenticated catalog and organization boundary
         env:
           AICTRL_API_KEY: ${{ secrets.AICTRL_API_KEY }}
-        run: npm run smoke:production-mcp
+        run: npm run smoke:production-mcp --prefix tooling

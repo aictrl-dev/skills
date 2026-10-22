@@ -23,8 +23,6 @@ required_public_files=(
   assets/github-social-preview.png
   assets/github-social-preview.svg
   assets/icon.svg
-  opencode/bin/install.js
-  package.json
 )
 for required in "${required_public_files[@]}"; do
   [[ -f "$ROOT/$required" ]] || {
@@ -38,7 +36,7 @@ grep -Fq '"source": "./"' "$ROOT/.claude-plugin/marketplace.json" || {
   exit 1
 }
 
-for compatibility_link in .cursor/skills .opencode/skills; do
+for compatibility_link in .cursor/skills; do
   [[ -L "$ROOT/$compatibility_link" ]] || {
     echo "$compatibility_link must link to the canonical root skills tree"
     exit 1
@@ -80,6 +78,7 @@ if rg -n --hidden -S \
   "$ROOT" \
   -g '!.git/**' \
   -g '!node_modules/**' \
+  -g '!tooling/node_modules/**' \
   -g '!package-lock.json'; then
   echo "Potential secret found in the public distribution"
   exit 1

@@ -6,7 +6,6 @@
 - [x] The root marketplace declares installation, authentication, and category policy.
 - [x] Codex CLI completes clean root install, repeat install, version upgrade, and removal in CI.
 - [x] Claude Code completes clean marketplace add, install, repeat install, and removal in CI.
-- [x] OpenCode installs the packed artifact, reaches the sandbox OAuth boundary, repeats idempotently, and removes only aictrl.dev-managed state.
 - [x] All skills come from the one canonical root tree and are checksum-verified.
 - [x] Starter prompts are limited to three.
 - [x] Reviewer materials contain exactly five positive and three negative cases.

@@ -1,68 +1,42 @@
 # Public plugin release
 
-This repository is the release source for the aictrl.dev skills, Claude plugin,
-Codex plugin, and `@aictrl/opencode` package. One Git commit and one semantic
-version identify all of them. The canonical skill bodies live only under
-`skills/`; vendor directories must never contain generated copies.
+This repository is the release source for the aictrl.dev skills, Claude plugin
+and Codex plugin. One Git commit and one semantic version identify both. The
+canonical skill bodies live only under `skills/`; vendor directories must never
+contain generated copies. Nothing is published to npm: every client reads the
+tagged repository root.
+
+Repository tooling (tests, validators, Mermaid CLI) lives in `tooling/`. The
+plugin root must not contain `package.json` or a lockfile: Claude Code installs
+the packages pinned by a lockfile at the plugin root when a user installs the
+plugin, so the Claude directory holds every such version for manual review.
 
 ## Before a release
 
 From a clean checkout of the candidate commit, run:
 
 ```bash
-npm ci
-npm test
-npm run validate
-npm run smoke:claude
-npm run smoke:codex
-npm run smoke:opencode
+npm ci --prefix tooling
+npm test --prefix tooling
+npm run validate --prefix tooling
+npm run smoke:claude --prefix tooling
+npm run smoke:codex --prefix tooling
 diff -u CHECKSUMS.sha256 <(./scripts/generate-checksums.sh)
-npm pack . --dry-run --json --ignore-scripts
 ```
 
-Confirm that all manifests and `package.json` use the same version, the packed
-npm artifact contains the complete canonical root skill catalog, and every clean-client test
-installs and removes the package without changing unrelated client state.
-Connected workflow execution must use the single `aictrl` MCP server at
-`https://aictrl.dev/mcp` and stop at a merge-ready pull request.
+Confirm that both plugin manifests and the Claude marketplace entry use the same
+version, and that every clean-client test installs and removes the plugin
+without changing unrelated client state. Connected workflow execution must use
+the single `aictrl` MCP server at `https://aictrl.dev/mcp` and stop at a
+merge-ready pull request.
 
-## First npm publication
+## Releasing
 
-The first `@aictrl/opencode` version must be created by an authenticated owner
-of the `@aictrl` npm organization. Publish only the tested, merged release
-commit:
-
-```bash
-npm install --global npm@11.18.0
-npm whoami
-npm publish . --access public --tag beta
-```
-
-Do not add an npm token to GitHub. After the package exists, configure npm
-trusted publishing for organization `aictrl-dev`, repository `skills`, workflow
-`publish.yml`, and environment `release`. Creating the matching GitHub release
-`v<package.json version>` then verifies the manually published package has the
-same integrity and skips a duplicate publication.
-
-## Later releases
-
-Update the shared version in `package.json`, both plugin manifests, and the
-Claude marketplace entry; regenerate `CHECKSUMS.sha256`; merge; then publish a
-GitHub release tagged exactly `v<version>`. The release workflow re-runs the
-package and production OAuth-boundary checks before publishing npm through OIDC.
-
-Verify the result from an unauthenticated clean environment. Install the exact
-released version, not a dist-tag: a pre-release (`1.2.0-beta.1`) publishes on
-`beta` and a stable release on `latest`, and `dist-tags` must show `$VERSION`
-on the matching tag.
-
-```bash
-VERSION=<released version, e.g. 1.2.0>
-npm view @aictrl/opencode version dist-tags --json
-npx "@aictrl/opencode@$VERSION" --project .
-opencode mcp list
-npx "@aictrl/opencode@$VERSION" --project . --uninstall
-```
+Update the shared version in both plugin manifests and the Claude marketplace
+entry; regenerate `CHECKSUMS.sha256`; merge; then publish a GitHub release
+tagged exactly `v<version>`. The release workflow re-runs the tests, validators
+and checksum check on the tagged commit and fails if the tag and the plugin
+version differ.
 
 Claude and Codex consume the same tagged repository root. Publish or submit
 their marketplace listing only after the tagged Git artifact and clean-client
@@ -71,7 +45,7 @@ secrets, and recovery codes are operational secrets and must not be committed
 or stored in release evidence.
 
 For the OpenAI plugin portal (platform.openai.com/plugins), build the upload
-ZIP with `npm run package:openai -- --name=<portal app id>`. The portal binds
+ZIP with `npm run package:openai --prefix tooling -- --name=<portal app id>`. The portal binds
 an upload to the existing listing by its `app-...` identifier, so the script
 writes that name into the ZIP's manifest only; the repository keeps `aictrl`
 for Codex installs. Reviewer test cases ship in `extensions.com.openai.review`
@@ -79,8 +53,8 @@ for Codex installs. Reviewer test cases ship in `extensions.com.openai.review`
 entered in the portal's Review details, never in the package.
 
 Use `submission/codex/readiness.md` as the Codex submission gate and
-`submission/opencode/ecosystem.md` for the OpenCode upstream sequence. Neither
-submission nor approval counts as publication; close the vendor issue only
+`submission/claude/readiness.md` for the Claude directory. Neither submission
+nor approval counts as publication; close the vendor issue only
 after a clean user installs from the live directory/listing.
 
 ## GitHub social preview
