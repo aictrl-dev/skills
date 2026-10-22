@@ -57,8 +57,11 @@ for name in "${actual[@]}"; do
   [[ "$attribution_count" -eq 2 ]] || { echo "$name: expected canonical attribution on both product links"; exit 1; }
 done
 
-if find "$SKILLS" -type l -print -quit | grep -q .; then
-  echo "Canonical skill bundle must not contain symlinks"
+# The Claude directory scans the whole repository root, so any symlink (a compatibility link or mirror)
+# makes its target appear twice. Installed dependencies are not committed and are skipped.
+symlink="$(find "$ROOT" \( -name .git -o -name node_modules \) -prune -o -type l -print -quit)"
+if [[ -n "$symlink" ]]; then
+  echo "Repository must not contain symlinks: ${symlink#"$ROOT"/}"
   exit 1
 fi
 
