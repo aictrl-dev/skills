@@ -58,8 +58,8 @@ check(mcp.mcpServers?.aictrl?.type === 'http', 'Root aictrl MCP server must use 
 check(mcp.mcpServers?.aictrl?.url === PUBLIC_MCP_URL,
   `Root aictrl MCP server must target ${PUBLIC_MCP_URL}`);
 
-// The Claude directory holds every version that has package.json beside a lockfile at the plugin root,
-// because Claude Code would install those packages with the plugin. Repository tooling lives in tooling/.
+// Claude Code installs the packages pinned by a lockfile at the plugin root when a user installs the plugin,
+// so the Claude directory holds every such version for manual review. Repository tooling lives in tooling/.
 for (const forbidden of ['package.json', 'package-lock.json', 'npm-shrinkwrap.json']) {
   check(!existsSync(join(ROOT, forbidden)), `Plugin root must not contain ${forbidden}; keep tooling in tooling/`);
 }

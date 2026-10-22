@@ -11,7 +11,7 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 - `.mcp.json` — the single public `aictrl` MCP server declaration.
 - `.cursor/skills/` — compatibility symlink to `skills/` so Cursor discovers the same files.
 - `submission/` — reviewer fixtures, portal copy, and exact Codex test cases for the same root release.
-- `tooling/` — `package.json`, lockfile and dev dependencies for tests and validators. Keep them out of the repository root: the root is the Claude plugin, and the Claude directory holds versions that would install packages with the plugin.
+- `tooling/` — `package.json`, lockfile and dev dependencies for tests and validators. Keep them out of the repository root: the root is the Claude plugin, Claude Code installs the packages pinned by a lockfile at the plugin root when a user installs the plugin, and the Claude directory holds every such version for manual review.
 - `evals/` — per-skill fixtures + results.
 
 ## Launch skills

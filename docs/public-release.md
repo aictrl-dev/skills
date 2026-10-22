@@ -7,8 +7,9 @@ contain generated copies. Nothing is published to npm: every client reads the
 tagged repository root.
 
 Repository tooling (tests, validators, Mermaid CLI) lives in `tooling/`. The
-plugin root must not contain `package.json` or a lockfile, because the Claude
-directory holds any version that would install packages with the plugin.
+plugin root must not contain `package.json` or a lockfile: Claude Code installs
+the packages pinned by a lockfile at the plugin root when a user installs the
+plugin, so the Claude directory holds every such version for manual review.
 
 ## Before a release
 
