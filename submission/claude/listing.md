@@ -16,7 +16,7 @@ submit while any owner-only item in `readiness.md` remains unresolved.
 | Plugin name | `aictrl` (the install id; the display name on aictrl.dev is `aictrl.dev`) |
 | GitHub repository | `https://github.com/aictrl-dev/skills` (public, MIT) |
 | Marketplace / manifest | `.claude-plugin/marketplace.json` (`aictrl-public`), plugin source `./` |
-| Manifest `description` (reference, not a form field) | `Essential engineering skills for teams building with AI, with optional controlled AICtrl workflow execution` |
+| Manifest `description` (reference, not a form field) | `Essential engineering skills for teams building with AI, with optional controlled aictrl workflow execution` |
 | Short description (form draft) | `Engineering skills and controlled workflows` |
 | Long description (form draft) | `Essential engineering skills for teams building with AI — spec review, implementation, code review, root-cause analysis, measurement plans — plus an optional OAuth-connected aictrl.dev workflow server for controlled execution with approvals, evidence and policy.` |
 | Category | Developer tools / engineering (choose the closest option offered) |
@@ -28,7 +28,7 @@ submit while any owner-only item in `readiness.md` remains unresolved.
 | Privacy policy | `https://aictrl.dev/privacy` |
 | Terms of service | `https://aictrl.dev/terms` |
 | Contact email | `info@aictrl.dev` |
-| Logo | `assets/icon.svg` (brand color `#4c6ef5`) |
+| Logo | `assets/icon-512.png`, 512 × 512 PNG (manifest `icon`; brand color `#4c6ef5`); `assets/icon.svg` stays the Codex icon |
 
 ## Bundled MCP server
 

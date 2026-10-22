@@ -1,6 +1,6 @@
 {
   "name": "aictrl-public",
-  "description": "Portable engineering skills with optional controlled AICtrl workflow execution",
+  "description": "Portable engineering skills with optional controlled aictrl workflow execution",
   "owner": {
     "name": "aictrl.dev",
     "email": "info@aictrl.dev"
@@ -9,7 +9,7 @@
     {
       "name": "aictrl",
       "source": "./",
-      "description": "Essential engineering skills for teams building with AI, with optional controlled AICtrl workflow execution",
+      "description": "Essential engineering skills for teams building with AI, with optional controlled aictrl workflow execution",
       "version": "1.2.0",
       "author": {
         "name": "aictrl.dev"

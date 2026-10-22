@@ -1,7 +1,7 @@
 {
   "name": "aictrl-public",
   "interface": {
-    "displayName": "AICtrl"
+    "displayName": "aictrl"
   },
   "plugins": [
     {
