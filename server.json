@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.aictrl/aictrl",
+  "description": "Project context, backlog tasks, and controlled workflows for coding agents. OAuth sign-in.",
+  "title": "aictrl",
+  "repository": {
+    "url": "https://github.com/aictrl-dev/skills",
+    "source": "github"
+  },
+  "version": "1.0.0-beta.3",
+  "websiteUrl": "https://aictrl.dev/docs/plugin-setup",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://aictrl.dev/mcp"
+    }
+  ]
+}
