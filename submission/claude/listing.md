@@ -30,6 +30,12 @@ submit while any owner-only item in `readiness.md` remains unresolved.
 | Contact email | `info@aictrl.dev` |
 | Logo | `assets/icon-512.png`, 512 × 512 PNG (manifest `icon`; brand color `#4c6ef5`); `assets/icon.svg` stays the Codex icon |
 
+If the submission form requires a hosted logo URL, use
+`https://avatars.githubusercontent.com/u/260025633?v=4`.
+Do not substitute the username-based avatar URL. A manifest `icon` value uses
+an image path inside the plugin instead, as described in the
+[directory listing reference](https://code.claude.com/docs/en/plugins/manifest-reference#directory-listing-fields).
+
 ## Bundled MCP server
 
 | Field | Value |
@@ -58,6 +64,8 @@ account, and the second can also run as the connected workflow):
   negative) apply unchanged. The reviewer account, its fixture organisation and
   the credentials are provided to reviewers out of band by the release owner
   from the internal tracker; none of that is committed here.
-- Data handling: first-party API only; no financial transactions; no
-  AI-generated media; no sponsored content; the server does not read Claude's
-  memory, chat history or user files.
+- The aictrl MCP server uses its first-party API and does not read Claude's
+  memory, chat history or user files. Optional local demo and simulator helpers
+  use their selected providers, including ElevenLabs for generated narration.
+  Credential destinations, asset notices, and listing-only fields are covered
+  in [directory-policy.md](directory-policy.md).

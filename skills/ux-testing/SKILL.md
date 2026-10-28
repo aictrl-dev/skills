@@ -73,13 +73,7 @@ Present the baseline scorecard (success per task for novice and control, median 
 
 When a change is a bet about layout, prominence, wording or the fold ("moving Start above the approvals will stop mis-approvals"), screen it with simulated users before spending agent runs: `node $SKILL/scripts/simulate.cjs --config sim.config.json --hyp H.json` compares two variants on the tasks the change could help or hurt, focused and on a laptop-sized screen, with a 90% interval on the difference. Confirm clear or risky results with agent testers in two arms (3 hurried vision testers each, same viewport), then apply the change and record the hypothesis and its evidence in the task model. Details, config and limits: `reference/simulator.md`.
 
-The simulator needs a fast **System One** model that returns probabilities over choices: TypeSafe's Jev (`TYPESAFE_API_KEY`), or a compatible endpoint (`UX_SIM_ENDPOINT`, `UX_SIM_API_KEY`, `UX_SIM_MODEL`) that follows the contract in `reference/simulator.md`. Load a key from a `.env` file without printing it:
-
-```bash
-export TYPESAFE_API_KEY="$(sed -n 's/^TYPESAFE_API_KEY=//p' .env | head -n 1 | tr -d '\r' | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
-```
-
-This reads the value as data: nothing in `.env` is executed, surrounding quotes are removed, and only this one variable is exported.
+The simulator needs a fast **System One** model that returns probabilities over choices: TypeSafe's Jev (`TYPESAFE_API_KEY`), or a compatible endpoint (`UX_SIM_ENDPOINT`, `UX_SIM_API_KEY`, `UX_SIM_MODEL`) that follows the contract in `reference/simulator.md`. The user supplies the selected provider's key in the command environment outside chat. Do not search their machine, read `.env` files, or retrieve an installer's credentials. The TypeSafe key is sent only to `https://api.typesafe.ai/v1/systemone`. A custom endpoint needs its own separately supplied key issued by that endpoint's provider; never reuse another vendor's key. Requests include screen state and questions, reject redirects, and do not forward keys to aictrl.
 
 If `simulate.cjs` exits with "Simulator not configured", tell the user: the simulator is optional; they can get a TypeSafe API key at https://typesafe.ai or configure a compatible System One endpoint; local models are not supported yet. Then continue with agent testers only. Never ask the user to paste a key into the chat, and never echo, log or write one.
 

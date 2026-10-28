@@ -4,7 +4,7 @@
 // every click and the clicked element's box (for click clouds and step strips), plus the arm's first screen.
 // With a simulator backend configured (TYPESAFE_API_KEY, or UX_SIM_ENDPOINT + UX_SIM_API_KEY + UX_SIM_MODEL)
 // it also predicts where a busy first-time user would click first on that screen; without one it skips the
-// prediction and says so. Keys are read from the environment only and never logged.
+// prediction and says so. Only the selected provider's explicitly supplied key is used; see common.cjs.
 //
 // Usage (needs Playwright with Chromium):
 //   node replay.cjs --config replay.config.json --out <dir> [--steps 5]

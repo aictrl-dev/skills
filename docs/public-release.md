@@ -44,6 +44,12 @@ tests pass. Portal-issued challenge values, reviewer credentials, OAuth
 secrets, and recovery codes are operational secrets and must not be committed
 or stored in release evidence.
 
+For Claude directory-policy warnings, use
+[`submission/claude/directory-policy.md`](../submission/claude/directory-policy.md)
+to distinguish provider credential destinations, non-executable artwork, and
+directory-only metadata. Re-run the directory scan against the submitted
+revision after changes; passing local tests does not clear a directory hold.
+
 For the OpenAI plugin portal (platform.openai.com/plugins), build the upload
 ZIP with `npm run package:openai --prefix tooling -- --name=<portal app id>`. The portal binds
 an upload to the existing listing by its `app-...` identifier, so the script

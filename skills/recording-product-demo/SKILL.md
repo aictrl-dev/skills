@@ -43,6 +43,7 @@ Resources in this skill:
 | `scripts/record-demo.cjs` | The recorder FRAMEWORK (time-lock, cursor, glides, anonymisation engine) — loads the journey from `demo/blocks.cjs` |
 | `scripts/tts-oneshot.cjs` | One-shot ElevenLabs TTS + STT word timestamps, from `demo/segments.json` |
 | `scripts/split-narration.py` | Fuzzy-aligned split of the one-shot into per-scene clips; writes `timeline.json` |
+| `scripts/verify-clip-starts.cjs` | Transcribe the first four seconds of each scene clip through ElevenLabs to check split boundaries |
 | `scripts/assemble.cjs` | Mux (t0-trim + upscale + narration) → cards concat → verification frame grid, all from metadata |
 | `scripts/publish.cjs` | Publish kit (faststart/720p/poster/captions.srt/embed) + optional GCS/S3/YouTube upload |
 | `scripts/login.cjs` | One-time interactive login (defeats Google's automation block), saves profile + storage state |
@@ -62,6 +63,8 @@ demo/
 ```
 
 Prerequisites (check before starting, tell the user what's missing): **ElevenLabs API key** (`ELEVENLABS_API_KEY` — TTS *and* STT are both load-bearing; the word timestamps drive the scene split), **ffmpeg + ffprobe**, **Node 18+ with Playwright + Chromium**, **Python 3**. Install Playwright in a directory you trust (`npm i -D playwright && npx playwright install chromium` there), then export `NODE_PATH=<absolute trusted directory>/node_modules` for the helper commands. A trusted installation next to or above the skill also works; `playwright-core` is supported with a separately installed Chromium. The helpers never automatically resolve dependencies from the target working directory. A broken installation fails with its original error instead of silently falling back.
+
+The user supplies an ElevenLabs key in the command environment for this workflow. Do not search their machine, read `.env` files, or retrieve an installer's credentials. If the key is missing, explain how to supply it outside chat. The narration helpers send it only to `https://api.elevenlabs.io`, with redirects disabled; narration text and audio go to ElevenLabs too. YouTube upload uses separately supplied Google credentials only with Google's APIs, and only when `--upload` is requested. GCS/S3 uploads use the user's configured vendor CLI. None of these credentials is forwarded to the aictrl MCP server. Never print or commit keys.
 
 Run the skill from a trusted plugin/skill installation outside an untrusted target repo. If the skill is vendored inside that repo, Node can still load dependencies from its parent directories; that placement is **not isolated** from the target. For Phase 5 card rendering, use the absolute CLI path from the same selected trusted package, as defined below, rather than resolving `npx playwright` in the target repo.
 
@@ -126,7 +129,7 @@ python3 scripts/split-narration.py --segments demo/segments.json
 ```
 
 - **Why one-shot**: generating clips separately (even with previous/next-text stitching) produces stuttered clip starts. One continuous TTS request has exactly one start; the splitter cuts it at paragraph boundaries using ElevenLabs STT **word-level timestamps** + fuzzy alignment (STT rewrites brand words, so exact matching fails).
-- **Verify every clip start by transcription** (the splitter prints the command). Boundary snaps can land one word off when the voice barely pauses between paragraphs (40 ms happens) — nudge the cut at the midpoint of the correct gap in `narration-full.stt.json`.
+- **Verify every clip start by transcription** with `node scripts/verify-clip-starts.cjs --out demo/out/voice` (the splitter also prints the script command). This sends the first four seconds of each scene clip to ElevenLabs and prints JSONL transcripts. Boundary snaps can land one word off when the voice barely pauses between paragraphs (40 ms happens) — nudge the cut at the midpoint of the correct gap in `narration-full.stt.json`.
 - **v3 short-prompt instability**: `eleven_v3` can break up/crack on short standalone prompts (card VOs). Fix without dropping to v2: put a throwaway warm-up sentence as segment 0 in the same generation, split it off, discard it.
 - `timeline.json` holds the scene boundaries — the recorder reads it directly.
 

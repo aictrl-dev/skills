@@ -26,6 +26,7 @@ import argparse
 import difflib
 import json
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -119,11 +120,9 @@ def main() -> None:
     (out / "timeline.json").write_text(json.dumps(timeline, indent=2, ensure_ascii=False))
     print(f"timeline written: {out / 'timeline.json'}")
     if not args.timeline_only:
-        print("\nVERIFY clip starts, e.g.:")
-        print(f'  for f in {out}/0*.mp3; do ffmpeg -y -loglevel error -t 4 -i "$f" -c:a libmp3lame /tmp/head.mp3; '
-              'curl -s -X POST -H "xi-api-key: $ELEVENLABS_API_KEY" -F model_id=scribe_v1 -F file=@/tmp/head.mp3 '
-              '-F language_code=en https://api.elevenlabs.io/v1/speech-to-text | '
-              "python3 -c 'import json,sys; print(json.load(sys.stdin)[\"text\"])'; done")
+        verifier = Path(__file__).resolve().with_name("verify-clip-starts.cjs")
+        print("\nVERIFY clip starts (sends the first four seconds of each clip to ElevenLabs):")
+        print(f"  node {shlex.quote(str(verifier))} --out {shlex.quote(str(out))}")
 
 
 if __name__ == "__main__":

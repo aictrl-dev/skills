@@ -236,13 +236,14 @@ console.log('[pub] embed.html, PUBLISH.md');
     console.log(`[pub] uploading to YouTube (visibility: ${upload.privacy || 'unlisted'})`);
     const tokRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
+      redirect: 'error',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         client_id: YT_CLIENT_ID, client_secret: YT_CLIENT_SECRET,
         refresh_token: YT_REFRESH_TOKEN, grant_type: 'refresh_token',
       }),
     });
-    if (!tokRes.ok) throw new Error(`token exchange HTTP ${tokRes.status}: ${(await tokRes.text()).slice(0, 200)}`);
+    if (!tokRes.ok) throw new Error(`token exchange HTTP ${tokRes.status}`);
     const { access_token } = await tokRes.json();
     const metaPart = {
       snippet: { title: upload.title || `${appName} — product demo`, description: upload.description || '' },
@@ -252,19 +253,21 @@ console.log('[pub] embed.html, PUBLISH.md');
       'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
       {
         method: 'POST',
+        redirect: 'error',
         headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(metaPart),
       }
     );
-    if (!initRes.ok) throw new Error(`upload init HTTP ${initRes.status}: ${(await initRes.text()).slice(0, 300)}`);
+    if (!initRes.ok) throw new Error(`upload init HTTP ${initRes.status}`);
     const sessionUrl = initRes.headers.get('location');
     const buf = fs.readFileSync(demoMp4);
     const upRes = await fetch(sessionUrl, {
       method: 'PUT',
+      redirect: 'error',
       headers: { 'Content-Type': 'video/mp4', 'Content-Length': String(buf.length) },
       body: buf,
     });
-    if (!upRes.ok) throw new Error(`upload HTTP ${upRes.status}: ${(await upRes.text()).slice(0, 300)}`);
+    if (!upRes.ok) throw new Error(`upload HTTP ${upRes.status}`);
     const video = await upRes.json();
     console.log(`[pub] uploaded to YouTube: https://youtu.be/${video.id} (${metaPart.status.privacyStatus})`);
   } else {
