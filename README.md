@@ -6,6 +6,45 @@ Essential, vendor-neutral AI engineering-workflow skills in one canonical
 tree. Install the skills alone, or install the aictrl.dev plugin to add the same
 skills plus OAuth-connected controlled workflow execution.
 
+## aictrl MCP server
+
+The hosted aictrl MCP server gives coding agents access to project context,
+backlog tasks, code-review findings, and controlled workflow execution. Connect
+to `https://aictrl.dev/mcp` using Streamable HTTP and sign in with OAuth. No API
+key or local server process is required.
+
+You need an [aictrl account](https://aictrl.dev) and membership of an aictrl
+organization. Repository-backed work also needs a GitHub repository connected
+through the aictrl GitHub App. Access follows your organization membership;
+workflow execution follows the published workflow's permissions and approval
+gates.
+
+**GitHub Copilot in VS Code**:
+
+1. Open the Command Palette and run **MCP: Add Server**.
+2. Choose **HTTP (HTTP or Server-Sent Events)** and enter
+   `https://aictrl.dev/mcp`. Name the server `aictrl` and choose the configuration
+   destination.
+3. Start the server from VS Code's MCP controls and complete the browser
+   sign-in when prompted.
+
+See [VS Code's MCP setup guide](https://code.visualstudio.com/docs/agent-customization/mcp-servers)
+for configuration destinations and server controls.
+
+In other MCP clients, add the same remote URL and complete OAuth when prompted.
+The Claude Code and Codex plugins below already include the MCP configuration.
+See [SETUP.md](SETUP.md) for connection checks and troubleshooting.
+
+Try these prompts after connecting:
+
+- "Check my aictrl account readiness."
+- "Which aictrl organizations can I use?"
+- "Show the backlog tasks for my organization."
+- "List the published workflows I can run."
+
+This public repository contains the skills, client configuration, and registry
+metadata for the hosted service. The hosted server's source code is private.
+
 ## Install
 
 **Skills only — Codex, Claude Code, OpenCode, and compatible agents**
