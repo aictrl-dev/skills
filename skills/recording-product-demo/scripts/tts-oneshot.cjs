@@ -10,7 +10,8 @@
  * Voice/model: config.voice.voiceId/model, overridden by ELEVENLABS_VOICE_ID/MODEL.
  * Language: ELEVENLABS_STT_LANG, then config.voice.sttLang, then en.
  * Clip verification needs no voice ID; its default config is two directories
- * above the voice output directory. No credential files are read.
+ * above the voice output directory. --segments is narration-only.
+ * No credential files are read.
  */
 const fs = require('fs');
 const os = require('os');
@@ -30,6 +31,22 @@ function arg(name, def) {
 
 function shellQuote(value) {
   return "'" + String(value).replaceAll("'", "'\\''") + "'";
+}
+
+function readJson(file, label, optional = false) {
+  const displayPath = JSON.stringify(file);
+  let source;
+  try {
+    source = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      if (optional) return { value: {}, found: false };
+      throw new Error(`${label} file not found: ${displayPath}`);
+    }
+    throw new Error(`cannot read ${label} file: ${displayPath} (${e.code || 'read error'})`);
+  }
+  try { return { value: JSON.parse(source), found: true }; }
+  catch { throw new Error(`${label} file is not valid JSON: ${displayPath}`); }
 }
 
 function apiKey() {
@@ -80,19 +97,15 @@ async function verifyClipStarts(out, key, language) {
 async function main() {
   const verify = process.argv.includes('--verify-clip-starts');
   const segmentsFile = arg('segments', path.join(process.cwd(), 'demo/segments.json'));
-  const out = path.resolve(arg('out', path.join(path.dirname(segmentsFile), 'out/voice')));
+  if (verify && process.argv.includes('--segments')) {
+    throw new Error('--segments cannot be used with --verify-clip-starts; select clips with --out.');
+  }
+  const defaultOut = verify ? path.join(process.cwd(), 'demo/out/voice') : path.join(path.dirname(segmentsFile), 'out/voice');
+  const out = path.resolve(arg('out', defaultOut));
   const configArg = arg('config', null);
   const defaultConfig = verify ? path.resolve(out, '../..', 'demo.config.json') : path.join(path.dirname(segmentsFile), 'demo.config.json');
   const configPath = configArg || defaultConfig;
-  let config = {};
-  let hasConfig = false;
-  try {
-    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    hasConfig = true;
-  } catch (e) {
-    if (e.code !== 'ENOENT') throw e;
-    if (configArg !== null) throw new Error(`config file not found: ${JSON.stringify(configPath)}`);
-  }
+  const { value: config, found: hasConfig } = readJson(configPath, 'config', configArg === null);
   const voiceCfg = config.voice || {};
   const language = process.env.ELEVENLABS_STT_LANG || voiceCfg.sttLang || 'en';
 
@@ -101,11 +114,11 @@ async function main() {
     return;
   }
 
+  const { value: segments } = readJson(segmentsFile, 'segments');
   const voice = process.env.ELEVENLABS_VOICE_ID || voiceCfg.voiceId;
   const model = process.env.ELEVENLABS_MODEL || voiceCfg.model || 'eleven_v3';
   if (!voice) throw new Error('no voice id — set config.voice.voiceId or ELEVENLABS_VOICE_ID (browse https://elevenlabs.io/app/voice-library)');
   const key = apiKey();
-  const segments = JSON.parse(fs.readFileSync(segmentsFile, 'utf8'));
   const full = path.join(out, 'narration-full.mp3');
   fs.mkdirSync(out, { recursive: true });
 

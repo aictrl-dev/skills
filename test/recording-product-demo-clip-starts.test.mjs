@@ -73,6 +73,62 @@ test('narration still works without an optional default config when the voice is
   assert.equal(f.events().some((event) => event.kind === 'stt'), true);
 });
 
+for (const explicitOut of [false, true]) {
+  test(`verification rejects --segments instead of silently selecting clip paths (${explicitOut ? 'explicit' : 'default'} output)`, (t) => {
+    const f = fixture(t);
+    const args = ['--segments', join(f.dir, 'another-demo/segments.json')];
+    if (explicitOut) args.push('--out', f.out);
+    const result = f.run(args);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--segments cannot be used with --verify-clip-starts/);
+    assert.match(result.stderr, /--out/);
+    assert.deepEqual(f.events(), []);
+  });
+}
+
+test('verification without --out still uses the current demo voice directory', (t) => {
+  const f = fixture(t);
+  const result = f.run([]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { clip: '01-hook.mp3', text: 'Clip start' });
+});
+
+for (const verify of [false, true]) {
+  test(`${verify ? 'verification' : 'narration'} identifies malformed config without echoing its contents`, (t) => {
+    const f = fixture(t);
+    const config = join(f.dir, 'broken config.json');
+    writeFileSync(config, 'private-config-value');
+    const result = f.run(['--out', f.out, '--config', config], { ELEVENLABS_VOICE_ID: 'test-voice' }, verify);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /config file is not valid JSON/);
+    assert.ok(result.stderr.includes(config));
+    assert.doesNotMatch(result.stdout + result.stderr, /private-config-value/);
+    assert.deepEqual(f.events(), []);
+  });
+}
+
+test('narration identifies a missing segments file before any API work', (t) => {
+  const f = fixture(t);
+  const missing = join(f.dir, 'missing segments.json');
+  const result = f.run(['--segments', missing, '--out', f.out], { ELEVENLABS_VOICE_ID: 'test-voice' }, false);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /segments file not found/);
+  assert.ok(result.stderr.includes(missing));
+  assert.deepEqual(f.events(), []);
+});
+
+test('narration identifies malformed segments without echoing their contents', (t) => {
+  const f = fixture(t);
+  const segments = join(f.dir, 'broken segments.json');
+  writeFileSync(segments, 'private-segments-value');
+  const result = f.run(['--segments', segments, '--out', f.out], { ELEVENLABS_VOICE_ID: 'test-voice' }, false);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /segments file is not valid JSON/);
+  assert.ok(result.stderr.includes(segments));
+  assert.doesNotMatch(result.stdout + result.stderr, /private-segments-value/);
+  assert.deepEqual(f.events(), []);
+});
+
 for (const [args, message] of [
   [['--out'], /--out requires a voice directory/],
   [['--out', '--verbose'], /--out requires a voice directory/],
