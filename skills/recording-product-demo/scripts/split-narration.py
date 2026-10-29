@@ -122,11 +122,11 @@ def main() -> None:
     (out / "timeline.json").write_text(json.dumps(timeline, indent=2, ensure_ascii=False))
     print(f"timeline written: {out / 'timeline.json'}")
     if not args.timeline_only:
-        verifier = Path(__file__).resolve().with_name("verify-clip-starts.cjs")
+        verifier = Path(__file__).resolve().with_name("tts-oneshot.cjs")
         config = Path(args.config) if args.config else seg_path.parent / "demo.config.json"
         config_arg = f" --config {shlex.quote(str(config))}" if args.config or config.is_file() else ""
         print("\nVERIFY clip starts (sends the first four seconds of each clip to ElevenLabs):")
-        print(f"  node {shlex.quote(str(verifier))} --out {shlex.quote(str(out))}{config_arg}")
+        print(f"  node {shlex.quote(str(verifier))} --verify-clip-starts --out {shlex.quote(str(out))}{config_arg}")
 
 
 if __name__ == "__main__":

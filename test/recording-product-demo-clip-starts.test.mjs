@@ -29,7 +29,7 @@ function fixture(t, { language, reply = { text: 'Clip start' }, status = 200 } =
   return {
     dir, out, bin,
     run: (args = ['--out', out], env = {}) => spawnSync(process.execPath, ['--require', preload,
-      join(ROOT, 'skills/recording-product-demo/scripts/verify-clip-starts.cjs'), ...args], {
+      join(ROOT, 'skills/recording-product-demo/scripts/tts-oneshot.cjs'), '--verify-clip-starts', ...args], {
       cwd: dir, encoding: 'utf8', env: { PATH: bin, ELEVENLABS_API_KEY: 'private-test-value', ...env },
     }),
     events: () => existsSync(eventsFile) ? readFileSync(eventsFile, 'utf8').trim().split('\n').map(JSON.parse) : [],
@@ -130,5 +130,5 @@ test('narration splitter passes the selected custom config to its verification c
     cwd: f.dir, encoding: 'utf8', env: { PATH: f.bin + delimiter + (process.env.PATH || '/usr/bin:/bin') },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.split('\n').some((line) => line.includes('verify-clip-starts.cjs') && line.endsWith(`--config ${config}`)));
+  assert.ok(result.stdout.split('\n').some((line) => line.includes('tts-oneshot.cjs') && line.includes('--verify-clip-starts') && line.endsWith(`--config ${config}`)));
 });

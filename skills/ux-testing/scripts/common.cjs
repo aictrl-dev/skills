@@ -54,15 +54,16 @@ const NOT_CONFIGURED = `Simulator not configured. Simulated users need a fast "S
   - a compatible endpoint: set UX_SIM_ENDPOINT, UX_SIM_API_KEY and UX_SIM_MODEL (contract: reference/simulator.md).
 Local models are not supported yet. The simulator is optional: continue with agent testers only.`;
 
-function simBackend() {
-  const custom = process.env.UX_SIM_ENDPOINT;
+// Explicit configuration keeps callers such as tests independent of ambient credentials.
+function simBackend(config = process.env) {
+  const custom = config.UX_SIM_ENDPOINT;
   let endpoint; let key; let model; let label;
   if (custom) {
-    endpoint = custom; key = process.env.UX_SIM_API_KEY; model = process.env.UX_SIM_MODEL;
+    endpoint = custom; key = config.UX_SIM_API_KEY; model = config.UX_SIM_MODEL;
     if (!key || !model) return { error: `UX_SIM_ENDPOINT is set, so UX_SIM_API_KEY and UX_SIM_MODEL are required too.\n${NOT_CONFIGURED}` };
     label = `custom endpoint (${model})`;
-  } else if (process.env.TYPESAFE_API_KEY) {
-    endpoint = TYPESAFE_ENDPOINT; key = process.env.TYPESAFE_API_KEY; model = process.env.UX_SIM_MODEL || 'jev-latest';
+  } else if (config.TYPESAFE_API_KEY) {
+    endpoint = TYPESAFE_ENDPOINT; key = config.TYPESAFE_API_KEY; model = config.UX_SIM_MODEL || 'jev-latest';
     label = `TypeSafe (${model})`;
   } else return { error: NOT_CONFIGURED };
   let url;

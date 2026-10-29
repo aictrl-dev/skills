@@ -99,7 +99,7 @@ test('clip verification transcribes each scene start through the bundled script 
     return new Response('{"text":"Welcome to the demo"}');
   };`);
   const result = spawnSync(process.execPath, ['--require', preload,
-    join(ROOT, 'skills/recording-product-demo/scripts/verify-clip-starts.cjs'), '--out', dir], {
+    join(ROOT, 'skills/recording-product-demo/scripts/tts-oneshot.cjs'), '--verify-clip-starts', '--out', dir], {
     cwd: dir, encoding: 'utf8', env: { PATH: bin, ELEVENLABS_API_KEY: 'env-only-secret' },
   });
   assert.equal(result.status, 0, result.stderr);

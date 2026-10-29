@@ -67,5 +67,4 @@ account, and the second can also run as the connected workflow):
 - The aictrl MCP server uses its first-party API and does not read Claude's
   memory, chat history or user files. Optional local demo and simulator helpers
   use their selected providers, including ElevenLabs for generated narration.
-  Credential destinations, asset notices, and listing-only fields are covered
-  in [directory-policy.md](directory-policy.md).
+  The README's optional-services table documents each provider and destination.

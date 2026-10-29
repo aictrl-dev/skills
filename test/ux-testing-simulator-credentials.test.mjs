@@ -6,17 +6,17 @@ import { promisify } from 'node:util';
 import test from 'node:test';
 import { ROOT } from '../scripts/public-catalog.mjs';
 
-function simulate(env) {
+function simulate(config) {
   return spawnSync(process.execPath, ['-e', `
     const { simBackend } = require(${JSON.stringify(join(ROOT, 'skills/ux-testing/scripts/common.cjs'))});
     global.fetch = async (url, init) => {
       console.log(JSON.stringify({ url, redirect: init.redirect, authorization: init.headers.Authorization }));
       return new Response('{"answers":{}}');
     };
-    const backend = simBackend();
+    const backend = simBackend(${JSON.stringify(config)});
     if (backend.error) { console.error(backend.error); process.exit(2); }
     backend.ask({}, {}).catch(() => process.exit(1));
-  `], { env, encoding: 'utf8' });
+  `], { env: {}, encoding: 'utf8' });
 }
 
 test('simulator keeps TypeSafe credentials on its own endpoint and disables redirects', () => {
@@ -49,8 +49,8 @@ async function localSimulator(t, handler) {
   const endpoint = `http://127.0.0.1:${server.address().port}/simulate`;
   return () => promisify(execFile)(process.execPath, ['-e', `
     const { simBackend } = require(${JSON.stringify(join(ROOT, 'skills/ux-testing/scripts/common.cjs'))});
-    simBackend().ask({}, {}).catch((e) => { console.error(e.message); process.exitCode = 1; });
-  `], { timeout: 15000, env: { UX_SIM_ENDPOINT: endpoint, UX_SIM_API_KEY: 'local-test-value', UX_SIM_MODEL: 'model' } });
+    simBackend(${JSON.stringify({ UX_SIM_ENDPOINT: endpoint, UX_SIM_API_KEY: 'local-test-value', UX_SIM_MODEL: 'model' })}).ask({}, {}).catch((e) => { console.error(e.message); process.exitCode = 1; });
+  `], { timeout: 15000, env: {} });
 }
 
 test('simulator rejects redirects after one request with an actionable error and no forwarding', async (t) => {
