@@ -41,9 +41,8 @@ Resources in this skill:
 | File | Purpose |
 |------|---------|
 | `scripts/record-demo.cjs` | The recorder FRAMEWORK (time-lock, cursor, glides, anonymisation engine) — loads the journey from `demo/blocks.cjs` |
-| `scripts/tts-oneshot.cjs` | One-shot ElevenLabs TTS + STT word timestamps, from `demo/segments.json` |
+| `scripts/tts-oneshot.cjs` | One-shot ElevenLabs TTS + STT word timestamps, from `demo/segments.json`; `--verify-clip-starts` transcribes scene starts to check split boundaries |
 | `scripts/split-narration.py` | Fuzzy-aligned split of the one-shot into per-scene clips; writes `timeline.json` |
-| `scripts/verify-clip-starts.cjs` | Transcribe the first four seconds of each scene clip through ElevenLabs to check split boundaries |
 | `scripts/assemble.cjs` | Mux (t0-trim + upscale + narration) → cards concat → verification frame grid, all from metadata |
 | `scripts/publish.cjs` | Publish kit (faststart/720p/poster/captions.srt/embed) + optional GCS/S3/YouTube upload |
 | `scripts/login.cjs` | One-time interactive login (defeats Google's automation block), saves profile + storage state |
@@ -129,7 +128,7 @@ python3 scripts/split-narration.py --segments demo/segments.json
 ```
 
 - **Why one-shot**: generating clips separately (even with previous/next-text stitching) produces stuttered clip starts. One continuous TTS request has exactly one start; the splitter cuts it at paragraph boundaries using ElevenLabs STT **word-level timestamps** + fuzzy alignment (STT rewrites brand words, so exact matching fails).
-- **Verify every clip start by transcription** with `node scripts/verify-clip-starts.cjs --out demo/out/voice --config demo/demo.config.json` (the splitter also prints the script command). Use the same `--config` as narration; for a custom config, pass it to the splitter too so its printed command preserves the choice. Language precedence matches narration: `ELEVENLABS_STT_LANG`, then `voice.sttLang`, then `en`. This sends the first four seconds of each scene clip to ElevenLabs and prints JSONL transcripts. Boundary snaps can land one word off when the voice barely pauses between paragraphs (40 ms happens) — nudge the cut at the midpoint of the correct gap in `narration-full.stt.json`.
+- **Verify every clip start by transcription** with `node scripts/tts-oneshot.cjs --verify-clip-starts --out demo/out/voice --config demo/demo.config.json` (the splitter also prints the script command). Use the same `--config` as narration; for a custom config, pass it to the splitter too so its printed command preserves the choice. Language precedence matches narration: `ELEVENLABS_STT_LANG`, then `voice.sttLang`, then `en`. This sends the first four seconds of each scene clip to ElevenLabs and prints JSONL transcripts. Boundary snaps can land one word off when the voice barely pauses between paragraphs (40 ms happens) — nudge the cut at the midpoint of the correct gap in `narration-full.stt.json`.
 - **v3 short-prompt instability**: `eleven_v3` can break up/crack on short standalone prompts (card VOs). Fix without dropping to v2: put a throwaway warm-up sentence as segment 0 in the same generation, split it off, discard it.
 - `timeline.json` holds the scene boundaries — the recorder reads it directly.
 

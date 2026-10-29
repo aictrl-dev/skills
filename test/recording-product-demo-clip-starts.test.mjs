@@ -23,18 +23,111 @@ function fixture(t, { language, reply = { text: 'Clip start' }, status = 200 } =
   `, { mode: 0o755 });
   const preload = join(dir, 'http.cjs');
   writeFileSync(preload, `global.fetch = async (url, init) => {
+    if (url.includes('/text-to-speech/')) {
+      require('fs').appendFileSync(${JSON.stringify(eventsFile)}, JSON.stringify({ kind: 'tts' }) + '\\n');
+      return new Response('generated narration audio');
+    }
     require('fs').appendFileSync(${JSON.stringify(eventsFile)}, JSON.stringify({ kind: 'stt', language: init.body.get('language_code'), hasKey: init.headers['xi-api-key'] === 'private-test-value' }) + '\\n');
     return new Response(${JSON.stringify(JSON.stringify(reply))}, { status: ${status} });
   };`);
   return {
     dir, out, bin,
-    run: (args = ['--out', out], env = {}) => spawnSync(process.execPath, ['--require', preload,
-      join(ROOT, 'skills/recording-product-demo/scripts/verify-clip-starts.cjs'), ...args], {
+    run: (args = ['--out', out], env = {}, verify = true) => spawnSync(process.execPath, ['--require', preload,
+      join(ROOT, 'skills/recording-product-demo/scripts/tts-oneshot.cjs'), ...(verify ? ['--verify-clip-starts'] : []), ...args], {
       cwd: dir, encoding: 'utf8', env: { PATH: bin, ELEVENLABS_API_KEY: 'private-test-value', ...env },
     }),
     events: () => existsSync(eventsFile) ? readFileSync(eventsFile, 'utf8').trim().split('\n').map(JSON.parse) : [],
   };
 }
+
+for (const verify of [false, true]) {
+  for (const args of [['--segments'], ['--segments', '--out']]) {
+    test(`${verify ? 'verification' : 'narration'} reports a segments JSON file for ${args.join(' ')}`, (t) => {
+      const f = fixture(t);
+      const result = f.run(args, {}, verify);
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /--segments requires a segments JSON file/);
+      assert.doesNotMatch(result.stderr, /config file/);
+      assert.deepEqual(f.events(), []);
+    });
+  }
+
+  test(`${verify ? 'verification' : 'narration'} rejects an explicitly missing config before any media or API work`, (t) => {
+    const f = fixture(t);
+    const missing = join(f.dir, 'missing config.json');
+    writeFileSync(join(f.dir, 'demo/segments.json'), '[{"slug":"hook","text":"Hello"}]');
+    const result = f.run(['--out', f.out, '--config', missing], { ELEVENLABS_VOICE_ID: 'test-voice' }, verify);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /config file not found/i);
+    assert.ok(result.stderr.includes(missing));
+    assert.equal(result.stdout, '');
+    assert.deepEqual(f.events(), []);
+  });
+}
+
+test('narration still works without an optional default config when the voice is supplied explicitly', (t) => {
+  const f = fixture(t);
+  writeFileSync(join(f.dir, 'demo/segments.json'), '[{"slug":"hook","text":"Hello"}]');
+  const result = f.run(['--out', f.out], { ELEVENLABS_VOICE_ID: 'test-voice' }, false);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(f.events().some((event) => event.kind === 'stt'), true);
+});
+
+for (const explicitOut of [false, true]) {
+  test(`verification rejects --segments instead of silently selecting clip paths (${explicitOut ? 'explicit' : 'default'} output)`, (t) => {
+    const f = fixture(t);
+    const args = ['--segments', join(f.dir, 'another-demo/segments.json')];
+    if (explicitOut) args.push('--out', f.out);
+    const result = f.run(args);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--segments cannot be used with --verify-clip-starts/);
+    assert.match(result.stderr, /--out/);
+    assert.deepEqual(f.events(), []);
+  });
+}
+
+test('verification without --out still uses the current demo voice directory', (t) => {
+  const f = fixture(t);
+  const result = f.run([]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { clip: '01-hook.mp3', text: 'Clip start' });
+});
+
+for (const verify of [false, true]) {
+  test(`${verify ? 'verification' : 'narration'} identifies malformed config without echoing its contents`, (t) => {
+    const f = fixture(t);
+    const config = join(f.dir, 'broken config.json');
+    writeFileSync(config, 'private-config-value');
+    const result = f.run(['--out', f.out, '--config', config], { ELEVENLABS_VOICE_ID: 'test-voice' }, verify);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /config file is not valid JSON/);
+    assert.ok(result.stderr.includes(config));
+    assert.doesNotMatch(result.stdout + result.stderr, /private-config-value/);
+    assert.deepEqual(f.events(), []);
+  });
+}
+
+test('narration identifies a missing segments file before any API work', (t) => {
+  const f = fixture(t);
+  const missing = join(f.dir, 'missing segments.json');
+  const result = f.run(['--segments', missing, '--out', f.out], { ELEVENLABS_VOICE_ID: 'test-voice' }, false);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /segments file not found/);
+  assert.ok(result.stderr.includes(missing));
+  assert.deepEqual(f.events(), []);
+});
+
+test('narration identifies malformed segments without echoing their contents', (t) => {
+  const f = fixture(t);
+  const segments = join(f.dir, 'broken segments.json');
+  writeFileSync(segments, 'private-segments-value');
+  const result = f.run(['--segments', segments, '--out', f.out], { ELEVENLABS_VOICE_ID: 'test-voice' }, false);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /segments file is not valid JSON/);
+  assert.ok(result.stderr.includes(segments));
+  assert.doesNotMatch(result.stdout + result.stderr, /private-segments-value/);
+  assert.deepEqual(f.events(), []);
+});
 
 for (const [args, message] of [
   [['--out'], /--out requires a voice directory/],
@@ -130,5 +223,5 @@ test('narration splitter passes the selected custom config to its verification c
     cwd: f.dir, encoding: 'utf8', env: { PATH: f.bin + delimiter + (process.env.PATH || '/usr/bin:/bin') },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.split('\n').some((line) => line.includes('verify-clip-starts.cjs') && line.endsWith(`--config ${config}`)));
+  assert.ok(result.stdout.split('\n').some((line) => line.includes('tts-oneshot.cjs') && line.includes('--verify-clip-starts') && line.endsWith(`--config ${config}`)));
 });
