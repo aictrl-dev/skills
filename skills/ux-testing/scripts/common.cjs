@@ -84,9 +84,13 @@ async function ask(endpoint, key, model, state, questions) {
   for (let attempt = 0; attempt < 3; attempt++) {
     let r;
     try {
-      r = await fetch(endpoint, { method: 'POST', redirect: 'error', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, state, questions }) });
+      r = await fetch(endpoint, { method: 'POST', redirect: 'manual', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, state, questions }) });
     } catch (e) {
       lastStatus = `network error: ${e.code || e.name}`;
+    }
+    if (r && r.status >= 300 && r.status < 400) {
+      await r.body?.cancel();
+      throw new Error(`simulator endpoint returned HTTP ${r.status}: redirects are disabled; configure its final URL.`);
     }
     if (r && r.ok) {
       let j;
