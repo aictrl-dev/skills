@@ -21,6 +21,9 @@ function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
   return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
 }
+function shellQuote(value) {
+  return "'" + String(value).replaceAll("'", "'\\''") + "'";
+}
 const SEGMENTS_FILE = arg('segments', path.join(process.cwd(), 'demo/segments.json'));
 const CONFIG_PATH = arg('config', path.join(path.dirname(SEGMENTS_FILE), 'demo.config.json'));
 const config = fs.existsSync(CONFIG_PATH) ? JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) : {};
@@ -83,7 +86,9 @@ function apiKey() {
   const stt = await sttRes.json();
   fs.writeFileSync(path.join(OUT, 'narration-full.stt.json'), JSON.stringify(stt, null, 2));
   console.log(`[oneshot] transcript saved (${(stt.words || []).length} word tokens)`);
-  console.log('[oneshot] done. Now run: python3 split-narration.py --segments', SEGMENTS_FILE, '--out', OUT);
+  const next = ['python3', path.join(__dirname, 'split-narration.py'), '--segments', SEGMENTS_FILE, '--out', OUT];
+  if (process.argv.includes('--config') || fs.existsSync(CONFIG_PATH)) next.push('--config', CONFIG_PATH);
+  console.log('[oneshot] done. Now run:', next.map(shellQuote).join(' '));
 })().catch((e) => {
   console.error('[oneshot] ERROR:', e.message);
   process.exit(1);

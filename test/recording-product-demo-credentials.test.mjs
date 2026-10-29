@@ -6,12 +6,14 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { ROOT } from '../scripts/public-catalog.mjs';
 
-function narration(t, { key = true, fail = false } = {}) {
+function narration(t, { key = true, fail = false, customConfig = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'demo-credentials-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const events = join(dir, 'events.jsonl');
   writeFileSync(join(dir, 'segments.json'), '[{"slug":"hook","text":"Welcome."}]');
   writeFileSync(join(dir, 'demo.config.json'), '{"voice":{"voiceId":"demo-voice"}}');
+  const configPath = customConfig ? join(dir, "voice config's (de).json") : join(dir, 'demo.config.json');
+  if (customConfig) writeFileSync(configPath, '{"voice":{"voiceId":"demo-voice","sttLang":"de"}}');
   writeFileSync(join(dir, '.env'), 'ELEVENLABS_API_KEY=file-only-secret\n');
   const preload = join(dir, 'http.cjs');
   writeFileSync(preload, `
@@ -23,7 +25,7 @@ function narration(t, { key = true, fail = false } = {}) {
   `);
   const result = spawnSync(process.execPath, ['--require', preload,
     join(ROOT, 'skills/recording-product-demo/scripts/tts-oneshot.cjs'),
-    '--segments', join(dir, 'segments.json')], {
+    '--segments', join(dir, 'segments.json'), ...(customConfig ? ['--config', configPath] : [])], {
     cwd: dir, encoding: 'utf8', env: {
       ELEVENLABS_API_KEY: key ? 'env-only-secret' : '',
       ELEVENLABS_ENV_FILE: join(dir, '.env'),
@@ -32,7 +34,7 @@ function narration(t, { key = true, fail = false } = {}) {
   let calls = [];
   try { calls = readFileSync(events, 'utf8').trim().split('\n').map(JSON.parse); }
   catch (e) { if (e.code !== 'ENOENT') throw e; }
-  return { result, calls };
+  return { result, calls, dir, configPath };
 }
 
 test('narration refuses a key from a dotenv file without an explicitly supplied provider key', (t) => {
@@ -58,6 +60,26 @@ test('narration errors report the status without reflecting response bodies cont
   assert.match(result.stderr, /HTTP 401/);
   assert.doesNotMatch(result.stdout + result.stderr, /env-only-secret/);
 });
+
+for (const customConfig of [false, true]) {
+  test(`narration's printed splitter command preserves ${customConfig ? 'a custom config containing spaces and an apostrophe' : 'its default config'}`, (t) => {
+    const { result, dir, configPath } = narration(t, { customConfig });
+    assert.equal(result.status, 0, result.stderr);
+    const prefix = '[oneshot] done. Now run: ';
+    const line = result.stdout.split('\n').find((entry) => entry.startsWith(prefix));
+    assert.ok(line);
+    const bin = join(dir, 'bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'python3'), `#!${process.execPath}\nconsole.log(JSON.stringify(process.argv.slice(2)));`, { mode: 0o755 });
+    // Execute only the printed command's argument handoff; the Python stub records argv without running media work.
+    const handoff = spawnSync('/bin/sh', ['-c', line.slice(prefix.length)], { cwd: dir, encoding: 'utf8', env: { PATH: bin } });
+    assert.equal(handoff.status, 0, handoff.stderr);
+    assert.deepEqual(JSON.parse(handoff.stdout), [
+      join(ROOT, 'skills/recording-product-demo/scripts/split-narration.py'),
+      '--segments', join(dir, 'segments.json'), '--out', join(dir, 'out/voice'), '--config', configPath,
+    ]);
+  });
+}
 
 test('clip verification transcribes each scene start through the bundled script and cleans temporary audio', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'demo-clip-starts-'));

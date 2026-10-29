@@ -10,9 +10,9 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
-function option(name, fallback) {
+function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
-  if (i < 0) return fallback;
+  if (i < 0) return def;
   const value = process.argv[i + 1];
   if (!value || value.startsWith('--')) {
     throw new Error(`--${name} requires ${name === 'out' ? 'a voice directory' : 'a config file'}`);
@@ -23,13 +23,17 @@ function option(name, fallback) {
 async function main() {
   const key = process.env.ELEVENLABS_API_KEY;
   if (!key) throw new Error('ELEVENLABS_API_KEY not set. Supply a key for ElevenLabs in the command environment; credential files are not read.');
-  const out = path.resolve(option('out', 'demo/out/voice'));
-  const configArg = option('config', null);
+  const out = path.resolve(arg('out', 'demo/out/voice'));
+  const configArg = arg('config', null);
   const configPath = configArg ? path.resolve(configArg) : path.resolve(out, '../..', 'demo.config.json');
-  const config = configArg || fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+  const config = (configArg || fs.existsSync(configPath)) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
   const language = process.env.ELEVENLABS_STT_LANG || config.voice?.sttLang || 'en';
-  const childEnv = { ...process.env };
-  delete childEnv.ELEVENLABS_API_KEY;
+  // ffmpeg needs platform paths and locale settings, not the caller's provider credentials.
+  const platformVars = ['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'SystemRoot', 'WINDIR',
+    'LANG', 'LC_ALL', 'LC_CTYPE', 'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH'];
+  const childEnv = Object.fromEntries(platformVars
+    .filter((name) => process.env[name] !== undefined)
+    .map((name) => [name, process.env[name]]));
   const clips = fs.readdirSync(out).filter((name) => /^\d+-.*\.mp3$/.test(name)).sort();
   if (!clips.length) throw new Error('No numbered scene clips found; run split-narration.py first.');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'demo-clip-starts-'));

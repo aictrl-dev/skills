@@ -18,12 +18,12 @@ function fixture(t, { language, reply = { text: 'Clip start' }, status = 200 } =
   if (language) writeFileSync(join(dir, 'demo/demo.config.json'), JSON.stringify({ voice: { sttLang: language } }));
   writeFileSync(join(bin, 'ffmpeg'), `#!${process.execPath}\n
     const fs = require('fs');
-    fs.appendFileSync(${JSON.stringify(eventsFile)}, JSON.stringify({ kind: 'ffmpeg', hasKey: 'ELEVENLABS_API_KEY' in process.env, head: process.argv.at(-1) }) + '\\n');
+    fs.appendFileSync(${JSON.stringify(eventsFile)}, JSON.stringify({ kind: 'ffmpeg', hasKey: 'ELEVENLABS_API_KEY' in process.env, envKeys: Object.keys(process.env).sort(), head: process.argv.at(-1) }) + '\\n');
     fs.writeFileSync(process.argv.at(-1), 'clip audio');
   `, { mode: 0o755 });
   const preload = join(dir, 'http.cjs');
   writeFileSync(preload, `global.fetch = async (url, init) => {
-    require('fs').appendFileSync(${JSON.stringify(eventsFile)}, JSON.stringify({ kind: 'stt', language: init.body.get('language_code') }) + '\\n');
+    require('fs').appendFileSync(${JSON.stringify(eventsFile)}, JSON.stringify({ kind: 'stt', language: init.body.get('language_code'), hasKey: init.headers['xi-api-key'] === 'private-test-value' }) + '\\n');
     return new Response(${JSON.stringify(JSON.stringify(reply))}, { status: ${status} });
   };`);
   return {
@@ -57,6 +57,19 @@ test('clip verifier removes the ElevenLabs API key from the ffmpeg environment',
   const result = f.run();
   assert.equal(result.status, 0, result.stderr);
   assert.equal(f.events().find((event) => event.kind === 'ffmpeg').hasKey, false);
+});
+
+test('clip verifier gives ffmpeg only platform environment variables and retains its own API credential', (t) => {
+  const f = fixture(t);
+  const result = f.run(undefined, {
+    HOME: f.dir, TMPDIR: f.dir, LANG: 'C',
+    YT_CLIENT_ID: 'test-client-id', YT_CLIENT_SECRET: 'test-client-secret', YT_REFRESH_TOKEN: 'test-refresh-token',
+    TYPESAFE_API_KEY: 'test-typesafe-key', UX_SIM_API_KEY: 'test-sim-key',
+    OPENAI_API_KEY: 'test-other-key', UNRELATED_PRIVATE_VALUE: 'test-private-value',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.events().find((event) => event.kind === 'ffmpeg').envKeys, ['HOME', 'LANG', 'PATH', 'TMPDIR']);
+  assert.equal(f.events().find((event) => event.kind === 'stt').hasKey, true);
 });
 
 test('clip verifier uses voice.sttLang from the demo config beside standard output', (t) => {
