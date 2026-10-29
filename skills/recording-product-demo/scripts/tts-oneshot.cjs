@@ -22,7 +22,8 @@ function arg(name, def) {
   if (i < 0) return def;
   const value = process.argv[i + 1];
   if (!value || value.startsWith('--')) {
-    throw new Error(`--${name} requires ${name === 'out' ? 'a voice directory' : 'a config file'}`);
+    const expected = { out: 'a voice directory', config: 'a config file', segments: 'a segments JSON file' };
+    throw new Error(`--${name} requires ${expected[name] || 'a value'}`);
   }
   return value;
 }
@@ -84,7 +85,14 @@ async function main() {
   const defaultConfig = verify ? path.resolve(out, '../..', 'demo.config.json') : path.join(path.dirname(segmentsFile), 'demo.config.json');
   const configPath = configArg || defaultConfig;
   let config = {};
-  if (fs.existsSync(configPath) || (verify && configArg !== null)) config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  let hasConfig = false;
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    hasConfig = true;
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
+    if (configArg !== null) throw new Error(`config file not found: ${JSON.stringify(configPath)}`);
+  }
   const voiceCfg = config.voice || {};
   const language = process.env.ELEVENLABS_STT_LANG || voiceCfg.sttLang || 'en';
 
@@ -119,7 +127,7 @@ async function main() {
   fs.writeFileSync(path.join(out, 'narration-full.stt.json'), JSON.stringify(stt, null, 2));
   console.log(`[oneshot] transcript saved (${(stt.words || []).length} word tokens)`);
   const next = ['python3', path.join(__dirname, 'split-narration.py'), '--segments', segmentsFile, '--out', out];
-  if (configArg !== null || fs.existsSync(configPath)) next.push('--config', configPath);
+  if (hasConfig) next.push('--config', configPath);
   console.log('[oneshot] done. Now run:', next.map(shellQuote).join(' '));
 }
 

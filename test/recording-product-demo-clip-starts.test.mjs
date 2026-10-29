@@ -23,18 +23,55 @@ function fixture(t, { language, reply = { text: 'Clip start' }, status = 200 } =
   `, { mode: 0o755 });
   const preload = join(dir, 'http.cjs');
   writeFileSync(preload, `global.fetch = async (url, init) => {
+    if (url.includes('/text-to-speech/')) {
+      require('fs').appendFileSync(${JSON.stringify(eventsFile)}, JSON.stringify({ kind: 'tts' }) + '\\n');
+      return new Response('generated narration audio');
+    }
     require('fs').appendFileSync(${JSON.stringify(eventsFile)}, JSON.stringify({ kind: 'stt', language: init.body.get('language_code'), hasKey: init.headers['xi-api-key'] === 'private-test-value' }) + '\\n');
     return new Response(${JSON.stringify(JSON.stringify(reply))}, { status: ${status} });
   };`);
   return {
     dir, out, bin,
-    run: (args = ['--out', out], env = {}) => spawnSync(process.execPath, ['--require', preload,
-      join(ROOT, 'skills/recording-product-demo/scripts/tts-oneshot.cjs'), '--verify-clip-starts', ...args], {
+    run: (args = ['--out', out], env = {}, verify = true) => spawnSync(process.execPath, ['--require', preload,
+      join(ROOT, 'skills/recording-product-demo/scripts/tts-oneshot.cjs'), ...(verify ? ['--verify-clip-starts'] : []), ...args], {
       cwd: dir, encoding: 'utf8', env: { PATH: bin, ELEVENLABS_API_KEY: 'private-test-value', ...env },
     }),
     events: () => existsSync(eventsFile) ? readFileSync(eventsFile, 'utf8').trim().split('\n').map(JSON.parse) : [],
   };
 }
+
+for (const verify of [false, true]) {
+  for (const args of [['--segments'], ['--segments', '--out']]) {
+    test(`${verify ? 'verification' : 'narration'} reports a segments JSON file for ${args.join(' ')}`, (t) => {
+      const f = fixture(t);
+      const result = f.run(args, {}, verify);
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /--segments requires a segments JSON file/);
+      assert.doesNotMatch(result.stderr, /config file/);
+      assert.deepEqual(f.events(), []);
+    });
+  }
+
+  test(`${verify ? 'verification' : 'narration'} rejects an explicitly missing config before any media or API work`, (t) => {
+    const f = fixture(t);
+    const missing = join(f.dir, 'missing config.json');
+    writeFileSync(join(f.dir, 'demo/segments.json'), '[{"slug":"hook","text":"Hello"}]');
+    const result = f.run(['--out', f.out, '--config', missing], { ELEVENLABS_VOICE_ID: 'test-voice' }, verify);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /config file not found/i);
+    assert.ok(result.stderr.includes(missing));
+    assert.equal(result.stdout, '');
+    assert.deepEqual(f.events(), []);
+  });
+}
+
+test('narration still works without an optional default config when the voice is supplied explicitly', (t) => {
+  const f = fixture(t);
+  writeFileSync(join(f.dir, 'demo/segments.json'), '[{"slug":"hook","text":"Hello"}]');
+  const result = f.run(['--out', f.out], { ELEVENLABS_VOICE_ID: 'test-voice' }, false);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(f.events().some((event) => event.kind === 'stt'), true);
+});
 
 for (const [args, message] of [
   [['--out'], /--out requires a voice directory/],
