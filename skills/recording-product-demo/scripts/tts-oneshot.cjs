@@ -8,7 +8,7 @@
  *                        [--out demo/out/voice] [--skip-tts]
  *
  * segments.json: [{"slug": "hook", "text": "..."}, ...]
- * Key:   ELEVENLABS_API_KEY env (or ELEVENLABS_ENV_FILE=/path/to/.env containing it)
+ * Key:   ELEVENLABS_API_KEY, explicitly supplied for ElevenLabs requests only.
  * Voice: config.voice.voiceId, overridable via ELEVENLABS_VOICE_ID.
  * Model: config.voice.model (default eleven_v3 — most expressive; drop to
  *        eleven_multilingual_v2 if v3 ever destabilises the split), overridable
@@ -20,6 +20,9 @@ const path = require('path');
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
   return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
+}
+function shellQuote(value) {
+  return "'" + String(value).replaceAll("'", "'\\''") + "'";
 }
 const SEGMENTS_FILE = arg('segments', path.join(process.cwd(), 'demo/segments.json'));
 const CONFIG_PATH = arg('config', path.join(path.dirname(SEGMENTS_FILE), 'demo.config.json'));
@@ -39,13 +42,7 @@ const FULL = path.join(OUT, 'narration-full.mp3');
 
 function apiKey() {
   if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY;
-  // Optional: point ELEVENLABS_ENV_FILE at a dotenv-style file holding the key.
-  const envFile = process.env.ELEVENLABS_ENV_FILE;
-  if (envFile && fs.existsSync(envFile)) {
-    const m = fs.readFileSync(envFile, 'utf8').match(/^ELEVENLABS_API_KEY=(.+)$/m);
-    if (m) return m[1].trim().replace(/^["']|["']$/g, '');
-  }
-  throw new Error('ELEVENLABS_API_KEY not set (export it, or set ELEVENLABS_ENV_FILE=/path/to/.env containing it)');
+  throw new Error('ELEVENLABS_API_KEY not set. Supply a key for ElevenLabs in the command environment; credential files are not read.');
 }
 
 (async () => {
@@ -60,6 +57,7 @@ function apiKey() {
       `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=mp3_44100_128`,
       {
         method: 'POST',
+        redirect: 'error',
         headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text,
@@ -68,7 +66,7 @@ function apiKey() {
         }),
       }
     );
-    if (!res.ok) throw new Error(`TTS HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
     fs.writeFileSync(FULL, Buffer.from(await res.arrayBuffer()));
     console.log('[oneshot] saved', FULL);
   }
@@ -80,14 +78,17 @@ function apiKey() {
   form.append('file', new Blob([fs.readFileSync(FULL)], { type: 'audio/mpeg' }), 'narration.mp3');
   const sttRes = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
     method: 'POST',
+    redirect: 'error',
     headers: { 'xi-api-key': key },
     body: form,
   });
-  if (!sttRes.ok) throw new Error(`STT HTTP ${sttRes.status}: ${(await sttRes.text()).slice(0, 300)}`);
+  if (!sttRes.ok) throw new Error(`STT HTTP ${sttRes.status}`);
   const stt = await sttRes.json();
   fs.writeFileSync(path.join(OUT, 'narration-full.stt.json'), JSON.stringify(stt, null, 2));
   console.log(`[oneshot] transcript saved (${(stt.words || []).length} word tokens)`);
-  console.log('[oneshot] done. Now run: python3 split-narration.py --segments', SEGMENTS_FILE, '--out', OUT);
+  const next = ['python3', path.join(__dirname, 'split-narration.py'), '--segments', SEGMENTS_FILE, '--out', OUT];
+  if (process.argv.includes('--config') || fs.existsSync(CONFIG_PATH)) next.push('--config', CONFIG_PATH);
+  console.log('[oneshot] done. Now run:', next.map(shellQuote).join(' '));
 })().catch((e) => {
   console.error('[oneshot] ERROR:', e.message);
   process.exit(1);

@@ -16,7 +16,7 @@ the stt.json, then re-cut the two adjacent clips with ffmpeg).
 
 Usage:
   python3 split-narration.py --segments demo/segments.json [--out demo/out/voice]
-                             [--timeline-only]
+                             [--config demo/demo.config.json] [--timeline-only]
 
 Writes: NN-<slug>.mp3 per segment + timeline.json (boundaries, consumed by
 record-demo.cjs). --timeline-only skips the ffmpeg clip cutting (used by the
@@ -26,6 +26,7 @@ import argparse
 import difflib
 import json
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -38,6 +39,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--segments", default="demo/segments.json")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--config", default=None,
+                    help="demo config passed to the printed clip-verification command")
     ap.add_argument("--timeline-only", action="store_true",
                     help="compute timeline.json without cutting audio clips")
     args = ap.parse_args()
@@ -119,11 +122,11 @@ def main() -> None:
     (out / "timeline.json").write_text(json.dumps(timeline, indent=2, ensure_ascii=False))
     print(f"timeline written: {out / 'timeline.json'}")
     if not args.timeline_only:
-        print("\nVERIFY clip starts, e.g.:")
-        print(f'  for f in {out}/0*.mp3; do ffmpeg -y -loglevel error -t 4 -i "$f" -c:a libmp3lame /tmp/head.mp3; '
-              'curl -s -X POST -H "xi-api-key: $ELEVENLABS_API_KEY" -F model_id=scribe_v1 -F file=@/tmp/head.mp3 '
-              '-F language_code=en https://api.elevenlabs.io/v1/speech-to-text | '
-              "python3 -c 'import json,sys; print(json.load(sys.stdin)[\"text\"])'; done")
+        verifier = Path(__file__).resolve().with_name("verify-clip-starts.cjs")
+        config = Path(args.config) if args.config else seg_path.parent / "demo.config.json"
+        config_arg = f" --config {shlex.quote(str(config))}" if args.config or config.is_file() else ""
+        print("\nVERIFY clip starts (sends the first four seconds of each clip to ElevenLabs):")
+        print(f"  node {shlex.quote(str(verifier))} --out {shlex.quote(str(out))}{config_arg}")
 
 
 if __name__ == "__main__":

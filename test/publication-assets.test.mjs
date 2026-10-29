@@ -123,11 +123,9 @@ test('Codex reviewer fixture is dependency-free, passing, and leaves requested w
   assert.equal(pkg.dependencies, undefined);
   assert.equal(pkg.devDependencies, undefined);
 
-  const fixtureEnv = { ...process.env };
-  delete fixtureEnv.NODE_TEST_CONTEXT;
   const output = execFileSync(process.execPath, ['--test'], {
     cwd: repositoryRoot,
-    env: fixtureEnv,
+    env: {},
     encoding: 'utf8',
   });
   assert.match(output, /(?:#|ℹ)\s+pass 2/);

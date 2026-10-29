@@ -22,15 +22,13 @@ When neither is configured, `simulate.cjs` exits with code 2 and prints "Simulat
 these options; `replay.cjs` still replays sessions but skips first-click predictions. Tell the user the
 simulator is optional, where to get a key, and continue with agent testers only.
 
-**Keys.** The scripts read keys from the environment only and never print, log, cache or write them. The
-endpoint must be `https` (plain `http` is accepted only for `localhost`). Load a key from a `.env` file
-without echoing it:
-
-```bash
-export TYPESAFE_API_KEY="$(sed -n 's/^TYPESAFE_API_KEY=//p' .env | head -n 1 | tr -d '\r' | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")"
-```
-
-This reads the value as data: nothing in `.env` is executed, surrounding quotes are removed, and only this one variable is exported.
+**Keys.** The user supplies the selected provider's key in the command environment outside chat. Do not
+search the machine, read `.env` files, or retrieve an installer's credentials. The scripts never print,
+log, cache or write keys. `TYPESAFE_API_KEY` goes only to `https://api.typesafe.ai/v1/systemone`.
+A custom endpoint requires its own separately supplied `UX_SIM_API_KEY`, issued by that endpoint's
+provider; never reuse a TypeSafe or other vendor's key. The scripts never fall back to a TypeSafe key
+when a custom endpoint is selected. Requests reject redirects and include screen state and questions.
+The endpoint must use `https` (plain `http` is accepted only for localhost/loopback).
 
 Do not paste keys into chat, commit them, or put them in a tester brief. The answer cache
 (`.sim-cache.json`) stores screen text and probabilities only.

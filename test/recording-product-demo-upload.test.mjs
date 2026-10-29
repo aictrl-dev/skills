@@ -37,10 +37,10 @@ function fixture(t, upload, { failCloud = false, failHttp = false, credentials =
       originalLog(...args);
     };
     global.fetch = async (url, options) => {
-      const event = { type: 'http', url, method: options.method };
+      const event = { type: 'http', url, method: options.method, redirect: options.redirect };
       if (url.includes('uploadType=resumable')) event.metadata = JSON.parse(options.body);
       require('fs').appendFileSync(process.env.EVENTS, JSON.stringify(event) + '\\n');
-      if (process.env.FAIL_HTTP === '1') return { ok: false, status: 503, text: async () => 'upload unavailable' };
+      if (process.env.FAIL_HTTP === '1') return { ok: false, status: 503, text: async () => 'upload unavailable: test-refresh-secret' };
       return { ok: true, json: async () => url.includes('oauth2') ? { access_token: 'test-access-secret' } : { id: 'video-id' }, headers: { get: () => 'https://mock-upload.invalid/session' } };
     };
   `);
@@ -106,6 +106,7 @@ for (const privacy of [undefined, 'unlisted', 'private', 'public']) {
     assert.equal(result.status, 0, result.stderr);
     const calls = f.events().filter((event) => event.type === 'http');
     assert.equal(calls.length, 3);
+    assert.ok(calls.every((call) => call.redirect === 'error'), 'upload requests must not redirect credentials or video');
     assert.equal(calls[0].url, 'https://oauth2.googleapis.com/token');
     assert.deepEqual(calls[1].metadata, {
       snippet: { title: 'Demo title', description: 'Demo description' },

@@ -45,8 +45,9 @@ function tokenFile(port) {
 
 // ---------------------------------------------------------------- simulator backend
 // Supported: TypeSafe's Jev (TYPESAFE_API_KEY), or any endpoint with the same request/response contract
-// (UX_SIM_ENDPOINT + UX_SIM_API_KEY + UX_SIM_MODEL). Keys are read from the environment only; they are never
-// printed, logged, cached or written to disk. The contract is documented in reference/simulator.md.
+// (UX_SIM_ENDPOINT + UX_SIM_API_KEY + UX_SIM_MODEL). Each key belongs to its selected provider; TypeSafe's
+// key is never reused for a custom endpoint. No credential files are read and redirects are rejected.
+// Keys are never printed, logged, cached or written to disk. See reference/simulator.md.
 const TYPESAFE_ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
 const NOT_CONFIGURED = `Simulator not configured. Simulated users need a fast "System One" model that returns probabilities over choices.
   - TypeSafe Jev: set TYPESAFE_API_KEY (get a key at https://typesafe.ai), or
@@ -83,9 +84,13 @@ async function ask(endpoint, key, model, state, questions) {
   for (let attempt = 0; attempt < 3; attempt++) {
     let r;
     try {
-      r = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, state, questions }) });
+      r = await fetch(endpoint, { method: 'POST', redirect: 'manual', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, state, questions }) });
     } catch (e) {
       lastStatus = `network error: ${e.code || e.name}`;
+    }
+    if (r && r.status >= 300 && r.status < 400) {
+      await r.body?.cancel();
+      throw new Error(`simulator endpoint returned HTTP ${r.status}: redirects are disabled; configure its final URL.`);
     }
     if (r && r.ok) {
       let j;
