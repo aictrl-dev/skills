@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Split the one-shot narration into per-scene clips at paragraph boundaries.
 
-Uses ElevenLabs STT word timestamps (narration-full.stt.json) + difflib fuzzy
+Uses prepared word timestamps (narration-full.stt.json) + difflib fuzzy
 alignment between the expected script words and the transcript words. Exact
 word matching does NOT work: STT rewrites coined/brand words and loanwords,
 so anchor on the fuzzy alignment, not equality.
@@ -16,7 +16,7 @@ the stt.json, then re-cut the two adjacent clips with ffmpeg).
 
 Usage:
   python3 split-narration.py --segments demo/segments.json [--out demo/out/voice]
-                             [--config demo/demo.config.json] [--timeline-only]
+                             [--timeline-only]
 
 Writes: NN-<slug>.mp3 per segment + timeline.json (boundaries, consumed by
 record-demo.cjs). --timeline-only skips the ffmpeg clip cutting (used by the
@@ -25,8 +25,8 @@ skill's eval, which runs against a canned stt.json fixture with no audio).
 import argparse
 import difflib
 import json
+import math
 import re
-import shlex
 import subprocess
 from pathlib import Path
 
@@ -35,28 +35,64 @@ def norm(w: str) -> str:
     return re.sub(r"[^a-z0-9]", "", w.lower())
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--segments", default="demo/segments.json")
-    ap.add_argument("--out", default=None)
-    ap.add_argument("--config", default=None,
-                    help="demo config passed to the printed clip-verification command")
-    ap.add_argument("--timeline-only", action="store_true",
-                    help="compute timeline.json without cutting audio clips")
-    args = ap.parse_args()
+def read_json(file: Path, label: str):
+    display = json.dumps(str(file))
+    try:
+        source = file.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise ValueError(f"{label} file not found: {display}") from None
+    except (OSError, UnicodeError):
+        raise ValueError(f"cannot read {label} file: {display}") from None
+    try:
+        return json.loads(source)
+    except ValueError:
+        raise ValueError(f"{label} file is not valid JSON: {display}") from None
 
+
+def timed_words(transcript):
+    if not isinstance(transcript, dict) or not isinstance(transcript.get("words"), list):
+        raise ValueError("transcript needs a words array with word-level timestamps in seconds")
+    words = []
+    for index, word in enumerate(transcript["words"]):
+        if not isinstance(word, dict):
+            raise ValueError(f"transcript words[{index}] must be an object")
+        if word.get("type") != "word":
+            continue
+        if not isinstance(word.get("text"), str) or not word["text"].strip():
+            raise ValueError(f"transcript words[{index}] needs nonempty text")
+        start, end = word.get("start"), word.get("end")
+        if not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                   and math.isfinite(value) for value in (start, end)):
+            raise ValueError(f"transcript words[{index}] needs finite numeric timestamps in seconds")
+        if start < 0 or end <= start or (words and start < words[-1]["end"]):
+            raise ValueError(f"transcript words[{index}] timestamps must be nonnegative, increasing and nonoverlapping")
+        # Captions use every word record, including words the ASCII matcher skips.
+        words.append({"t": norm(word["text"]), "start": start, "end": end})
+    if not words:
+        raise ValueError("transcript needs nonempty timed words compatible with the script")
+    return words
+
+
+def split(args) -> None:
     seg_path = Path(args.segments)
     out = Path(args.out) if args.out else seg_path.parent / "out" / "voice"
     full = out / "narration-full.mp3"
     stt_path = out / "narration-full.stt.json"
 
-    segments = json.loads(seg_path.read_text())
-    stt = json.loads(stt_path.read_text())
-    twords = [
-        {"t": norm(w["text"]), "start": w["start"], "end": w["end"]}
-        for w in stt["words"]
-        if w["type"] == "word" and norm(w["text"])
-    ]
+    segments = read_json(seg_path, "segments")
+    if not isinstance(segments, list) or not segments:
+        raise ValueError("segments must be a nonempty array")
+    for index, segment in enumerate(segments):
+        if not isinstance(segment, dict) or not isinstance(segment.get("text"), str) or not norm(segment["text"]):
+            raise ValueError(f"segments[{index}] needs script text compatible with the word aligner")
+        if not isinstance(segment.get("slug"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", segment["slug"]):
+            raise ValueError(f"segments[{index}] needs a slug using letters, digits, underscores or hyphens")
+    words = timed_words(read_json(stt_path, "transcript"))
+    twords = [word for word in words if word["t"]]
+    if not twords:
+        raise ValueError("transcript needs nonempty timed words compatible with the script")
+    if len(twords) < len(segments):
+        raise ValueError("transcript cannot yield distinct scene boundaries; each scene needs timed words")
 
     expected = []  # (norm_word, segment_index, first_of_segment)
     for si, seg in enumerate(segments):
@@ -93,7 +129,7 @@ def main() -> None:
 
     if args.timeline_only:
         # No audio in play (eval fixtures): total = last word end + a small tail.
-        total = round(twords[-1]["end"] + 0.4, 2)
+        total = round(words[-1]["end"] + 0.4, 2)
     else:
         total = float(
             subprocess.check_output(
@@ -102,6 +138,12 @@ def main() -> None:
             ).strip()
         )
     boundaries.append(total)
+    if not math.isfinite(total) or total <= 0:
+        raise ValueError("audio duration must be a positive finite number")
+    if words[-1]["end"] > total + 0.05:
+        raise ValueError("transcript timestamps exceed the audio duration; transcribe the exact prepared audio")
+    if any(round(end, 2) <= round(start, 2) for start, end in zip(boundaries, boundaries[1:])):
+        raise ValueError("transcript cannot yield distinct scene boundaries; check the script and word alignment")
 
     print("TIMELINE (scene start in full track):")
     timeline = []
@@ -122,11 +164,22 @@ def main() -> None:
     (out / "timeline.json").write_text(json.dumps(timeline, indent=2, ensure_ascii=False))
     print(f"timeline written: {out / 'timeline.json'}")
     if not args.timeline_only:
-        verifier = Path(__file__).resolve().with_name("tts-oneshot.cjs")
-        config = Path(args.config) if args.config else seg_path.parent / "demo.config.json"
-        config_arg = f" --config {shlex.quote(str(config))}" if args.config or config.is_file() else ""
-        print("\nVERIFY clip starts (sends the first four seconds of each clip to ElevenLabs):")
-        print(f"  node {shlex.quote(str(verifier))} --verify-clip-starts --out {shlex.quote(str(out))}{config_arg}")
+        print("\nVERIFY clip starts with your selected transcription tool:")
+        print("  Transcribe the first four seconds of every numbered clip and compare with its script segment.")
+        print("  Correct any clipped words using the original word timestamps; re-cut adjacent clips and update timeline.json.")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Split prepared narration using word timestamps; no speech service is called.")
+    ap.add_argument("--segments", default="demo/segments.json")
+    ap.add_argument("--out", default=None)
+    ap.add_argument("--timeline-only", action="store_true",
+                    help="compute timeline.json without cutting audio clips")
+    args = ap.parse_args()
+    try:
+        split(args)
+    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+        ap.error(str(error))
 
 
 if __name__ == "__main__":

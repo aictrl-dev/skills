@@ -19,10 +19,10 @@
     "pronunciation": "Acme"
   },
   "voice": {
-    "provider": "elevenlabs",
-    "voiceId": "c3QefzBhE1Cx4Yl23IV3",
-    "model": "eleven_v3",
-    "sttLang": "en"
+    "provider": null,
+    "voice": null,
+    "model": null,
+    "language": "en"
   },
   "anonymize": {
     "enabled": false,
