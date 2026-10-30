@@ -8,7 +8,7 @@
  *
  * Expects in <build dir> (default: ./demo):
  *   out/take-meta.json            from record-demo.cjs
- *   out/voice/narration-full.mp3  from tts-oneshot.cjs
+ *   out/voice/narration-full.mp3  prepared with the selected speech tool
  *   out/voice/timeline.json       from split-narration.py
  *   cards/title.png agenda.png end.png  rendered cards (unless --no-cards)
  *   out/voice/intro.mp3           agenda VO (unless --no-cards)

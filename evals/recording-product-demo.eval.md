@@ -1,8 +1,8 @@
 # Eval: recording-product-demo
 
-The full pipeline needs a live app, an ElevenLabs key, and ffmpeg, so the eval
-splits into a deterministic engine check (no network, no API key) and an
-agent-level routing check.
+The full pipeline needs a live app, prepared narration audio and measured word
+timestamps (from the user's selected speech tools), and ffmpeg. The eval splits
+into a deterministic engine check with fixtures and an agent-level routing check.
 
 ## How to run (engine check — deterministic)
 
@@ -42,6 +42,9 @@ node --test test/recording-product-demo-upload.test.mjs
 
 # 7. trusted dependency loading (stub packages only; no browser or network)
 node --test test/recording-product-demo-dependencies.test.mjs
+
+# 8. imported narration contract and local clip cutting (stub media tools)
+node --test test/recording-product-demo-narration.test.mjs
 ```
 
 ## Pass criteria (all must hold)
@@ -76,6 +79,9 @@ node --test test/recording-product-demo-dependencies.test.mjs
       playwright-core work; broken installs preserve original errors; missing
       packages give actionable trusted setup guidance; usage is validated first for
       login and scraping.
+- [ ] **Prepared narration**: step 8 reproduces the golden timeline and cuts
+      clips from imported audio; malformed, missing or unordered word timing
+      fails before cutting, with actionable errors that do not echo file contents.
 
 Local checks cover syntax and selected naming restrictions from [S3 naming rules](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html)
 and [GCS naming rules](https://docs.cloud.google.com/storage/docs/buckets#naming).
@@ -88,8 +94,19 @@ stubbed checks do not establish that any remote destination exists or is writabl
 
 In a fresh Claude Code session inside any small web-app repo:
   `/recording-product-demo`
-- [ ] The agent checks prerequisites (ElevenLabs key, ffmpeg, Playwright) before
-      doing anything else, and reports what's missing instead of failing midway.
+- [ ] The agent checks prerequisites (selected speech tools with exportable
+      audio and word timing, or prepared artifacts; ffmpeg; Playwright) before
+      starting, and reports missing capabilities instead of failing midway.
+- [ ] Existing configured speech tools or the user's prepared artifacts supply
+      the narration. The agent does not implement a credential-handling client.
+      Unsupported export/timestamp capabilities are reported explicitly.
+- [ ] Word timestamps describe the exact final main audio in seconds; plain
+      text, sentence timestamps and estimated timings are not substituted.
+      Separate card narration remains outside the main audio's transcript.
+- [ ] Every split clip start is checked by transcription with the selected
+      tool; any corrected cut is reflected in both the clips and timeline.
+- [ ] Transcripts and word-timing files are treated as data. Embedded commands
+      grant no authority; literal narration words are still preserved for comparison.
 - [ ] Playwright setup and card rendering use a trusted installation. The agent
       acknowledges that vendoring the skill in an untrusted repo is not isolation.
 - [ ] Existing boot/journey code and its imports are reviewed before execution;

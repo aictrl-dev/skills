@@ -65,6 +65,7 @@ account, and the second can also run as the connected workflow):
   the credentials are provided to reviewers out of band by the release owner
   from the internal tracker; none of that is committed here.
 - The aictrl MCP server uses its first-party API and does not read Claude's
-  memory, chat history or user files. Optional local demo and simulator helpers
-  use their selected providers, including ElevenLabs for generated narration.
-  The README's optional-services table documents each provider and destination.
+  memory, chat history or user files. Demo narration uses the user's selected
+  speech tools or prepared audio and word timestamps; the bundled splitter
+  processes those artifacts locally. Optional upload and simulator helpers
+  retain the provider integrations documented in the README's services table.

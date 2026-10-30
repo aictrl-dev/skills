@@ -101,7 +101,7 @@ or `/execute-workflow`.
 | [execute-workflow](skills/execute-workflow/SKILL.md) | Published workflow → explicitly authorized, idempotent start with safe monitoring, gates, cancellation, and durable handoff. | `/execute-workflow` |
 | [design-review](skills/design-review/SKILL.md) | Drop an HTML mock or screenshot — get a sharp, located critique across IA, value prop, hierarchy, trust/friction, and a11y. Ends with "Fix these 3 first." | `/design-review path/to/mock.html` |
 | [measurement-plan](skills/measurement-plan/SKILL.md) | Feature → structured measurement plan: learning objectives, metrics table, product-analytics events, warehouse changes, event pipeline. | `/measurement-plan` |
-| [recording-product-demo](skills/recording-product-demo/SKILL.md) | Point it at a repo with a web UI — it boots the app, preps demo data/auth, records a narrated time-locked Playwright demo synced to an ElevenLabs voiceover, and builds a publish kit (MP4 + captions + embed). | `/recording-product-demo` |
+| [recording-product-demo](skills/recording-product-demo/SKILL.md) | Point it at a repo with a web UI — it boots the app, preps demo data/auth, records a time-locked Playwright demo synced to prepared narration from your selected speech tools, and builds a publish kit (MP4 + captions + embed). | `/recording-product-demo` |
 | [explain-change](skills/explain-change/SKILL.md) | PR, commit range, or design document → a grounded technical explainer of the design, difficult trade-offs, and real rollout state. | `/explain-change` |
 | [ui-polish](skills/ui-polish/SKILL.md) | Point it at a screen — it renders phone and desktop, measures what screenshots hide (column alignment, field widths, labels, tap targets, contrast, dead space), fixes the source and re-measures until the checks pass. | `/ui-polish` |
 | [ux-testing](skills/ux-testing/SKILL.md) | Point it at a page or prototype and a few tasks — AI testers act as first-time users through the accessibility tree or screenshots, success is verified from page state (not the tester's claim), then a design-review and fix loop re-tests into a before/after scorecard. Optional simulated users screen layout hypotheses. | `/ux-testing path/to/page.html` |
@@ -157,26 +157,31 @@ the MCP connection is in [SETUP.md](SETUP.md).
 
 ### Optional third-party services and keys
 
-Two skills can send data to a third-party service, only in the steps below and
-only when you run them. Nothing runs on install. A key is read only for its
+Bundled helpers in two skills can send data to a third-party service, only in
+the steps below and only when you run them. Nothing runs on install. A key is read only for its
 step, sent only to the service named in that row, and never printed, logged or
-stored. Each key belongs to the service it is sent to: the ElevenLabs key goes
-only to ElevenLabs, the Google credentials only to Google, the TypeSafe key only
-to TypeSafe, and a custom simulator key only to the endpoint you set alongside
-it. The bundled aictrl MCP server never receives any of them.
+stored. Each key belongs to the service it is sent to: Google credentials go
+only to Google, the TypeSafe key only to TypeSafe, and a custom simulator key
+only to the endpoint you set alongside it. The bundled aictrl MCP server never
+receives any of them.
+
+Narration is prepared using the user's selected speech tools (for example,
+ElevenLabs) or supplied as audio plus measured word timestamps. Those tools
+receive the narration text/audio under their own configuration. The plugin
+does not include a narration API client or read speech-provider credentials;
+its splitter processes the prepared files locally.
 
 No other skill sends data to a third-party service; the browser-based skills
 (ui-polish, ux-testing) load only the app URL you give them.
 
 | Skill | Step | Service and what is sent | Environment variables read |
 | --- | --- | --- | --- |
-| [recording-product-demo](skills/recording-product-demo/SKILL.md) | Voiceover and clip verification (`tts-oneshot.cjs`, `--verify-clip-starts`); `split-narration.py` splits locally | [ElevenLabs](https://elevenlabs.io) (`api.elevenlabs.io`): the narration script, generated audio for speech-to-text timing, and the first four seconds of each scene clip for boundary verification | User-supplied `ELEVENLABS_API_KEY`; optional `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL`, `ELEVENLABS_STT_LANG`. Credential files are not read. |
 | [recording-product-demo](skills/recording-product-demo/SKILL.md) | Upload to YouTube (`publish.cjs --upload` with `publish.upload.type` `youtube`, opt-in) | Google (`oauth2.googleapis.com`, `www.googleapis.com`): the rendered MP4, title and description, uploaded to your own channel | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` |
 | [recording-product-demo](skills/recording-product-demo/SKILL.md) | Upload to a bucket (`publish.cjs --upload` with `publish.upload.type` `gcs` or `s3`, opt-in) | Google Cloud Storage or Amazon S3, through your own `gcloud storage cp` or `aws s3 cp`: the whole publish kit (MP4s, poster, captions, embed page, `PUBLISH.md`) to the bucket path you configure | None: the CLI uses its own signed-in credentials |
 | [ux-testing](skills/ux-testing/SKILL.md) | Simulated users (optional; agent testers need no key) | [TypeSafe](https://typesafe.ai) (`api.typesafe.ai`), or an endpoint you set: the page state and candidate actions for each simulated step | `TYPESAFE_API_KEY` (optional `UX_SIM_MODEL` overrides the default model), or `UX_SIM_ENDPOINT` + `UX_SIM_API_KEY` + `UX_SIM_MODEL` |
 
-Without these variables the skills still run: recording-product-demo stops
-before the voiceover or upload step and says which key is missing, and
+Without these variables the local demo pipeline still runs with prepared
+narration; an explicitly requested upload reports missing configuration, and
 ux-testing continues with agent testers only. `UX_VERIFY_TOKEN` is a local
 token between the ux-testing scripts and their own local server; it is never
 sent off the machine.
