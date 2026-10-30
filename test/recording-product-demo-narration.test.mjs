@@ -9,7 +9,7 @@ import { ROOT } from '../scripts/public-catalog.mjs';
 const splitter = join(ROOT, 'skills/recording-product-demo/scripts/split-narration.py');
 const fixtures = join(ROOT, 'evals/fixtures/recording-product-demo');
 
-function fixture(t, { segments, transcript, duration = 7.5 } = {}) {
+function fixture(t, { segments, transcript, duration = 7.5, probeStatus = 0, probeError = '' } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'imported-narration-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const out = join(dir, "voice files' (en)");
@@ -25,7 +25,7 @@ function fixture(t, { segments, transcript, duration = 7.5 } = {}) {
     writeFileSync(join(bin, name), `#!${process.execPath}\n
       const fs = require('fs');
       fs.appendFileSync(${JSON.stringify(events)}, JSON.stringify({ name: ${JSON.stringify(name)}, args: process.argv.slice(2) }) + '\\n');
-      ${name === 'ffprobe' ? `process.stdout.write(${JSON.stringify(String(duration))});` : "fs.writeFileSync(process.argv.at(-1), 'scene audio');"}
+      ${name === 'ffprobe' ? `process.stdout.write(${JSON.stringify(String(duration))}); process.stderr.write(${JSON.stringify(probeError)}); process.exit(${probeStatus});` : "fs.writeFileSync(process.argv.at(-1), 'scene audio');"}
     `, { mode: 0o755 });
   }
   return {
@@ -141,3 +141,47 @@ test('narration identifies a missing prepared transcript before media work', (t)
   assert.doesNotMatch(result.stderr, /Traceback/);
   assert.deepEqual(f.calls(), []);
 });
+
+test('narration identifies missing prepared audio before invoking media tools', (t) => {
+  const f = fixture(t);
+  const audio = join(f.out, 'narration-full.mp3');
+  rmSync(audio);
+  const result = f.run();
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /audio file not found/i);
+  assert.ok(result.stderr.includes(audio));
+  assert.doesNotMatch(result.stderr, /Traceback|returned non-zero/);
+  assert.deepEqual(f.calls(), []);
+  assert.equal(existsSync(join(f.out, 'timeline.json')), false);
+});
+
+test('timeline-only mode still works with just the script and transcript', (t) => {
+  const f = fixture(t);
+  rmSync(join(f.out, 'narration-full.mp3'));
+  const result = f.run('--timeline-only');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.timeline(), JSON.parse(readFileSync(join(fixtures, 'timeline.golden.json'), 'utf8')));
+  assert.deepEqual(f.calls(), []);
+});
+
+for (const [label, options] of [
+  ['probe failure', { probeStatus: 1, probeError: 'private audio metadata', duration: '' }],
+  ['nonnumeric duration', { duration: 'PRIVATE_DURATION_OUTPUT' }],
+  ['unknown duration', { duration: 'N/A' }],
+  ['not-a-number duration', { duration: 'nan' }],
+  ['infinite duration', { duration: 'inf' }],
+  ['zero duration', { duration: 0 }],
+  ['negative duration', { duration: -1 }],
+]) {
+  test(`narration names the audio file and hides probe output for ${label}`, (t) => {
+    const f = fixture(t, options);
+    const result = f.run();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /cannot read audio duration/i);
+    assert.match(result.stderr, /valid audio file/i);
+    assert.ok(result.stderr.includes(join(f.out, 'narration-full.mp3')));
+    assert.doesNotMatch(result.stderr, /Traceback|returned non-zero|private audio metadata|PRIVATE_DURATION_OUTPUT/);
+    assert.deepEqual(f.calls().map(({ name }) => name), ['ffprobe']);
+    assert.equal(existsSync(join(f.out, 'timeline.json')), false);
+  });
+}

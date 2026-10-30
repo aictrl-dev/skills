@@ -73,6 +73,26 @@ def timed_words(transcript):
     return words
 
 
+def audio_duration(file: Path) -> float:
+    display = json.dumps(str(file))
+    if not file.is_file():
+        raise ValueError(f"audio file not found: {display}")
+    try:
+        output = subprocess.check_output(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(file)],
+            stderr=subprocess.PIPE,
+        )
+        duration = float(output.strip())
+        if not math.isfinite(duration) or duration <= 0:
+            raise ValueError("invalid duration")
+    except FileNotFoundError:
+        raise ValueError(f"ffprobe is not available to read audio: {display}; install ffmpeg and ffprobe") from None
+    except (OSError, ValueError, subprocess.CalledProcessError):
+        raise ValueError(f"cannot read audio duration from: {display}; ensure narration-full.mp3 is a valid audio file") from None
+    return duration
+
+
 def split(args) -> None:
     seg_path = Path(args.segments)
     out = Path(args.out) if args.out else seg_path.parent / "out" / "voice"
@@ -131,12 +151,7 @@ def split(args) -> None:
         # No audio in play (eval fixtures): total = last word end + a small tail.
         total = round(words[-1]["end"] + 0.4, 2)
     else:
-        total = float(
-            subprocess.check_output(
-                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                 "-of", "csv=p=0", str(full)]
-            ).strip()
-        )
+        total = audio_duration(full)
     boundaries.append(total)
     if not math.isfinite(total) or total <= 0:
         raise ValueError("audio duration must be a positive finite number")
