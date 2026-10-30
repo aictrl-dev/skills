@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import test from 'node:test';
 import { ROOT } from '../scripts/public-catalog.mjs';
 
 const splitter = join(ROOT, 'skills/recording-product-demo/scripts/split-narration.py');
 const fixtures = join(ROOT, 'evals/fixtures/recording-product-demo');
 
-function fixture(t, { segments, transcript, duration = 7.5, probeStatus = 0, probeError = '' } = {}) {
+function fixture(t, { segments, transcript, duration = 7.5, probeStatus = 0, probeError = '', callerEnv = {} } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'imported-narration-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const out = join(dir, "voice files' (en)");
@@ -24,14 +24,18 @@ function fixture(t, { segments, transcript, duration = 7.5, probeStatus = 0, pro
   for (const name of ['ffmpeg', 'ffprobe']) {
     writeFileSync(join(bin, name), `#!${process.execPath}\n
       const fs = require('fs');
-      fs.appendFileSync(${JSON.stringify(events)}, JSON.stringify({ name: ${JSON.stringify(name)}, args: process.argv.slice(2) }) + '\\n');
+      fs.appendFileSync(${JSON.stringify(events)}, JSON.stringify({
+        name: ${JSON.stringify(name)}, args: process.argv.slice(2),
+        hasPrivateValue: Object.hasOwn(process.env, 'NARRATION_TEST_PRIVATE_VALUE'),
+        path: process.env.PATH, locale: process.env.LANG,
+      }) + '\\n');
       ${name === 'ffprobe' ? `process.stdout.write(${JSON.stringify(String(duration))}); process.stderr.write(${JSON.stringify(probeError)}); process.exit(${probeStatus});` : "fs.writeFileSync(process.argv.at(-1), 'scene audio');"}
     `, { mode: 0o755 });
   }
   return {
     dir, out, segmentPath,
     run: (...args) => spawnSync('python3', [splitter, '--segments', segmentPath, '--out', out, ...args], {
-      cwd: dir, encoding: 'utf8', env: { PATH: `${bin}:/usr/bin:/bin:/usr/local/bin` },
+      cwd: dir, encoding: 'utf8', env: { PATH: bin + delimiter + (process.env.PATH || '/usr/bin:/bin'), ...(process.env.HOME ? { HOME: process.env.HOME } : {}), ...callerEnv },
     }),
     timeline: () => JSON.parse(readFileSync(join(out, 'timeline.json'), 'utf8')),
     calls: () => existsSync(events) ? readFileSync(events, 'utf8').trim().split('\n').map(JSON.parse) : [],
@@ -59,11 +63,57 @@ test('prepared audio is split locally and verification guidance uses the selecte
   assert.equal(cuts.length, 3);
   for (const [i, call] of cuts.entries()) {
     assert.equal(call.args[call.args.indexOf('-i') + 1], join(f.out, 'narration-full.mp3'));
-    assert.ok(existsSync(join(f.out, `${String(i + 1).padStart(2, '0')}-${timeline[i].slug}.mp3`)));
+    // timeline.json uses hundredths of a second; ffmpeg receives the precise cut.
+    assert.ok(Math.abs(Number(call.args[call.args.indexOf('-ss') + 1]) - timeline[i].start) <= 0.005000001, 'clip start must match its timeline boundary');
+    assert.ok(Math.abs(Number(call.args[call.args.indexOf('-to') + 1]) - timeline[i].end) <= 0.005000001, 'clip end must match its timeline boundary');
+    const output = join(f.out, `${String(i + 1).padStart(2, '0')}-${timeline[i].slug}.mp3`);
+    assert.equal(call.args.at(-1), output);
+    assert.ok(existsSync(output));
   }
   assert.match(result.stdout, /verify.*clip starts/i);
   assert.match(result.stdout, /selected.*(?:speech|transcription) tool/i);
   assert.doesNotMatch(result.stdout, /tts-oneshot/);
+});
+
+test('both media tools receive platform settings without unrelated caller values', (t) => {
+  const f = fixture(t, { callerEnv: { NARRATION_TEST_PRIVATE_VALUE: 'not-for-media', LANG: 'C' } });
+  const result = f.run();
+  assert.equal(result.status, 0, result.stderr);
+  const calls = f.calls();
+  assert.ok(calls.some(({ name }) => name === 'ffprobe'));
+  assert.ok(calls.some(({ name }) => name === 'ffmpeg'));
+  for (const call of calls) {
+    assert.equal(call.hasPrivateValue, false, `${call.name} must not inherit unrelated caller values`);
+    assert.equal(call.locale, 'C');
+    assert.ok(call.path.split(delimiter).includes(join(f.dir, 'bin')));
+  }
+});
+
+test('the fixture finds Python on the caller PATH outside its media-stub directory', (t) => {
+  const originalPath = process.env.PATH;
+  const parentPath = originalPath || '/usr/bin:/bin';
+  const python = parentPath.split(delimiter).filter(Boolean).map((dir) => join(dir, 'python3')).find((file) => {
+    try { accessSync(file, constants.X_OK); return true; } catch { return false; }
+  });
+  assert.ok(python, 'Python must be available to run narration tests');
+  const directory = mkdtempSync(join(tmpdir(), 'caller-python-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const marker = join(directory, 'python-used');
+  writeFileSync(join(directory, 'python3'), `#!${process.execPath}\n
+    require('fs').writeFileSync(${JSON.stringify(marker)}, 'used');
+    const result = require('child_process').spawnSync(${JSON.stringify(python)}, process.argv.slice(2), { stdio: 'inherit' });
+    process.exit(result.status ?? 1);
+  `, { mode: 0o755 });
+  process.env.PATH = directory + delimiter + parentPath;
+  try {
+    const f = fixture(t);
+    const result = f.run('--timeline-only');
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(existsSync(marker), 'the caller-provided Python executable must be used');
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+  }
 });
 
 const word = (changes = {}) => ({ type: 'word', text: 'Welcome', start: 0, end: 1, ...changes });

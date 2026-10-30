@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Split the one-shot narration into per-scene clips at paragraph boundaries.
+"""Split prepared continuous narration into per-scene clips at paragraph boundaries.
 
 Uses prepared word timestamps (narration-full.stt.json) + difflib fuzzy
 alignment between the expected script words and the transcript words. Exact
@@ -26,6 +26,7 @@ import argparse
 import difflib
 import json
 import math
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -33,6 +34,18 @@ from pathlib import Path
 
 def norm(w: str) -> str:
     return re.sub(r"[^a-z0-9]", "", w.lower())
+
+
+def media_environment():
+    # Media tools need platform paths and locale settings, not arbitrary caller values.
+    names = (
+        "PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SystemRoot", "WINDIR",
+        "LANG", "LANGUAGE", "TZ", "LC_ALL", "LC_CTYPE", "LC_COLLATE",
+        "LC_MESSAGES", "LC_MONETARY", "LC_NUMERIC", "LC_TIME", "LC_PAPER",
+        "LC_NAME", "LC_ADDRESS", "LC_TELEPHONE", "LC_MEASUREMENT", "LC_IDENTIFICATION",
+        "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH",
+    )
+    return {name: os.environ[name] for name in names if name in os.environ}
 
 
 def read_json(file: Path, label: str):
@@ -82,6 +95,7 @@ def audio_duration(file: Path) -> float:
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
              "-of", "csv=p=0", str(file)],
             stderr=subprocess.PIPE,
+            env=media_environment(),
         )
         duration = float(output.strip())
         if not math.isfinite(duration) or duration <= 0:
@@ -106,7 +120,7 @@ def split(args) -> None:
         if not isinstance(segment, dict) or not isinstance(segment.get("text"), str) or not norm(segment["text"]):
             raise ValueError(f"segments[{index}] needs script text compatible with the word aligner")
         if not isinstance(segment.get("slug"), str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", segment["slug"]):
-            raise ValueError(f"segments[{index}] needs a slug using letters, digits, underscores or hyphens")
+            raise ValueError(f"segments[{index}] needs a slug starting with a letter or digit, followed by letters, digits, underscores or hyphens")
     words = timed_words(read_json(stt_path, "transcript"))
     twords = [word for word in words if word["t"]]
     if not twords:
@@ -171,6 +185,7 @@ def split(args) -> None:
                 ["ffmpeg", "-y", "-loglevel", "error", "-i", str(full),
                  "-ss", str(s), "-to", str(e), "-c:a", "libmp3lame", "-b:a", "192k", str(clip)],
                 check=True,
+                env=media_environment(),
             )
         timeline.append({"slug": seg["slug"], "start": round(s, 2), "end": round(e, 2)})
         print(f"  {int(s // 60)}:{s % 60:04.1f}  {seg['slug']}  ({e - s:.1f}s)")
