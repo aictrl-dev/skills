@@ -2,9 +2,13 @@
 
 # aictrl.dev engineering skills and plugin
 
-Essential, vendor-neutral AI engineering-workflow skills in one canonical
-tree. Install the skills alone, or install the aictrl.dev plugin to add the same
-skills plus OAuth-connected controlled workflow execution.
+Essential, vendor-neutral AI engineering skills for the AI SDLC: turning bug
+reports and requests into well-defined issues, root-cause analysis,
+implementing changes, code review and explaining pull requests. Install the
+skills alone, or install the aictrl.dev plugin to add the same skills plus
+OAuth-connected workflows that run in the cloud on
+[aictrl.dev](https://aictrl.dev), the AI SDLC platform that turns backlog work
+into reviewed pull requests.
 
 ## aictrl MCP server
 
