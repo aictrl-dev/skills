@@ -35,7 +35,7 @@ evals/
    ---
    ```
 
-3. **No per-skill registration needed** — the single `aictrl-skills` plugin auto-discovers everything under `skills/`. No changes to `.claude-plugin/marketplace.json` required.
+3. **No per-skill registration needed** — the single `aictrl` plugin auto-discovers everything under `skills/`. No changes to `.claude-plugin/marketplace.json` required.
 
 4. **Add an eval** at `evals/my-skill.eval.md` with pass criteria (see `evals/design-review.eval.md` as the model).
 
