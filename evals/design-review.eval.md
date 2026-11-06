@@ -3,7 +3,7 @@
 ## How to run
 In a fresh Claude Code session inside this repo:
   /plugin marketplace add .
-  /plugin install aictrl-skills@aictrl-oss
+  /plugin install aictrl@aictrl-public
   /design-review evals/fixtures/saas-landing.html
 
 ## Pass criteria (all must hold)

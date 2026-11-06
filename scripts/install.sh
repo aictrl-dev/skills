@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install aictrl-skills into a tool's skills directory.
+# Install the aictrl skills into a tool's skills directory.
 # Usage: ./scripts/install.sh [claude|cursor|opencode|all]
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
