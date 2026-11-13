@@ -4,14 +4,18 @@
 
 ## Contract
 
-- Writes one direct `.yaml` child of `.aictrl/workflows/`.
+- Writes one direct `.yaml` child of `.aictrl/workflows/` when a new or different workflow is needed; reuses an existing organization workflow when only its target repositories differ.
 - Defaults to `schemaVersion: aictrl/workflow/v2` and inline `task` nodes.
 - Inspects existing workflow files before selecting names and conventions.
+- Keeps workflow names unique per organization, owned by one source file or Studio workflow. An organization admin selects execution repositories in Workflow Studio → the workflow → Settings → Triggers → Repositories ("All repositories" or a list); the first git import adds the source repository. Never copies the same workflow per repository or authors a `repositories:` key. Creates a separately named, optionally repository-prefixed variant only when workflow behavior must differ, such as the base branch in prompts.
 - Defines typed parameters, outputs, mappings, edges, conditions, retries, bounded loops, triggers, and approvals as required by the requested outcome.
 - Version-pins skill/workflow references when a resolvable version is available.
 - Starts Issue → reviewed PR workflows from the bundled canonical example and adapts only its marked values.
-- Validates JSON Schema and static DAG constraints with the bundled offline validator.
-- Never overwrites, applies, starts, commits, or pushes without explicit authorization.
+- Runs the bundled offline JSON Schema/static DAG validator with the zero-install command below, preferring pinned npx dependencies with host resolution as a fallback and leaving the user's repository untouched.
+- Explains that organization-scoped checks run when git sync imports the file, and names the file's dependencies so the user can confirm they exist.
+- Reports the local validator result as `passed`, `failed`, or `not run`.
+- Publishes only through an authorized merge or direct push to the default branch and subsequent git sync import; there is no publish tool.
+- Never overwrites, publishes, starts, commits, or pushes without explicit authorization.
 
 ## Bundle
 
@@ -20,6 +24,7 @@ create-workflow/
   SKILL.md
   SPEC.md
   validate.mjs
+  validate-env.mjs
   reference/
     authoring-guide.md
     workflow.schema.json
@@ -46,7 +51,37 @@ blocked-comment rule) is not word for word in every node that carries it.
 
 ## Validation boundary
 
-The offline validator proves schema structure, duplicate/dangling node checks, cycle checks, and bounded loop nesting. Organization-scoped skill/workflow resolution and CEL runtime semantics are validated by aictrl.dev when the file is applied.
+Run local validation using only Node and npm:
+
+```bash
+npx --yes -p ajv@8 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
+```
+
+The offline validator proves schema structure, duplicate/dangling node checks,
+cycle checks, and bounded loop nesting/iteration products. It first resolves
+`ajv` and `js-yaml` from verified `node_modules/.bin` entries on `PATH` whose
+real paths and package roots lie inside npm's npx cache. It falls back to host
+repository dependencies only when none of those roots resolve the dependencies.
+Both packages come from the same resolution root; `js-yaml` must be v4 or newer
+for safe YAML loading. Neither bundled schema uses the `format` keyword.
+
+The npx cache is `<npm_config_cache>/_npx/` when that variable is set. Otherwise,
+it is `%LocalAppData%\npm-cache\_npx\` on Windows, falling back to
+`~/AppData/Local/npm-cache/_npx/` if `LOCALAPPDATA` is unset, and `~/.npm/_npx/`
+on other platforms. Other PATH entries are ignored. Remediation commands use
+Windows double quotes (doubling embedded quotes) or POSIX single quotes.
+npm stores downloaded dependencies in its cache; no package manifest,
+lockfile, or node_modules is created in the user's repository.
+
+Local validation proves structure and static DAG soundness only.
+Organization-scoped checks run when git sync imports the file: model,
+template, workflow and skill references, input mappings and conditions,
+and workflow name ownership against another source file or a Studio workflow.
+Name the dependencies the file uses, such as its skills, so the user can
+confirm they exist. Report the local validator result only. Import does not
+execute nodes or prove runtime expression results. The workflow syncs
+about 20 s after the file reaches the repository's default branch (a merge or a direct push),
+with no manual sync step. Confirm the import before reporting publication complete.
 
 ## Sync procedure
 

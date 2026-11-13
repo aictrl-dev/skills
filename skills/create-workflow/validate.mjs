@@ -1,31 +1,29 @@
 #!/usr/bin/env node
 /**
- * validate.mjs — offline pre-apply validator for an aictrl workflow file.
+ * validate.mjs — offline pre-import validator for an aictrl workflow file.
  *
- * Runs the SAME layer-1 gate the apply-loader runs (JSON Schema, draft 2020-12,
+ * Runs the SAME layer-1 gate the git-sync import runs (JSON Schema, draft 2020-12,
  * against the bundled reference/workflow.schema.json) PLUS the static DAG checks
  * the schema can't express (duplicate node ids, edge endpoints, acyclicity, loop
  * nesting depth and the nested-maxIterations product bound).
  *
- * What it can NOT check offline (by design):
- *   - whether a `template:` / `workflow:` ref exists in YOUR org — those resolve
- *     org-scoped at apply time (fail-closed), so only the apply / a server
- *     dry-run confirms them.
- *   - CEL semantics of `when`/`until`/`while`/gate conditions (evaluated at run).
- * A green run here means "structurally correct and DAG-sound"; the apply
- * (git-sync of `.aictrl/workflows/<name>.yaml`) is the definitive gate.
+ * Organization checks run when git sync imports the file:
+ * model/template/workflow/skill references, input mappings and conditions,
+ * and workflow name ownership. Import does not execute nodes or prove runtime
+ * expression results.
  *
  * Usage (run from your repo root):
- *   node path/to/validate.mjs .aictrl/workflows/my-workflow.yaml
+ *   npx --yes -p ajv@8 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/my-workflow.yaml
  *
- * Deps are dev-only and NOT bundled with the skill (same ones the apply-loader
- * uses for layer-1). If they're missing the script tells you what to install:
- *   npm i -D ajv ajv-formats js-yaml
+ * Needs only Node and npm; dependencies live in npm's cache, not your repo.
+ * Verified npx dependencies take priority; host-repository ajv and js-yaml v4+
+ * also work without npx.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { dirname, join, resolve } from 'node:path';
+import { basename, delimiter, dirname, join, resolve, sep } from 'node:path';
+import { defaultNpmCache, remediationHint } from './validate-env.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = join(here, 'reference', 'workflow.schema.json');
@@ -37,22 +35,55 @@ if (!file) {
   process.exit(2);
 }
 
-// Resolve the (dev-only) parser + validator from the HOST repo's node_modules,
-// not this skill directory. Run from your repo root so resolution works.
-const hostRequire = createRequire(pathToFileURL(join(process.cwd(), 'package.json')));
-let AjvMod, addFormatsMod, yaml;
+// Prefer pinned npx dependencies. npm exec/npx adds its cached
+// node_modules/.bin to PATH, but Node does not use PATH for module resolution.
+// Only trust PATH package roots inside npm's npx cache, resolving symlinks
+// before checking containment. Other PATH entries must never load modules.
+const packageRoots = [];
+let npxCache;
 try {
-  AjvMod = hostRequire('ajv/dist/2020.js'); // Draft 2020-12
-  yaml = hostRequire('js-yaml');
-  try { addFormatsMod = hostRequire('ajv-formats'); } catch { addFormatsMod = null; }
+  const cache = realpathSync(process.env.npm_config_cache ?? defaultNpmCache());
+  const cachedNpx = realpathSync(join(cache, '_npx'));
+  if (cachedNpx.startsWith(`${cache}${sep}`)) npxCache = cachedNpx;
 } catch {
-  console.error('Missing validator dependencies (dev-only; not bundled with the skill).');
-  console.error('Install them in this repo, then re-run from the repo root:');
-  console.error('  npm i -D ajv ajv-formats js-yaml');
+  // No npx cache exists; existing host dependencies can still work.
+}
+for (const entry of (process.env.PATH || '').split(delimiter)) {
+  if (!npxCache || basename(entry) !== '.bin' || basename(dirname(entry)) !== 'node_modules') continue;
+  try {
+    const bin = realpathSync(entry);
+    const root = realpathSync(resolve(entry, '..', '..'));
+    if (bin.startsWith(`${npxCache}${sep}`) && root.startsWith(`${npxCache}${sep}`)) {
+      packageRoots.push(root);
+    }
+  } catch {
+    // Ignore missing or unresolvable PATH entries.
+  }
+}
+packageRoots.push(process.cwd());
+let AjvMod, yaml, yamlVersion;
+for (const root of new Set(packageRoots)) {
+  const require = createRequire(pathToFileURL(join(root, 'package.json')));
+  try {
+    [AjvMod, yaml, yamlVersion] = [require('ajv/dist/2020.js'), require('js-yaml'), require('js-yaml/package.json').version];
+  } catch {
+    // Fall back to the next verified root, then the host, if resolution failed.
+    continue;
+  }
+  break;
+}
+if (!AjvMod) {
+  console.error('Missing validator dependencies. Run without installing into your repository:');
+  console.error(`  ${remediationHint(fileURLToPath(import.meta.url), file)}`);
+  process.exit(2);
+}
+const yamlMajor = Number(yamlVersion?.split('.')[0]);
+if (!Number.isInteger(yamlMajor) || yamlMajor < 4) {
+  console.error(`Unsupported js-yaml version ${yamlVersion ?? 'unknown'}: js-yaml 4 or newer is required for safe YAML loading.`);
+  console.error(`  ${remediationHint(fileURLToPath(import.meta.url), file)}`);
   process.exit(2);
 }
 const Ajv = AjvMod.default || AjvMod;
-const addFormats = addFormatsMod ? (addFormatsMod.default || addFormatsMod) : null;
 
 // Parse the workflow file (YAML or JSON — the loader accepts both).
 let doc;
@@ -69,11 +100,10 @@ try {
 
 const errors = [];
 
-// ---- Layer 1: JSON Schema (identical config to the apply-loader) ------------
+// ---- Layer 1: JSON Schema (the layer-1 gate the git-sync import runs) --------
 const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 const v1Schema = JSON.parse(readFileSync(V1_SCHEMA_PATH, 'utf8'));
 const ajv = new Ajv({ strict: false, allErrors: true });
-if (addFormats) addFormats(ajv);
 ajv.addSchema(v1Schema);
 const validate = ajv.compile(schema);
 if (!validate(doc)) {
@@ -135,9 +165,9 @@ if (doc && typeof doc === 'object') checkGraph(doc.nodes, doc.edges);
 // ---- Report ------------------------------------------------------------------
 if (errors.length === 0) {
   console.log(`✓ ${file} — schema-valid (layer 1) and passes static DAG checks.`);
-  console.log('  Not checked offline: template:/workflow: refs are resolved org-scoped at APPLY');
-  console.log('  time (fail-closed if absent), and CEL semantics are evaluated at run time.');
-  console.log('  The apply (git-sync) is the definitive gate.');
+  console.log('  Local validation proves structure and static DAG soundness only.');
+  console.log('  Git sync checks model/template/workflow/skill references, input mappings');
+  console.log('  and conditions, and workflow name ownership when it imports the file.');
   process.exit(0);
 }
 console.error(`✗ ${file} — ${errors.length} problem(s):`);
