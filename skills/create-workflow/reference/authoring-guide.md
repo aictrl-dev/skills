@@ -45,10 +45,14 @@ triggers: [...]                     # optional; up to 10 file-declared event tri
 ```
 
 **Name the workflow for the organisation, not the repository.** `name` is
-unique per aictrl organisation. Two repositories that sync the same `name`
-conflict and one fails to sync. When the same workflow runs in several
-repositories, prefix the name with the repository
-(`web-implement-issue-from-ai-fix`, `api-implement-issue-from-ai-fix`).
+unique per aictrl organisation, and one name belongs to one source file or
+Studio workflow. To run the same workflow in more repositories, ask an
+organisation admin to add them in Workflow Studio → the workflow → Settings →
+Triggers → Repositories ("All repositories" or a list); do not copy the file.
+The first git import adds the source repository. A `repositories:` key in the
+file is a validation error. Only create a separately named file when the
+workflow itself must differ, for example another base branch in its prompts;
+use a repository prefix for that variant (`web-implement-issue-from-ai-fix`).
 
 **No system fields** in the authored file: no `id` (org-level UUID), `version`,
 `status`, timestamps, `runCount`, or canvas `position`. These are populated by
@@ -526,9 +530,10 @@ triggers:
 - `comment`, `pr-ready`, and `pr-opened` require `on: pull-request`. `label`
   takes `on: pull-request` (a label added to a pull request) or `on: issue` (a
   label added to an issue; map inputs from `$.issue.*` and `$.repository.*`).
-- A label trigger fires only for the repository whose `.aictrl/workflows/`
-  declares it. The same label in two repositories does not cross-fire; each
-  repository needs its own file (with its own `name`).
+- GitHub triggers use the repositories selected by an organisation admin in
+  Workflow Studio → the workflow → Settings → Triggers → Repositories. The
+  first git import adds the source repository. Add repositories there to reuse
+  a workflow; a `repositories:` key in the file is a validation error.
 - `pr-opened` fires for every newly opened PR, including drafts. `pr-ready` fires
   when a draft becomes ready or when a PR is opened non-draft.
 - For GitHub triggers, `inputs` maps workflow parameter names to JSONPath
@@ -643,12 +648,25 @@ Three layers run at apply time, **before any node executes**:
 
 **Check it offline first.** The bundled `validate.mjs` (skill root) runs Layer 1
 against `reference/workflow.schema.json` **plus** the static parts of DAG validation
-(duplicate ids, dangling edges, cycles, loop depth, the maxIterations product bound)
-— everything checkable without your org. Run it before you apply:
-`node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml`
-(needs dev-only `ajv ajv-formats js-yaml`). It **cannot** confirm Layer 2 (does the
-referenced template exist in *your* org) or CEL runtime semantics — the apply is the
-definitive gate for those.
+(duplicate ids, dangling edges, cycles, loop depth, the maxIterations product bound).
+Run it with only Node and npm, leaving your repository untouched:
+
+```bash
+npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
+```
+
+**Then run organization preflight when available.** Inspect the connected
+aictrl MCP catalog and call `validate_workflow_file` only if listed, following
+SKILL.md step 8 for organization selection and the exact file content plus
+repository/path when known. It saves nothing and checks parsing, schema and
+triggers, model references, organization template/workflow/skill references,
+layer-2 input mappings and conditions, and workflow name ownership. Fix every
+error and repeat both validators until `valid: true`; show all warnings,
+especially an existing workflow with the same name. If the tool or connection
+is absent, say "organization checks not run" and list those remaining checks.
+Report local and remote results separately as `passed`, `failed`, or `not run`.
+Preflight does not execute runtime expressions or nodes. Git sync remains the
+definitive import gate; there is no publish tool.
 
 ## Constructs that are rejected at apply time
 
@@ -674,8 +692,9 @@ Before submitting a workflow file for apply:
       `prompt`, typed `parameters`, and declared `outputs` used downstream
 - [ ] Every `taskType: code-review` node has exactly one parameter:
       `type: pull-request`, `required: true`
-- [ ] `name` is prefixed with the repository when the workflow runs in several
-      repositories
+- [ ] Reuse an existing workflow through its Repositories settings when only
+      the repository differs; a separately named, optionally repository-prefixed
+      file is for a workflow whose behavior must differ
 - [ ] Read-only steps post no comments; writing steps start ownership checks
       from trigger inputs, never from a branch name or PR text alone
 - [ ] Blocked comments use `Workflow blocked: <reason-code>` and never link the
@@ -694,5 +713,6 @@ Before submitting a workflow file for apply:
 - [ ] `model` only on `task`/`template` nodes (or `defaults.model`); no `retry` with `maxRetries` above 0
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
 - [ ] Portable refs (kebab names) for `template:`
-- [ ] **`node validate.mjs <file>` exits 0** (layer-1 schema + static DAG checks)
+- [ ] The zero-install local validator command above exits 0 (layer-1 schema + static DAG checks)
+- [ ] `validate_workflow_file` passes when listed; otherwise report "organization checks not run" and the remaining checks
 - [ ] At most 10 entries in `triggers:`; each matches one of the five trigger shapes

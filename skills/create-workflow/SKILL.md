@@ -5,18 +5,18 @@ description: Create and validate an aictrl.dev workflow v2 YAML file with typed 
 
 # Create an aictrl.dev Workflow
 
-Author a reviewable `.aictrl/workflows/<kebab-name>.yaml` file. Treat this directory like `.github/workflows/`: create the workflow in the repository whose automation the user is defining. Workflow v2 with inline `task` nodes is the default because it keeps task configuration portable in Git.
+Author a reviewable `.aictrl/workflows/<kebab-name>.yaml` file in its source repository. One workflow can run in several repositories selected in Workflow Studio settings. Workflow v2 with inline `task` nodes is the default because it keeps task configuration portable in Git.
 
 This skill has two deliberately separate outcomes:
 
-- **Author configuration** is the default: create and locally validate the
-  repository-owned file. It does not publish, start, commit, push, merge, or
-  deploy.
+- **Author configuration** is the default: create the repository-owned file,
+  validate locally, and run organization preflight when available. It does not
+  publish, start, commit, push, merge, or deploy.
 - **Connected publication** is opt-in: use it only after the user explicitly
-  asks to publish **and** the connected aictrl catalog exposes documented
-  preflight and publish capabilities. Workflow lifecycle tools alone do not
-  grant publication authority. Never guess a tool name, make a raw HTTP call,
-  or treat a successful local validation as remote publication.
+  asks to publish. Publication happens through Git: merge the file to the
+  source repository's default branch, then git sync imports it. There is no
+  publish tool. Never guess a tool name, make a raw HTTP call, or treat a
+  successful preflight as publication.
 
 ## Workflow
 
@@ -24,10 +24,8 @@ This skill has two deliberately separate outcomes:
    - **Author configuration**: the user asked to create or update a workflow
      file. This is the default.
    - **Connected publication**: the user explicitly asked to publish a
-     validated workflow to aictrl. Inspect the authenticated MCP catalog first.
-     If the documented preflight and publish capabilities are absent, report
-     `publication unavailable`, create the validated configuration if requested,
-     and stop before any external mutation.
+     validated workflow to aictrl. Follow the Git publication handoff below;
+     committing, pushing, and merging each require explicit authorization.
 2. Inspect repository guidance and existing direct children of `.aictrl/workflows/`. Reuse established naming and parameter conventions; never create nested workflow directories.
 3. Clarify the intended trigger, typed inputs, stages, outputs, external side effects, failure behavior, cost/time bounds, loops, and human approval points. Ask only when a missing decision changes safety or outcome.
 4. Read `reference/authoring-guide.md` and `reference/workflow.schema.json`. Use only skills and workflows known to be available in the target organization or supplied by the user; version-pin every resolvable reference. Do not invent unresolved dependencies.
@@ -36,12 +34,19 @@ This skill has two deliberately separate outcomes:
      Change only the values it marks `ADAPT` (name, label, base branch,
      skills). Inside the prompts, only replace the base branch. Do not rewrite
      them otherwise; they encode fixes from failed runs.
-5. Choose a new kebab-case filename and workflow `name`. If the path exists, show the conflict and obtain confirmation before replacing it.
-   - Names are unique per aictrl organisation, not per repository. If the same
-     workflow runs in several repositories, prefix the name with the repository
-     (`<repo>-implement-issue-from-ai-fix`).
-   - A label trigger fires only for the repository whose `.aictrl/workflows/`
-     declares it. Put the file in each repository that needs it.
+5. Check whether an existing organization workflow already does the requested work before choosing a new kebab-case filename and workflow `name`. If the path exists, show the conflict and obtain confirmation before replacing it.
+   - Names are unique per organization, and one name belongs to one source
+     file (or a Studio workflow).
+   - To run an existing workflow in more repositories, do not copy the file.
+     Ask an organization admin to add them in Workflow Studio → the workflow →
+     Settings → Triggers → Repositories ("All repositories" or a list). The
+     first git import adds the source repository. A `repositories:` key in the
+     file is a validation error.
+   - Create a second, separately named file only when the workflow itself must
+     differ, such as another base branch in its prompts. Only in that case,
+     use a repository prefix (`<repo>-implement-issue-from-ai-fix`) to distinguish
+     the variant. If only the repository differs, explain the settings change
+     and stop without creating a duplicate file.
 6. Author `schemaVersion: aictrl/workflow/v2` by default:
    - use inline `task` nodes for portable skill-backed work;
    - version-pin `skill` references when a resolvable version is available;
@@ -68,59 +73,69 @@ This skill has two deliberately separate outcomes:
      `createLinkedBranch` branch from `linkedBranches` once its PR opens, and
      `closedByPullRequestsReferences` lists only PRs into the default branch
      (with another base branch, tell the user a re-run opens a new PR).
-7. Run the bundled validator until schema and static DAG checks pass:
+7. Run the bundled local validator first, fixing errors and re-running until schema and static DAG checks pass. This command needs only Node and npm and installs dependencies in npm's cache, leaving the user's repository untouched:
 
    ```bash
-   npm i -D ajv ajv-formats js-yaml
-   node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
+   npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
    ```
 
-8. Inspect unresolved external references and CEL conditions. Local validation proves structure and DAG soundness; organization-scoped references and runtime expressions remain authoritative only at remote preflight or apply time.
-9. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and exact validation result. Say how the file goes live: aictrl syncs `.aictrl/workflows/` automatically about 20 s after a push to the repository's default branch. There is no manual sync step; do not ask the user to run one. A file on any other branch has no effect.
+8. Inspect the connected aictrl MCP catalog. Never call a tool name that is not listed. When `validate_workflow_file` is listed, run this read-only organization preflight after local validation:
+   - Pass `organization_id` and the exact file text as `content`; use
+     `format: yaml` (or `json` for a JSON file).
+   - If the user did not give the organization, use `list_organizations` when
+     listed; ask which organization if there are several. If organization
+     discovery is unavailable, ask for `organization_id` before preflight.
+   - When known, pass `repository` as the edited repo's `owner/name` from
+     `git remote -v` and `path` as `.aictrl/workflows/<file>.yaml`.
+   - Fix every returned error and repeat local validation and preflight until
+     `valid: true`. Show `workflowName`, `action` (`create`, `update`, or null),
+     `resolvedSkills`, and all warnings, especially an existing workflow with
+     the same name. Preserve each error/warning's `code`, `message`, and any
+     `path` or `nodeId` so the user can locate it. Preflight saves nothing.
+   - If the tool is absent or there is no aictrl connection, say
+     **"organization checks not run"** and list what remains unchecked:
+     parse/schema/triggers against the import validator, model references,
+     organization template/workflow/skill references, layer-2 input mappings
+     and conditions, and name ownership (another repository's file or a Studio
+     workflow). Local success alone does not prove these organization checks.
+9. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and both validator results: local and remote, each `passed`, `failed`, or `not run`. Say how the file goes live: aictrl syncs `.aictrl/workflows/` automatically about 20 s after the file is merged to the repository's default branch. There is no manual sync step; do not ask the user to run one. A file on any other branch has no effect.
 10. If the request was authoring only, stop with a reviewable YAML file. Do not apply, start, commit, push, merge, or deploy unless the user separately authorizes that action.
 
 ## Connected publication
 
-Use this section only when the user explicitly requested publication after the
-configuration has passed local validation.
+Use this section only when the user explicitly requested publication.
 
-1. Inspect the authenticated aictrl MCP catalog. A standard workflow lifecycle
-   surface can list, inspect, start, monitor, approve, and cancel **published**
-   workflows; it cannot by itself validate or publish a definition.
-2. If no documented preflight and publish capabilities are available, state that
-   publication is unavailable in this connection. Return the validated file,
-   its unresolved organization-scoped references, and the safe handoff. Do not
-   substitute a raw API call, an invented tool, or a commit/push.
-3. When both capabilities are available, run the documented remote preflight
-   against the exact validated document and target organization. Treat a
-   validation, authorization, tenant, conflict, or capability error as a
-   no-publication result.
-4. Show the preflight result before the final mutation: target organization,
-   resolved immutable references, inputs, external side effects, limits,
-   approval gates, replacement behavior, and any warnings. Never show trigger
-   secrets, credentials, or raw internal errors.
-5. Obtain a final explicit confirmation for that exact target and preflight
-   result. A request to create the file is not authorization to publish it.
-6. Call the documented publish capability with its required idempotency and
-   version preconditions. Do not replace an existing workflow unless the user
-   explicitly approved the identified replacement.
-7. Return the durable workflow identifier/version and a handoff to
-   `execute-workflow`. Publishing never starts a run.
+1. Use `validate_workflow_file` as the documented read-only preflight when
+   listed, following step 8. Show both validator results, target organization,
+   repository/path, workflow name, action, resolved skills, and warnings before
+   publication. An error blocks publication; if preflight is unavailable,
+   disclose the organization checks that did not run before the Git handoff.
+2. There is no publish tool. Publishing means merging the validated file to
+   the source repository's default branch; git sync then imports it. Workflow
+   lifecycle tools operate on published workflows and do not publish files.
+3. Never commit, push, or merge without explicit authorization for that action.
+   Return the reviewable file and Git handoff when authorization is absent.
+   Do not replace another source file's or Studio workflow's name; use a
+   distinct name for an intentionally different workflow.
+4. After an authorized merge, confirm git sync imported the workflow before
+   reporting it as published. If import cannot be confirmed, report publication
+   pending. Publishing never starts a run; use `execute-workflow` only if the
+   user separately asks to run the published workflow.
 
 ## Completion report
 
 Always report:
 
-- configuration path and local validator result;
+- configuration path and both validator results (local and remote: `passed`,
+  `failed`, or `not run`), including warnings and why any checks did not run;
 - that merging to the default branch syncs it (about 20 s, no manual step);
 - workflow inputs, stages, declared side effects, gates, and limits;
 - unresolved organization-scoped references or runtime conditions; and
-- one of `configuration ready`, `publication unavailable`, `publication
-  declined`, `publication failed`, or `published`.
+- configuration readiness, or the Git publication status if requested.
 
-For `published`, include only the returned workflow identifier/version and the
-next safe `execute-workflow` handoff. For every other status, state clearly
-that no remote workflow was started.
+Only report `published` after confirming the import; include its observed
+workflow identifier/version when available. State whether any run was started;
+authoring, preflight, and publication do not start one.
 
 ## Minimal v2 shape
 

@@ -5,9 +5,13 @@
 # This file is the version that runs in production for aictrl's own skills
 # repository, with the repository-specific values marked `ADAPT`.
 #
-# Start from this file; do not rewrite the prompts. Change only:
-#   1. ADAPT name     - prefix with your repository; names are unique per
-#                       aictrl organisation.
+# Reuse an existing matching workflow by asking an organisation admin to add
+# repositories in Workflow Studio -> the workflow -> Settings -> Triggers ->
+# Repositories. Do not copy its file just to add a repository. Only create a
+# separately named file when behavior must differ (for example the base branch).
+# For that variant, start from this file; do not rewrite the prompts. Change only:
+#   1. ADAPT name     - names are unique per aictrl organisation; use a
+#                       repository prefix to distinguish a different variant.
 #   2. ADAPT label    - the trigger label (here `ai-fix`). The prompts also use
 #                       it as the branch prefix `ai-fix/<issue-number>-<slug>`
 #                       and in the notify marker; replace every `ai-fix` if you
@@ -29,7 +33,7 @@ schemaVersion: aictrl/workflow/v2
 name: my-repo-implement-issue-from-ai-fix   # ADAPT name: <repo>-implement-issue-from-<label>
 label: Implement issue from ai-fix          # ADAPT label
 description: >-
-  When the ai-fix label is added to an issue in this repository, implement the
+  When the ai-fix label is added to an issue in a configured repository, implement the
   requested change from main on a feature branch, open a pull request back to
   main, run up to two review/fix rounds, and report the resulting PR on the
   issue.
