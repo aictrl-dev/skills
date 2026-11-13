@@ -9,11 +9,11 @@ runs `implement-code-change`, pauses for approval before merge, and never deploy
 
 1. Record the absolute path to `skills/create-workflow`, then change to a new
    empty temporary directory with no `package.json`.
-2. For each of the four `reference/examples/*.yaml` files, run this zero-install
+2. For each of the `reference/examples/*.yaml` files, run this zero-install
    command using absolute paths; each must exit 0:
 
    ```bash
-   timeout 180s npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node /absolute/path/to/create-workflow/validate.mjs /absolute/path/to/create-workflow/reference/examples/<example>.yaml
+   timeout 180s npx --yes -p ajv@8 -p js-yaml@4 -- node /absolute/path/to/create-workflow/validate.mjs /absolute/path/to/create-workflow/reference/examples/<example>.yaml
    ```
 
    Confirm that the temporary directory still contains no files, including
@@ -41,7 +41,7 @@ runs `implement-code-change`, pauses for approval before merge, and never deploy
 - [ ] It explains that git sync imports the workflow
       about 20 s after the file reaches the repository's default branch (a merge or a direct push),
       with no manual sync step, and that there is no publish tool.
-- [ ] It does not apply, start, overwrite, commit, or push without authorization.
+- [ ] It does not publish, start, overwrite, commit, or push without authorization.
 
 ## Scenario: label → PR
 

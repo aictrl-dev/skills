@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * validate.mjs — offline pre-apply validator for an aictrl workflow file.
+ * validate.mjs — offline pre-import validator for an aictrl workflow file.
  *
- * Runs the SAME layer-1 gate the apply-loader runs (JSON Schema, draft 2020-12,
+ * Runs the SAME layer-1 gate the git-sync import runs (JSON Schema, draft 2020-12,
  * against the bundled reference/workflow.schema.json) PLUS the static DAG checks
  * the schema can't express (duplicate node ids, edge endpoints, acyclicity, loop
  * nesting depth and the nested-maxIterations product bound).
@@ -13,17 +13,17 @@
  * expression results.
  *
  * Usage (run from your repo root):
- *   npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/my-workflow.yaml
+ *   npx --yes -p ajv@8 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/my-workflow.yaml
  *
  * Needs only Node and npm; dependencies live in npm's cache, not your repo.
- * Existing host-repository ajv and js-yaml also work without npx;
- * ajv-formats is optional.
+ * Verified npx dependencies take priority; host-repository ajv and js-yaml v4+
+ * also work without npx.
  */
 import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { homedir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve, sep } from 'node:path';
+import { defaultNpmCache, remediationHint } from './validate-env.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = join(here, 'reference', 'workflow.schema.json');
@@ -35,14 +35,14 @@ if (!file) {
   process.exit(2);
 }
 
-// Prefer existing host dependencies. npm exec/npx adds its cached
+// Prefer pinned npx dependencies. npm exec/npx adds its cached
 // node_modules/.bin to PATH, but Node does not use PATH for module resolution.
 // Only trust PATH package roots inside npm's npx cache, resolving symlinks
 // before checking containment. Other PATH entries must never load modules.
-const packageRoots = [process.cwd()];
+const packageRoots = [];
 let npxCache;
 try {
-  const cache = realpathSync(process.env.npm_config_cache ?? join(homedir(), '.npm'));
+  const cache = realpathSync(process.env.npm_config_cache ?? defaultNpmCache());
   const cachedNpx = realpathSync(join(cache, '_npx'));
   if (cachedNpx.startsWith(`${cache}${sep}`)) npxCache = cachedNpx;
 } catch {
@@ -60,27 +60,30 @@ for (const entry of (process.env.PATH || '').split(delimiter)) {
     // Ignore missing or unresolvable PATH entries.
   }
 }
-let AjvMod, yaml;
-let addFormatsMod = null;
+packageRoots.push(process.cwd());
+let AjvMod, yaml, yamlVersion;
 for (const root of new Set(packageRoots)) {
   const require = createRequire(pathToFileURL(join(root, 'package.json')));
   try {
-    [AjvMod, yaml] = [require('ajv/dist/2020.js'), require('js-yaml')];
+    [AjvMod, yaml, yamlVersion] = [require('ajv/dist/2020.js'), require('js-yaml'), require('js-yaml/package.json').version];
   } catch {
-    // Try the next npm-provided package root if host resolution failed.
+    // Fall back to the next verified root, then the host, if resolution failed.
     continue;
   }
-  try { addFormatsMod = require('ajv-formats'); } catch { /* Optional. */ }
   break;
 }
 if (!AjvMod) {
-  const shellQuote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
   console.error('Missing validator dependencies. Run without installing into your repository:');
-  console.error(`  npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node ${shellQuote(fileURLToPath(import.meta.url))} ${shellQuote(file)}`);
+  console.error(`  ${remediationHint(fileURLToPath(import.meta.url), file)}`);
+  process.exit(2);
+}
+const yamlMajor = Number(yamlVersion?.split('.')[0]);
+if (!Number.isInteger(yamlMajor) || yamlMajor < 4) {
+  console.error(`Unsupported js-yaml version ${yamlVersion ?? 'unknown'}: js-yaml 4 or newer is required for safe YAML loading.`);
+  console.error(`  ${remediationHint(fileURLToPath(import.meta.url), file)}`);
   process.exit(2);
 }
 const Ajv = AjvMod.default || AjvMod;
-const addFormats = addFormatsMod && (addFormatsMod.default || addFormatsMod);
 
 // Parse the workflow file (YAML or JSON — the loader accepts both).
 let doc;
@@ -97,11 +100,10 @@ try {
 
 const errors = [];
 
-// ---- Layer 1: JSON Schema (identical config to the apply-loader) ------------
+// ---- Layer 1: JSON Schema (the layer-1 gate the git-sync import runs) --------
 const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 const v1Schema = JSON.parse(readFileSync(V1_SCHEMA_PATH, 'utf8'));
 const ajv = new Ajv({ strict: false, allErrors: true });
-if (addFormats) addFormats(ajv);
 ajv.addSchema(v1Schema);
 const validate = ajv.compile(schema);
 if (!validate(doc)) {

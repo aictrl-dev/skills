@@ -2,20 +2,21 @@
 
 The complete authoring reference for `aictrl/workflow/v2` files. This guide is
 self-contained: the JSON Schema it describes ships alongside it at
-`reference/workflow.schema.json`, and worked, apply-ready examples ship at
+`reference/workflow.schema.json`, and worked, import-ready examples ship at
 `reference/examples/`. Read this before writing any workflow.
 
 The **single structural source of truth** is the bundled
 `reference/workflow.schema.json` (JSON Schema, Draft 2020-12). Every field, type,
-enum, pattern, and numeric bound below is defined there and enforced at apply
-time. When this guide and the schema disagree, the schema wins.
+enum, pattern, and numeric bound below is defined there and enforced when git
+sync imports the file. When this guide and the schema disagree, the schema wins.
 
 ## File format
 
-Always author in **YAML** (comments + readability). The apply-loader accepts both
+Always author in **YAML** (comments + readability). The git-sync importer accepts both
 YAML and JSON; the schema validates the parsed object, so both are equivalent.
 Author the file as `.aictrl/workflows/<name>.yaml` in your connected repository —
-see SKILL.md for the apply loop.
+see SKILL.md's [authoring workflow](../SKILL.md#workflow) and
+[Git publication](../SKILL.md#connected-publication) handoff.
 
 **How a file goes live:** aictrl syncs `.aictrl/workflows/` automatically
 about 20 s after the file reaches the repository's default branch (a merge or a direct push).
@@ -140,8 +141,8 @@ issue in a later `general` step.
 code-review`, aictrl adds the recorded `findings` (an empty list when there are
 none) and `maxSeverityRank` to the step output; `maxSeverityRank` is `null` for
 an empty review. Declare `findings: json` only. A declared `number` output
-cannot be null-guarded (`!= null` is a CEL type error at apply), and a `when`
-on an undeclared output of a task node fails apply. So gate a later step on
+cannot be null-guarded (`!= null` is a CEL type error at import), and a `when`
+on an undeclared output of a task node fails import. So gate a later step on
 the findings, which bind as `dyn`:
 `has(review.output.findings) && review.output.findings != null && size(review.output.findings) > 0`.
 A loop's `until`/`while` may use the guarded
@@ -224,7 +225,7 @@ Forbidden on `template`: `workflow`, `workflowVersion`, `maxIterations`, `until`
     edges: [...]                   # optional
 ```
 
-`type: loop` is fully supported — the apply-loader accepts loop nodes
+`type: loop` is fully supported — the git-sync importer accepts loop nodes
 and resolves loop-body node refs exactly like any other node. Use
 `reference/examples/review-fix-loop.yaml` as the reference.
 
@@ -332,7 +333,7 @@ inputs:
 
 `extract` in v1 supports `full` and `json-path` only. `regex` and `template`
 extract methods are deferred (they are ReDoS/injection surfaces on untrusted,
-PR-derived content) and are rejected at apply time.
+PR-derived content) and are rejected at import.
 
 ## CEL expressions (`when`, `until`, `while`, gate `condition`)
 
@@ -382,7 +383,7 @@ maps to storage `medium` — never use it in a condition.)
 
 ```yaml
 retry:
-  maxRetries: 0            # required; schema allows 0-10, apply rejects above 0
+  maxRetries: 0            # required; schema allows 0-10, import rejects above 0
   backoffMs: 2000          # required; milliseconds between retries (>= 0)
   backoffMultiplier: 2.0   # optional; multiplier applied to backoffMs each retry (0-10)
   maxBackoffMs: 30000      # optional; cap on exponential backoff
@@ -620,8 +621,8 @@ these rules:
 ## Portable references
 
 Use the **kebab name** (`name` field of the template), not an internal
-UUID. The loader resolves the name to a UUID, org-scoped, at apply time. An unknown
-or archived reference **fails the apply** (fail-closed, supply-chain safety).
+UUID. The loader resolves the name to a UUID, org-scoped, at import. An unknown
+or archived reference **fails the import** (fail-closed, supply-chain safety).
 
 ```yaml
 template: inline-code-review   # correct — portable
@@ -630,7 +631,7 @@ template: a1b2c3d4-...         # wrong — a UUID is not portable across environ
 
 ## Validation layers
 
-Three layers run at apply time, **before any node executes**:
+Three layers run when git sync imports the file, **before any node executes**:
 
 1. **Layer 1 — JSON Schema** (`reference/workflow.schema.json`): structural
    validity, enums, `minItems`, numeric ranges (e.g. loop `maxIterations` 1-25),
@@ -641,7 +642,7 @@ Three layers run at apply time, **before any node executes**:
    rejected, static `value`s type-checked. **Reference resolution is org-scoped
    and fail-closed:** a `template`/`workflow` name only ever resolves to an
    *active* record in the authoring org (never another org's, never an archived
-   one), and an unresolvable name fails the apply before any node runs.
+   one), and an unresolvable name fails the import before any node runs.
 3. **DAG validation**: no cycles, referenced-node existence, loop `maxIterations`
    range, loop nesting depth <= 3, global iteration product <= 1000, and the CEL
    condition static check.
@@ -652,7 +653,7 @@ against `reference/workflow.schema.json` **plus** the static parts of DAG valida
 Run it with only Node and npm, leaving your repository untouched:
 
 ```bash
-npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
+npx --yes -p ajv@8 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
 ```
 
 Local validation proves structure and static DAG soundness only.
@@ -663,7 +664,7 @@ skills, so they can confirm those exist. Report the local validator result as
 `passed`, `failed`, or `not run`. Git sync is the import gate; there is no
 publish tool. Import does not execute nodes or prove runtime expression results.
 
-## Constructs that are rejected at apply time
+## Constructs that are rejected at import
 
 The following are rejected:
 
@@ -678,7 +679,7 @@ The following are rejected:
 
 ## Authoring checklist
 
-Before submitting a workflow file for apply:
+Before you push a workflow file:
 - [ ] `schemaVersion: aictrl/workflow/v2` for new portable workflows
 - [ ] `name` is kebab-case, lowercase, 1-64 characters
 - [ ] No system fields (`id`, `version`, `status`, timestamps, `position`)

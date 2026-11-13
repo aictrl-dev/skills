@@ -75,7 +75,7 @@ This skill has two deliberately separate outcomes:
 7. Run the bundled local validator, fixing errors and re-running until schema and static DAG checks pass. This command needs only Node and npm and installs dependencies in npm's cache, leaving the user's repository untouched:
 
    ```bash
-   npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
+   npx --yes -p ajv@8 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
    ```
 
    Local validation proves structure and DAG soundness only. Organization-scoped
@@ -84,7 +84,7 @@ This skill has two deliberately separate outcomes:
    Tell the user which of these the file depends on, such as the skills it
    names, so they can confirm those exist.
 8. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and the local validator result: `passed`, `failed`, or `not run`. Say how the file goes live: aictrl syncs `.aictrl/workflows/` automatically about 20 s after the file reaches the repository's default branch (a merge or a direct push). There is no manual sync step; do not ask the user to run one. A file on any other branch has no effect.
-9. If the request was authoring only, stop with a reviewable YAML file. Do not apply, start, commit, push, merge, or deploy unless the user separately authorizes that action.
+9. If the request was authoring only, stop with a reviewable YAML file. Do not publish, start, commit, push, merge, or deploy unless the user separately authorizes that action.
 
 ## Connected publication
 

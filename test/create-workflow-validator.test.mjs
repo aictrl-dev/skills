@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
@@ -10,9 +10,13 @@ import { ROOT } from '../scripts/public-catalog.mjs';
 const validator = join(ROOT, 'skills/create-workflow/validate.mjs');
 const examplesDir = join(dirname(validator), 'reference/examples');
 const examples = readdirSync(examplesDir).filter((name) => name.endsWith('.yaml')).map((name) => join(examplesDir, name));
-const npxArgs = ['--yes', '-p', 'ajv@8', '-p', 'ajv-formats@3', '-p', 'js-yaml@4', '--', 'node'];
+const npxArgs = ['--yes', '-p', 'ajv@8', '-p', 'js-yaml@4', '--', 'node'];
 const setupDir = mkdtempSync(join(tmpdir(), 'workflow-validator-deps-'));
+const setupCwd = join(setupDir, 'work');
+const setupCache = join(setupDir, 'cache');
+mkdirSync(setupCwd);
 let dependencyModules;
+let registryAvailable = false;
 
 function cleanEnv(overrides = {}) {
   const env = { ...process.env, ...overrides };
@@ -22,6 +26,13 @@ function cleanEnv(overrides = {}) {
 }
 
 before(() => {
+  const env = cleanEnv({ npm_config_cache: setupCache });
+  // One bounded registry probe; offline runs still exercise all hermetic tests.
+  const probe = spawnSync('npm', ['ping', '--fetch-retries=0', '--fetch-timeout=3000'], {
+    cwd: setupCwd, env, encoding: 'utf8', timeout: 5_000,
+  });
+  registryAvailable = probe.status === 0;
+  if (!registryAvailable) return;
   // Fetch the real major-pinned packages once, without adding repo dependencies.
   const result = spawnSync('npx', [...npxArgs, '-e', `
     const { createRequire } = require('node:module');
@@ -29,16 +40,16 @@ before(() => {
     for (const entry of process.env.PATH.split(delimiter)) {
       const req = createRequire(resolve(entry, '..', '..', 'package.json'));
       try {
-        req.resolve('ajv/dist/2020.js'); req.resolve('ajv-formats'); req.resolve('js-yaml');
+        req.resolve('ajv/dist/2020.js'); req.resolve('js-yaml');
         console.log(dirname(dirname(req.resolve('ajv/package.json'))));
         break;
       } catch {}
     }
-  `], { cwd: setupDir, env: cleanEnv(), encoding: 'utf8', timeout: 180_000 });
+  `], { cwd: setupCwd, env, encoding: 'utf8', timeout: 180_000 });
   assert.equal(result.status, 0, result.stderr || result.error?.message);
   dependencyModules = result.stdout.trim();
   assert.ok(existsSync(join(dependencyModules, 'ajv/dist/2020.js')), result.stdout);
-  assert.deepEqual(readdirSync(setupDir), []);
+  assert.deepEqual(readdirSync(setupCwd), []);
 });
 
 after(() => rmSync(setupDir, { recursive: true, force: true }));
@@ -53,13 +64,36 @@ function sandbox(t) {
   return { root, cwd, cache };
 }
 
-function installDependencies(root, { formats = true } = {}) {
+function needsNpx(t) {
+  if (registryAvailable) return false;
+  t.skip('npm registry unavailable (offline probe); real npx dependencies required');
+  return true;
+}
+
+function installDependencies(root) {
   const modules = join(root, 'node_modules');
-  cpSync(dependencyModules, modules, {
-    recursive: true,
-    filter: (source) => formats || source !== join(dependencyModules, 'ajv-formats'),
-  });
+  cpSync(dependencyModules, modules, { recursive: true });
   mkdirSync(join(modules, '.bin'), { recursive: true });
+  return join(modules, '.bin');
+}
+
+// Resolution probes use local marker modules, never npm or its real cache.
+function fixtureDependencies(root, { marker, label = 'loaded', yamlVersion = '4.1.0', parseMarker } = {}) {
+  const modules = join(root, 'node_modules');
+  mkdirSync(join(modules, '.bin'), { recursive: true });
+  mkdirSync(join(modules, 'ajv/dist'), { recursive: true });
+  mkdirSync(join(modules, 'js-yaml'), { recursive: true });
+  const mark = marker ? `require('node:fs').writeFileSync(${JSON.stringify(marker)}, ${JSON.stringify(label)});` : '';
+  writeFileSync(join(modules, 'ajv/dist/2020.js'), `${mark}
+    module.exports = class Ajv {
+      addSchema() {}
+      compile() { return () => true; }
+    };
+`);
+  writeFileSync(join(modules, 'js-yaml/package.json'), JSON.stringify({ version: yamlVersion, main: 'index.js' }));
+  const parseMark = parseMarker ? `require('node:fs').writeFileSync(${JSON.stringify(parseMarker)}, 'parsed');` : '';
+  writeFileSync(join(modules, 'js-yaml/index.js'), `exports.load = () => { ${parseMark} return {}; };
+`);
   return join(modules, '.bin');
 }
 
@@ -96,6 +130,7 @@ test('validator ignores a trap module in an arbitrary PATH node_modules/.bin', (
 });
 
 test('validator uses dependencies inside npm_config_cache/_npx', (t) => {
+  if (needsNpx(t)) return;
   const box = sandbox(t);
   const bin = installDependencies(join(box.cache, '_npx', 'fixture'));
   assertValid(validate(box, [bin]));
@@ -125,13 +160,80 @@ test('validator rejects PATH dot-dot escapes and npx cache prefix siblings', (t)
   }
 });
 
-test('validator prefers existing host dependencies over the npx cache', (t) => {
+test('bundled workflow schemas do not use the format keyword', () => {
+  for (const file of ['reference/workflow.schema.json', 'reference/v1/workflow.schema.json']) {
+    const schema = readFileSync(join(dirname(validator), file), 'utf8');
+    assert.doesNotMatch(schema, /"format"\s*:/, file);
+  }
+});
+
+test('validator never loads a format extension', (t) => {
   const box = sandbox(t);
-  installDependencies(box.cwd);
-  const marker = join(box.root, 'cache-loaded');
-  const bin = trap(join(box.cache, '_npx', 'fixture'), marker);
+  fixtureDependencies(box.cwd);
+  const marker = join(box.root, 'formats-loaded');
+  const extension = join(box.cwd, 'node_modules/ajv-formats');
+  mkdirSync(extension);
+  writeFileSync(join(extension, 'index.js'),
+    `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'loaded'); throw new Error('unused extension');\n`);
+  assertValid(validate(box));
+  assert.equal(existsSync(marker), false, 'the validator loaded an unused format extension');
+});
+
+test('validator prefers verified npx dependencies over different host marker modules', (t) => {
+  const box = sandbox(t);
+  const marker = join(box.root, 'dependency-source');
+  fixtureDependencies(box.cwd, { marker, label: 'host' });
+  const bin = fixtureDependencies(join(box.cache, '_npx', 'fixture'), { marker, label: 'npx' });
   assertValid(validate(box, [bin]));
-  assert.equal(existsSync(marker), false);
+  assert.equal(readFileSync(marker, 'utf8'), 'npx');
+});
+
+test('validator falls back to host dependencies when verified npx roots cannot resolve them', (t) => {
+  const box = sandbox(t);
+  const marker = join(box.root, 'dependency-source');
+  fixtureDependencies(box.cwd, { marker, label: 'host' });
+  const bin = join(box.cache, '_npx', 'empty/node_modules/.bin');
+  mkdirSync(bin, { recursive: true });
+  assertValid(validate(box, [bin]));
+  assert.equal(readFileSync(marker, 'utf8'), 'host');
+});
+
+test('validator refuses host js-yaml v3 before loading a YAML document', (t) => {
+  const box = sandbox(t);
+  const parseMarker = join(box.root, 'unsafe-parsed');
+  fixtureDependencies(box.cwd, { yamlVersion: '3.14.1', parseMarker });
+  const result = validate(box);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /js-yaml.*(?:4 or (?:later|newer)|>= ?4|at least 4)/i);
+  assert.match(result.stderr, /3\.14\.1/);
+  assert.equal(existsSync(parseMarker), false, 'unsafe js-yaml v3 load() was called');
+});
+
+test('default npm cache follows the injected platform and LocalAppData', async () => {
+  const { defaultNpmCache } = await import('../skills/create-workflow/validate-env.mjs');
+  const home = join(tmpdir(), 'cache-home');
+  const localAppData = join(tmpdir(), 'local-app-data');
+  assert.equal(defaultNpmCache('win32', { LOCALAPPDATA: localAppData }, home), join(localAppData, 'npm-cache'));
+  assert.equal(defaultNpmCache('win32', {}, home), join(home, 'AppData', 'Local', 'npm-cache'));
+  assert.equal(defaultNpmCache('linux', { LOCALAPPDATA: localAppData }, home), join(home, '.npm'));
+  assert.equal(defaultNpmCache('darwin', {}, home), join(home, '.npm'));
+});
+
+test('remediation hint uses Windows double quotes and doubles embedded quotes', async () => {
+  const { remediationHint } = await import('../skills/create-workflow/validate-env.mjs');
+  const script = String.raw`C:\skill "quoted"\validate.mjs`;
+  const file = String.raw`C:\work\workflow "quoted".yaml`;
+  assert.equal(remediationHint(script, file, 'win32'),
+    String.raw`npx --yes -p ajv@8 -p js-yaml@4 -- node "C:\skill ""quoted""\validate.mjs" "C:\work\workflow ""quoted"".yaml"`);
+});
+
+test('remediation hint uses POSIX single quotes and escapes embedded apostrophes', async () => {
+  const { remediationHint } = await import('../skills/create-workflow/validate-env.mjs');
+  const script = "/skill 'quoted'/validate.mjs";
+  const file = "workflow 'quoted'.yaml";
+  const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
+  assert.equal(remediationHint(script, file, 'linux'),
+    `npx --yes -p ajv@8 -p js-yaml@4 -- node ${quote(script)} ${quote(file)}`);
 });
 
 test('validator shell-quotes both remediation arguments without executing substitutions', (t) => {
@@ -140,6 +242,7 @@ test('validator shell-quotes both remediation arguments without executing substi
   mkdirSync(scriptDir);
   const script = join(scriptDir, 'validate.mjs');
   cpSync(validator, script);
+  cpSync(join(dirname(validator), 'validate-env.mjs'), join(scriptDir, 'validate-env.mjs'));
   const file = "workflow ' $(touch pwned) `touch backtick-pwned`.yaml";
   const result = validate(box, [], file, script);
   assert.equal(result.status, 2, result.stderr);
@@ -156,19 +259,18 @@ test('validator shell-quotes both remediation arguments without executing substi
   assert.deepEqual(readdirSync(box.cwd), [], 'the printed hint executed a substitution');
 });
 
-test('validator validates all examples with host ajv and js-yaml but no ajv-formats', (t) => {
+test('validator validates all examples with host ajv and js-yaml', (t) => {
+  if (needsNpx(t)) return;
   const box = sandbox(t);
-  installDependencies(box.cwd, { formats: false });
-  const require = createRequire(join(box.cwd, 'package.json'));
-  assert.throws(() => require.resolve('ajv-formats'), { code: 'MODULE_NOT_FOUND' });
+  installDependencies(box.cwd);
   for (const example of examples) assertValid(validate(box, [], example));
 });
 
-test('validator zero-install npx validates all four examples without writing to the empty cwd', { timeout: 240_000 }, (t) => {
+test('validator zero-install npx validates all examples without writing to the empty cwd', { timeout: 240_000 }, (t) => {
+  if (needsNpx(t)) return;
   const box = sandbox(t);
-  const env = cleanEnv();
-  delete env.npm_config_cache; // Exercise npm's default ~/.npm cache.
-  assert.equal(examples.length, 4);
+  const env = cleanEnv({ npm_config_cache: box.cache });
+  assert.ok(examples.length >= 4);
   for (const example of examples) {
     const result = spawnSync('npx', [...npxArgs, validator, example], {
       cwd: box.cwd, env, encoding: 'utf8', timeout: 180_000,
@@ -179,6 +281,7 @@ test('validator zero-install npx validates all four examples without writing to 
 });
 
 test('validator zero-install npx rejects a control with an optional code-review parameter', { timeout: 180_000 }, (t) => {
+  if (needsNpx(t)) return;
   const box = sandbox(t);
   const require = createRequire(join(dependencyModules, '..', 'package.json'));
   const yaml = require('js-yaml');
@@ -195,9 +298,26 @@ test('validator zero-install npx rejects a control with an optional code-review 
   const control = join(box.root, 'invalid-control.yaml');
   writeFileSync(control, yaml.dump(doc));
   const result = spawnSync('npx', [...npxArgs, validator, control], {
-    cwd: box.cwd, env: cleanEnv(), encoding: 'utf8', timeout: 180_000,
+    cwd: box.cwd, env: cleanEnv({ npm_config_cache: box.cache }), encoding: 'utf8', timeout: 180_000,
   });
   assert.equal(result.status, 1, result.stderr || result.error?.message);
   assert.match(result.stderr, /schema.*required.*must be equal to constant/);
+  assert.deepEqual(readdirSync(box.cwd), []);
+});
+
+
+test('validator zero-install npx uses the platform default cache when explicitly enabled', { timeout: 180_000 }, (t) => {
+  if (process.env.CW_TEST_DEFAULT_CACHE !== '1') {
+    t.skip('set CW_TEST_DEFAULT_CACHE=1 to allow use of the real default npm cache');
+    return;
+  }
+  if (needsNpx(t)) return;
+  const box = sandbox(t);
+  const env = cleanEnv();
+  delete env.npm_config_cache;
+  const result = spawnSync('npx', [...npxArgs, validator, examples[0]], {
+    cwd: box.cwd, env, encoding: 'utf8', timeout: 180_000,
+  });
+  assertValid(result);
   assert.deepEqual(readdirSync(box.cwd), []);
 });

@@ -11,11 +11,11 @@
 - Defines typed parameters, outputs, mappings, edges, conditions, retries, bounded loops, triggers, and approvals as required by the requested outcome.
 - Version-pins skill/workflow references when a resolvable version is available.
 - Starts Issue → reviewed PR workflows from the bundled canonical example and adapts only its marked values.
-- Runs the bundled offline JSON Schema/static DAG validator with the zero-install command below, preserving host dependency resolution and leaving the user's repository untouched.
+- Runs the bundled offline JSON Schema/static DAG validator with the zero-install command below, preferring pinned npx dependencies with host resolution as a fallback and leaving the user's repository untouched.
 - Explains that organization-scoped checks run when git sync imports the file, and names the file's dependencies so the user can confirm they exist.
 - Reports the local validator result as `passed`, `failed`, or `not run`.
 - Publishes only through an authorized merge or direct push to the default branch and subsequent git sync import; there is no publish tool.
-- Never overwrites, applies, starts, commits, or pushes without explicit authorization.
+- Never overwrites, publishes, starts, commits, or pushes without explicit authorization.
 
 ## Bundle
 
@@ -24,6 +24,7 @@ create-workflow/
   SKILL.md
   SPEC.md
   validate.mjs
+  validate-env.mjs
   reference/
     authoring-guide.md
     workflow.schema.json
@@ -53,17 +54,22 @@ blocked-comment rule) is not word for word in every node that carries it.
 Run local validation using only Node and npm:
 
 ```bash
-npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
+npx --yes -p ajv@8 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
 ```
 
 The offline validator proves schema structure, duplicate/dangling node checks,
-cycle checks, and bounded loop nesting/iteration products. It prefers existing
-host dependencies (`ajv` and `js-yaml` are required; `ajv-formats` is optional),
-then resolves packages from `node_modules/.bin` entries on `PATH` only when
-their real paths and package roots lie inside npm's npx cache:
-`<npm_config_cache>/_npx/`, or `~/.npm/_npx/` when that variable is unset.
-Required dependencies come from the same resolution root; optional
-`ajv-formats` is tried from that root too. Other PATH entries are ignored.
+cycle checks, and bounded loop nesting/iteration products. It first resolves
+`ajv` and `js-yaml` from verified `node_modules/.bin` entries on `PATH` whose
+real paths and package roots lie inside npm's npx cache. It falls back to host
+repository dependencies only when none of those roots resolve the dependencies.
+Both packages come from the same resolution root; `js-yaml` must be v4 or newer
+for safe YAML loading. Neither bundled schema uses the `format` keyword.
+
+The npx cache is `<npm_config_cache>/_npx/` when that variable is set. Otherwise,
+it is `%LocalAppData%\npm-cache\_npx\` on Windows, falling back to
+`~/AppData/Local/npm-cache/_npx/` if `LOCALAPPDATA` is unset, and `~/.npm/_npx/`
+on other platforms. Other PATH entries are ignored. Remediation commands use
+Windows double quotes (doubling embedded quotes) or POSIX single quotes.
 npm stores downloaded dependencies in its cache; no package manifest,
 lockfile, or node_modules is created in the user's repository.
 
