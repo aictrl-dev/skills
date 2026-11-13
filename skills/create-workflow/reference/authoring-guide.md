@@ -17,10 +17,10 @@ YAML and JSON; the schema validates the parsed object, so both are equivalent.
 Author the file as `.aictrl/workflows/<name>.yaml` in your connected repository —
 see SKILL.md for the apply loop.
 
-**How a file goes live:** aictrl syncs `.aictrl/workflows/` automatically about
-20 s after a push to the repository's default branch. There is no manual sync
-step; do not add one to your instructions. A file on any other branch has no
-effect.
+**How a file goes live:** aictrl syncs `.aictrl/workflows/` automatically
+about 20 s after the file reaches the repository's default branch (a merge or a direct push).
+There is no manual sync step; do not add one to your instructions. A file on
+any other branch has no effect.
 
 ## Top-level fields
 
@@ -655,15 +655,15 @@ Run it with only Node and npm, leaving your repository untouched:
 npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
 ```
 
-**Then run organization preflight when available.** Inspect the connected
+**Then run organisation preflight when available.** Inspect the connected
 aictrl MCP catalog and call `validate_workflow_file` only if listed, following
-SKILL.md step 8 for organization selection and the exact file content plus
+SKILL.md step 8 for organisation selection and the exact file content plus
 repository/path when known. It saves nothing and checks parsing, schema and
-triggers, model references, organization template/workflow/skill references,
+triggers, model references, organisation template/workflow/skill references,
 layer-2 input mappings and conditions, and workflow name ownership. Fix every
 error and repeat both validators until `valid: true`; show all warnings,
 especially an existing workflow with the same name. If the tool or connection
-is absent, say "organization checks not run" and list those remaining checks.
+is absent, say "organisation checks not run" and list those remaining checks.
 Report local and remote results separately as `passed`, `failed`, or `not run`.
 Preflight does not execute runtime expressions or nodes. Git sync remains the
 definitive import gate; there is no publish tool.
@@ -714,5 +714,5 @@ Before submitting a workflow file for apply:
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
 - [ ] Portable refs (kebab names) for `template:`
 - [ ] The zero-install local validator command above exits 0 (layer-1 schema + static DAG checks)
-- [ ] `validate_workflow_file` passes when listed; otherwise report "organization checks not run" and the remaining checks
+- [ ] `validate_workflow_file` passes when listed; otherwise report "organisation checks not run" and the remaining checks
 - [ ] At most 10 entries in `triggers:`; each matches one of the five trigger shapes

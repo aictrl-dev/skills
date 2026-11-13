@@ -16,12 +16,14 @@
  *   npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/my-workflow.yaml
  *
  * Needs only Node and npm; dependencies live in npm's cache, not your repo.
- * Existing host-repository dependencies also work without npx.
+ * Existing host-repository ajv and js-yaml also work without npx;
+ * ajv-formats is optional.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { basename, delimiter, dirname, join, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { basename, delimiter, dirname, join, resolve, sep } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = join(here, 'reference', 'workflow.schema.json');
@@ -35,32 +37,50 @@ if (!file) {
 
 // Prefer existing host dependencies. npm exec/npx adds its cached
 // node_modules/.bin to PATH, but Node does not use PATH for module resolution.
-// Anchor a require at each such package root so the zero-install command works
-// even when neither the host repo nor this skill has a package.json.
+// Only trust PATH package roots inside npm's npx cache, resolving symlinks
+// before checking containment. Other PATH entries must never load modules.
 const packageRoots = [process.cwd()];
+let npxCache;
+try {
+  const cache = realpathSync(process.env.npm_config_cache ?? join(homedir(), '.npm'));
+  const cachedNpx = realpathSync(join(cache, '_npx'));
+  if (cachedNpx.startsWith(`${cache}${sep}`)) npxCache = cachedNpx;
+} catch {
+  // No npx cache exists; existing host dependencies can still work.
+}
 for (const entry of (process.env.PATH || '').split(delimiter)) {
-  if (basename(entry) === '.bin' && basename(dirname(entry)) === 'node_modules') {
-    packageRoots.push(resolve(entry, '..', '..'));
+  if (!npxCache || basename(entry) !== '.bin' || basename(dirname(entry)) !== 'node_modules') continue;
+  try {
+    const bin = realpathSync(entry);
+    const root = realpathSync(resolve(entry, '..', '..'));
+    if (bin.startsWith(`${npxCache}${sep}`) && root.startsWith(`${npxCache}${sep}`)) {
+      packageRoots.push(root);
+    }
+  } catch {
+    // Ignore missing or unresolvable PATH entries.
   }
 }
-let AjvMod, addFormatsMod, yaml;
+let AjvMod, yaml;
+let addFormatsMod = null;
 for (const root of new Set(packageRoots)) {
   const require = createRequire(pathToFileURL(join(root, 'package.json')));
   try {
-    const deps = [require('ajv/dist/2020.js'), require('ajv-formats'), require('js-yaml')];
-    [AjvMod, addFormatsMod, yaml] = deps;
-    break;
+    [AjvMod, yaml] = [require('ajv/dist/2020.js'), require('js-yaml')];
   } catch {
     // Try the next npm-provided package root if host resolution failed.
+    continue;
   }
+  try { addFormatsMod = require('ajv-formats'); } catch { /* Optional. */ }
+  break;
 }
 if (!AjvMod) {
+  const shellQuote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
   console.error('Missing validator dependencies. Run without installing into your repository:');
-  console.error(`  npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node ${JSON.stringify(fileURLToPath(import.meta.url))} ${JSON.stringify(file)}`);
+  console.error(`  npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node ${shellQuote(fileURLToPath(import.meta.url))} ${shellQuote(file)}`);
   process.exit(2);
 }
 const Ajv = AjvMod.default || AjvMod;
-const addFormats = addFormatsMod.default || addFormatsMod;
+const addFormats = addFormatsMod && (addFormatsMod.default || addFormatsMod);
 
 // Parse the workflow file (YAML or JSON — the loader accepts both).
 let doc;
@@ -81,7 +101,7 @@ const errors = [];
 const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 const v1Schema = JSON.parse(readFileSync(V1_SCHEMA_PATH, 'utf8'));
 const ajv = new Ajv({ strict: false, allErrors: true });
-addFormats(ajv);
+if (addFormats) addFormats(ajv);
 ajv.addSchema(v1Schema);
 const validate = ajv.compile(schema);
 if (!validate(doc)) {

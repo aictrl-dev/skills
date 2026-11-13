@@ -13,10 +13,10 @@ This skill has two deliberately separate outcomes:
   validate locally, and run organization preflight when available. It does not
   publish, start, commit, push, merge, or deploy.
 - **Connected publication** is opt-in: use it only after the user explicitly
-  asks to publish. Publication happens through Git: merge the file to the
-  source repository's default branch, then git sync imports it. There is no
-  publish tool. Never guess a tool name, make a raw HTTP call, or treat a
-  successful preflight as publication.
+  asks to publish. Publication happens through Git: get the file onto the
+  source repository's default branch (a merge or a direct push), then git sync
+  imports it. There is no publish tool. Never guess a tool name, make a raw
+  HTTP call, or treat a successful preflight as publication.
 
 ## Workflow
 
@@ -98,7 +98,7 @@ This skill has two deliberately separate outcomes:
      organization template/workflow/skill references, layer-2 input mappings
      and conditions, and name ownership (another repository's file or a Studio
      workflow). Local success alone does not prove these organization checks.
-9. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and both validator results: local and remote, each `passed`, `failed`, or `not run`. Say how the file goes live: aictrl syncs `.aictrl/workflows/` automatically about 20 s after the file is merged to the repository's default branch. There is no manual sync step; do not ask the user to run one. A file on any other branch has no effect.
+9. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and both validator results: local and remote, each `passed`, `failed`, or `not run`. Say how the file goes live: aictrl syncs `.aictrl/workflows/` automatically about 20 s after the file reaches the repository's default branch (a merge or a direct push). There is no manual sync step; do not ask the user to run one. A file on any other branch has no effect.
 10. If the request was authoring only, stop with a reviewable YAML file. Do not apply, start, commit, push, merge, or deploy unless the user separately authorizes that action.
 
 ## Connected publication
@@ -110,17 +110,18 @@ Use this section only when the user explicitly requested publication.
    repository/path, workflow name, action, resolved skills, and warnings before
    publication. An error blocks publication; if preflight is unavailable,
    disclose the organization checks that did not run before the Git handoff.
-2. There is no publish tool. Publishing means merging the validated file to
-   the source repository's default branch; git sync then imports it. Workflow
-   lifecycle tools operate on published workflows and do not publish files.
+2. There is no publish tool. Publishing means placing the validated file on
+   the source repository's default branch (a merge or a direct push); git sync
+   then imports it. Workflow lifecycle tools operate on published workflows
+   and do not publish files.
 3. Never commit, push, or merge without explicit authorization for that action.
    Return the reviewable file and Git handoff when authorization is absent.
    Do not replace another source file's or Studio workflow's name; use a
    distinct name for an intentionally different workflow.
-4. After an authorized merge, confirm git sync imported the workflow before
-   reporting it as published. If import cannot be confirmed, report publication
-   pending. Publishing never starts a run; use `execute-workflow` only if the
-   user separately asks to run the published workflow.
+4. After an authorized merge or direct push, confirm git sync imported the
+   workflow before reporting it as published. If import cannot be confirmed,
+   report publication pending. Publishing never starts a run; use
+   `execute-workflow` only if the user separately asks to run the published workflow.
 
 ## Completion report
 
@@ -128,7 +129,7 @@ Always report:
 
 - configuration path and both validator results (local and remote: `passed`,
   `failed`, or `not run`), including warnings and why any checks did not run;
-- that merging to the default branch syncs it (about 20 s, no manual step);
+- that it syncs about 20 s after the file reaches the repository's default branch (a merge or a direct push), with no manual step;
 - workflow inputs, stages, declared side effects, gates, and limits;
 - unresolved organization-scoped references or runtime conditions; and
 - configuration readiness, or the Git publication status if requested.

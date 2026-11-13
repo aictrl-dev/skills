@@ -14,7 +14,7 @@
 - Runs the bundled offline JSON Schema/static DAG validator first with the zero-install command below, preserving host dependency resolution and leaving the user's repository untouched.
 - Calls the read-only `validate_workflow_file` organization preflight when listed in the connected MCP catalog, fixes errors until `valid: true`, and shows all warnings. Never calls an unlisted tool; reports "organization checks not run" and the remaining checks when the tool or connection is absent.
 - Reports local and remote validation separately as `passed`, `failed`, or `not run`.
-- Publishes only through an authorized merge to the default branch and subsequent git sync import; there is no publish tool, and preflight saves nothing.
+- Publishes only through an authorized merge or direct push to the default branch and subsequent git sync import; there is no publish tool, and preflight saves nothing.
 - Never overwrites, applies, starts, commits, or pushes without explicit authorization.
 
 ## Bundle
@@ -58,10 +58,14 @@ npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow
 
 The offline validator proves schema structure, duplicate/dangling node checks,
 cycle checks, and bounded loop nesting/iteration products. It prefers existing
-host dependencies, then resolves the major-pinned packages from the
-`node_modules/.bin` entries npm exec places on `PATH`. npm stores downloaded
-dependencies in its cache; no package manifest, lockfile, or node_modules is
-created in the user's repository.
+host dependencies (`ajv` and `js-yaml` are required; `ajv-formats` is optional),
+then resolves packages from `node_modules/.bin` entries on `PATH` only when
+their real paths and package roots lie inside npm's npx cache:
+`<npm_config_cache>/_npx/`, or `~/.npm/_npx/` when that variable is unset.
+Required dependencies come from the same resolution root; optional
+`ajv-formats` is tried from that root too. Other PATH entries are ignored.
+npm stores downloaded dependencies in its cache; no package manifest,
+lockfile, or node_modules is created in the user's repository.
 
 When the connected MCP catalog lists `validate_workflow_file`, call it with
 required `organization_id` and `content` (the exact file text), optional
@@ -84,8 +88,9 @@ does not save a workflow or publish it.
 If the tool or connection is absent, report remote validation as `not run`,
 say "organization checks not run", and list the checks above. A failed remote
 call is `failed`, never `passed`. Preflight does not execute runtime expressions
-or nodes; git sync remains the definitive import gate after the file reaches
-the default branch. Confirm the import before reporting publication complete.
+or nodes; git sync remains the definitive import gate. The workflow syncs
+about 20 s after the file reaches the repository's default branch (a merge or a direct push),
+with no manual sync step. Confirm the import before reporting publication complete.
 
 ## Sync procedure
 

@@ -45,8 +45,9 @@ runs `implement-code-change`, pauses for approval before merge, and never deploy
 - [ ] The agent reports path, inputs, stages, side effects, approvals, limits,
       unresolved references, and local and remote results separately as
       `passed`, `failed`, or `not run`.
-- [ ] It explains that publication means merging the file to the default branch
-      for git sync to import, and that there is no publish tool.
+- [ ] It explains that git sync imports the workflow
+      about 20 s after the file reaches the repository's default branch (a merge or a direct push),
+      with no manual sync step, and that there is no publish tool.
 - [ ] It does not apply, start, overwrite, commit, or push without authorization.
 
 ## Scenario: label → PR
@@ -97,8 +98,9 @@ and same-name warning responses; preflight must save nothing.
       `web-implement-issue-from-ai-fix`), in `acme/web`'s `.aictrl/workflows/`.
       The agent explains that one name belongs to one source file or Studio
       workflow, and adding a repository alone does not require another file.
-- [ ] Rule 3: the report says the workflow syncs about 20 s after the file
-      reaches the default branch, with no manual sync step.
+- [ ] Rule 3: the report says the workflow syncs
+      about 20 s after the file reaches the repository's default branch (a merge or a direct push),
+      with no manual sync step.
 - [ ] Rule 4: the PR lookup uses `closedByPullRequestsReferences`, not
       `linkedBranches`, and the agent warns, before writing the file, that it
       lists only PRs into the default branch when `develop` is not the default
