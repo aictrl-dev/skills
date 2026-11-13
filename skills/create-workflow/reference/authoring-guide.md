@@ -429,11 +429,11 @@ Every decision on a manual gate records an approval receipt. A node that runs
 
 ```yaml
 nodes:
-  - id: preflight
+  - id: baseline
     type: task
     skill: spec-review@1.0.0
     taskType: general
-    prompt: "Read-only preflight. Report the baseline commit SHA as `revision`."
+    prompt: "Read-only review. Report the baseline commit SHA as `revision`."
     parameters:
       - { name: repository, type: repository, required: true }
     inputs:
@@ -452,11 +452,11 @@ nodes:
       approval-receipt: { from: gate, afterWave: 1 }
     outputs: { changed: boolean }
 edges:
-  - { from: preflight, to: execute }
+  - { from: baseline, to: execute }
 qualityGates:
   - afterWave: 1
     type: manual
-    description: Approve the preflight before any change is made.
+    description: Approve the baseline review before any change is made.
 ```
 
 The receipt contains `decision`, `approver` (id, display name, email, org role),
@@ -655,18 +655,13 @@ Run it with only Node and npm, leaving your repository untouched:
 npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
 ```
 
-**Then run organisation preflight when available.** Inspect the connected
-aictrl MCP catalog and call `validate_workflow_file` only if listed, following
-SKILL.md step 8 for organisation selection and the exact file content plus
-repository/path when known. It saves nothing and checks parsing, schema and
-triggers, model references, organisation template/workflow/skill references,
-layer-2 input mappings and conditions, and workflow name ownership. Fix every
-error and repeat both validators until `valid: true`; show all warnings,
-especially an existing workflow with the same name. If the tool or connection
-is absent, say "organisation checks not run" and list those remaining checks.
-Report local and remote results separately as `passed`, `failed`, or `not run`.
-Preflight does not execute runtime expressions or nodes. Git sync remains the
-definitive import gate; there is no publish tool.
+Local validation proves structure and static DAG soundness only.
+Organisation-scoped checks (model, template, workflow and skill references,
+input mappings and conditions, and workflow name ownership) run when git sync
+imports the file. Tell the user which dependencies the file uses, such as its
+skills, so they can confirm those exist. Report the local validator result as
+`passed`, `failed`, or `not run`. Git sync is the import gate; there is no
+publish tool. Import does not execute nodes or prove runtime expression results.
 
 ## Constructs that are rejected at apply time
 
@@ -714,5 +709,5 @@ Before submitting a workflow file for apply:
 - [ ] Loop nesting <= 3; product of nested `maxIterations` <= 1000
 - [ ] Portable refs (kebab names) for `template:`
 - [ ] The zero-install local validator command above exits 0 (layer-1 schema + static DAG checks)
-- [ ] `validate_workflow_file` passes when listed; otherwise report "organisation checks not run" and the remaining checks
+- [ ] The user knows which organisation-scoped dependencies the file uses and that git sync checks them at import
 - [ ] At most 10 entries in `triggers:`; each matches one of the five trigger shapes

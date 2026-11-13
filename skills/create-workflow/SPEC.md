@@ -11,10 +11,10 @@
 - Defines typed parameters, outputs, mappings, edges, conditions, retries, bounded loops, triggers, and approvals as required by the requested outcome.
 - Version-pins skill/workflow references when a resolvable version is available.
 - Starts Issue → reviewed PR workflows from the bundled canonical example and adapts only its marked values.
-- Runs the bundled offline JSON Schema/static DAG validator first with the zero-install command below, preserving host dependency resolution and leaving the user's repository untouched.
-- Calls the read-only `validate_workflow_file` organization preflight when listed in the connected MCP catalog, fixes errors until `valid: true`, and shows all warnings. Never calls an unlisted tool; reports "organization checks not run" and the remaining checks when the tool or connection is absent.
-- Reports local and remote validation separately as `passed`, `failed`, or `not run`.
-- Publishes only through an authorized merge or direct push to the default branch and subsequent git sync import; there is no publish tool, and preflight saves nothing.
+- Runs the bundled offline JSON Schema/static DAG validator with the zero-install command below, preserving host dependency resolution and leaving the user's repository untouched.
+- Explains that organization-scoped checks run when git sync imports the file, and names the file's dependencies so the user can confirm they exist.
+- Reports the local validator result as `passed`, `failed`, or `not run`.
+- Publishes only through an authorized merge or direct push to the default branch and subsequent git sync import; there is no publish tool.
 - Never overwrites, applies, starts, commits, or pushes without explicit authorization.
 
 ## Bundle
@@ -50,7 +50,7 @@ blocked-comment rule) is not word for word in every node that carries it.
 
 ## Validation boundary
 
-Run local validation first, using only Node and npm:
+Run local validation using only Node and npm:
 
 ```bash
 npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
@@ -67,28 +67,13 @@ Required dependencies come from the same resolution root; optional
 npm stores downloaded dependencies in its cache; no package manifest,
 lockfile, or node_modules is created in the user's repository.
 
-When the connected MCP catalog lists `validate_workflow_file`, call it with
-required `organization_id` and `content` (the exact file text), optional
-`format` (`yaml` or `json`), and, when known, `repository` (`owner/name` from
-the edited repository's Git remote) and `path` (`.aictrl/workflows/<file>.yaml`).
-If no organization was supplied, use `list_organizations` when listed, asking
-the user which organization if several exist. If discovery is unavailable,
-ask for the organization ID. Neither tool may be called unless listed.
-
-This read-only preflight runs the same checks as git sync import: parsing,
-schema and triggers, model references, organization template/workflow/skill
-references, layer-2 input mappings and conditions, and name ownership against
-another repository's source file or a Studio workflow. It returns `valid`,
-`workflowName`, `action` (`create`, `update`, or null), `errors[]`, `warnings[]`,
-and `resolvedSkills[]`; each diagnostic has `code`, `message`, and optional
-`path`/`nodeId`. Fix every error and repeat both validators until `valid: true`;
-show warnings, especially an existing workflow with the same name. Preflight
-does not save a workflow or publish it.
-
-If the tool or connection is absent, report remote validation as `not run`,
-say "organization checks not run", and list the checks above. A failed remote
-call is `failed`, never `passed`. Preflight does not execute runtime expressions
-or nodes; git sync remains the definitive import gate. The workflow syncs
+Local validation proves structure and static DAG soundness only.
+Organization-scoped checks run when git sync imports the file: model,
+template, workflow and skill references, input mappings and conditions,
+and workflow name ownership against another source file or a Studio workflow.
+Name the dependencies the file uses, such as its skills, so the user can
+confirm they exist. Report the local validator result only. Import does not
+execute nodes or prove runtime expression results. The workflow syncs
 about 20 s after the file reaches the repository's default branch (a merge or a direct push),
 with no manual sync step. Confirm the import before reporting publication complete.
 

@@ -9,14 +9,13 @@ Author a reviewable `.aictrl/workflows/<kebab-name>.yaml` file in its source rep
 
 This skill has two deliberately separate outcomes:
 
-- **Author configuration** is the default: create the repository-owned file,
-  validate locally, and run organization preflight when available. It does not
-  publish, start, commit, push, merge, or deploy.
+- **Author configuration** is the default: create the repository-owned file
+  and validate locally. It does not publish, start, commit, push, merge, or deploy.
 - **Connected publication** is opt-in: use it only after the user explicitly
   asks to publish. Publication happens through Git: get the file onto the
   source repository's default branch (a merge or a direct push), then git sync
-  imports it. There is no publish tool. Never guess a tool name, make a raw
-  HTTP call, or treat a successful preflight as publication.
+  imports it. There is no publish tool. Never guess a tool name or make a raw
+  HTTP call.
 
 ## Workflow
 
@@ -73,43 +72,27 @@ This skill has two deliberately separate outcomes:
      `createLinkedBranch` branch from `linkedBranches` once its PR opens, and
      `closedByPullRequestsReferences` lists only PRs into the default branch
      (with another base branch, tell the user a re-run opens a new PR).
-7. Run the bundled local validator first, fixing errors and re-running until schema and static DAG checks pass. This command needs only Node and npm and installs dependencies in npm's cache, leaving the user's repository untouched:
+7. Run the bundled local validator, fixing errors and re-running until schema and static DAG checks pass. This command needs only Node and npm and installs dependencies in npm's cache, leaving the user's repository untouched:
 
    ```bash
    npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/<name>.yaml
    ```
 
-8. Inspect the connected aictrl MCP catalog. Never call a tool name that is not listed. When `validate_workflow_file` is listed, run this read-only organization preflight after local validation:
-   - Pass `organization_id` and the exact file text as `content`; use
-     `format: yaml` (or `json` for a JSON file).
-   - If the user did not give the organization, use `list_organizations` when
-     listed; ask which organization if there are several. If organization
-     discovery is unavailable, ask for `organization_id` before preflight.
-   - When known, pass `repository` as the edited repo's `owner/name` from
-     `git remote -v` and `path` as `.aictrl/workflows/<file>.yaml`.
-   - Fix every returned error and repeat local validation and preflight until
-     `valid: true`. Show `workflowName`, `action` (`create`, `update`, or null),
-     `resolvedSkills`, and all warnings, especially an existing workflow with
-     the same name. Preserve each error/warning's `code`, `message`, and any
-     `path` or `nodeId` so the user can locate it. Preflight saves nothing.
-   - If the tool is absent or there is no aictrl connection, say
-     **"organization checks not run"** and list what remains unchecked:
-     parse/schema/triggers against the import validator, model references,
-     organization template/workflow/skill references, layer-2 input mappings
-     and conditions, and name ownership (another repository's file or a Studio
-     workflow). Local success alone does not prove these organization checks.
-9. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and both validator results: local and remote, each `passed`, `failed`, or `not run`. Say how the file goes live: aictrl syncs `.aictrl/workflows/` automatically about 20 s after the file reaches the repository's default branch (a merge or a direct push). There is no manual sync step; do not ask the user to run one. A file on any other branch has no effect.
-10. If the request was authoring only, stop with a reviewable YAML file. Do not apply, start, commit, push, merge, or deploy unless the user separately authorizes that action.
+   Local validation proves structure and DAG soundness only. Organization-scoped
+   checks (model, template, workflow and skill references, input mappings and
+   conditions, and workflow name ownership) run when git sync imports the file.
+   Tell the user which of these the file depends on, such as the skills it
+   names, so they can confirm those exist.
+8. Show the created path, inputs, stages, side effects, approvals, limits, unresolved references, and the local validator result: `passed`, `failed`, or `not run`. Say how the file goes live: aictrl syncs `.aictrl/workflows/` automatically about 20 s after the file reaches the repository's default branch (a merge or a direct push). There is no manual sync step; do not ask the user to run one. A file on any other branch has no effect.
+9. If the request was authoring only, stop with a reviewable YAML file. Do not apply, start, commit, push, merge, or deploy unless the user separately authorizes that action.
 
 ## Connected publication
 
 Use this section only when the user explicitly requested publication.
 
-1. Use `validate_workflow_file` as the documented read-only preflight when
-   listed, following step 8. Show both validator results, target organization,
-   repository/path, workflow name, action, resolved skills, and warnings before
-   publication. An error blocks publication; if preflight is unavailable,
-   disclose the organization checks that did not run before the Git handoff.
+1. Show the local validator result, target organization when known,
+   repository/path, and workflow name before publication. Resolve local
+   validation errors before the Git handoff.
 2. There is no publish tool. Publishing means placing the validated file on
    the source repository's default branch (a merge or a direct push); git sync
    then imports it. Workflow lifecycle tools operate on published workflows
@@ -127,8 +110,8 @@ Use this section only when the user explicitly requested publication.
 
 Always report:
 
-- configuration path and both validator results (local and remote: `passed`,
-  `failed`, or `not run`), including warnings and why any checks did not run;
+- configuration path and local validator result (`passed`, `failed`, or
+  `not run`), including diagnostics and why validation did not run, if applicable;
 - that it syncs about 20 s after the file reaches the repository's default branch (a merge or a direct push), with no manual step;
 - workflow inputs, stages, declared side effects, gates, and limits;
 - unresolved organization-scoped references or runtime conditions; and
@@ -136,7 +119,7 @@ Always report:
 
 Only report `published` after confirming the import; include its observed
 workflow identifier/version when available. State whether any run was started;
-authoring, preflight, and publication do not start one.
+authoring and publication do not start one.
 
 ## Minimal v2 shape
 

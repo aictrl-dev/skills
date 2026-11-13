@@ -7,10 +7,10 @@
  * the schema can't express (duplicate node ids, edge endpoints, acyclicity, loop
  * nesting depth and the nested-maxIterations product bound).
  *
- * Organization checks require the read-only validate_workflow_file MCP tool:
- * model/template/workflow/skill references, layer-2 mappings and conditions,
- * and workflow name ownership. Git sync remains the definitive import gate;
- * a preflight does not execute nodes or prove runtime expression results.
+ * Organization checks run when git sync imports the file:
+ * model/template/workflow/skill references, input mappings and conditions,
+ * and workflow name ownership. Import does not execute nodes or prove runtime
+ * expression results.
  *
  * Usage (run from your repo root):
  *   npx --yes -p ajv@8 -p ajv-formats@3 -p js-yaml@4 -- node path/to/create-workflow/validate.mjs .aictrl/workflows/my-workflow.yaml
@@ -163,9 +163,9 @@ if (doc && typeof doc === 'object') checkGraph(doc.nodes, doc.edges);
 // ---- Report ------------------------------------------------------------------
 if (errors.length === 0) {
   console.log(`✓ ${file} — schema-valid (layer 1) and passes static DAG checks.`);
-  console.log('  Organization checks not run: model/template/workflow/skill references,');
-  console.log('  layer-2 input mappings and conditions, and workflow name ownership.');
-  console.log('  Use validate_workflow_file if listed in the connected MCP catalog; git sync is the definitive import gate.');
+  console.log('  Local validation proves structure and static DAG soundness only.');
+  console.log('  Git sync checks model/template/workflow/skill references, input mappings');
+  console.log('  and conditions, and workflow name ownership when it imports the file.');
   process.exit(0);
 }
 console.error(`✗ ${file} — ${errors.length} problem(s):`);

@@ -29,22 +29,15 @@ runs `implement-code-change`, pauses for approval before merge, and never deploy
 - [ ] Repository and issue ID are typed workflow/task parameters with explicit mappings.
 - [ ] Merge is behind an explicit manual gate and deploy is absent.
 - [ ] The file passes the bundled schema and static DAG validator.
-- [ ] After local success, the agent calls `validate_workflow_file` when listed
-      in the connected aictrl MCP catalog, passing `organization_id`, exact file
-      `content`, and the repository (`owner/name` from Git remote) and file path
-      when known. It uses `list_organizations` if no organization was supplied
-      and the tool is listed, asking the user if several organizations exist.
-- [ ] The agent fixes every remote error, repeats local validation and remote
-      preflight until `valid: true`, and shows all warnings, especially an
-      existing workflow with the same name, plus `workflowName`, `action`, and
-      `resolvedSkills`.
-- [ ] With the tool absent or no aictrl connection, it says "organization checks
-      not run" and lists parsing/schema/triggers against import, model and
-      organization template/workflow/skill references, layer-2 mappings and
-      conditions, and name ownership. It never calls an unlisted tool.
+- [ ] The agent explains that local validation proves structure and DAG
+      soundness only. Organization-scoped model, template, workflow and skill
+      references, input mappings and conditions, and workflow name ownership
+      are checked when git sync imports the file.
+- [ ] It names the dependencies the file uses, such as its skills, so the user
+      can confirm those exist.
 - [ ] The agent reports path, inputs, stages, side effects, approvals, limits,
-      unresolved references, and local and remote results separately as
-      `passed`, `failed`, or `not run`.
+      unresolved references, and the local validator result as `passed`,
+      `failed`, or `not run`.
 - [ ] It explains that git sync imports the workflow
       about 20 s after the file reaches the repository's default branch (a merge or a direct push),
       with no manual sync step, and that there is no publish tool.
@@ -58,15 +51,11 @@ The organization already runs the canonical label → PR workflow sourced from
 1. "Set up the same label → PR workflow for repo `acme/web` on branch `main`."
    Only the repository differs: the agent directs an organization admin to
    Workflow Studio → the workflow → Settings → Triggers → Repositories and
-   creates no duplicate file. Local/remote file validation is `not run` because
+   creates no duplicate file. Local file validation is `not run` because
    no file was authored.
 2. "Set up label → PR for repo `acme/web` on branch `develop`." The base branch
    in the prompts must differ: the agent creates a separately named variant
    and explains why a settings-only change cannot express that difference.
-
-For file-authoring scenarios, exercise both a catalog that lists
-`validate_workflow_file` and one without it. Include remote error-then-success
-and same-name warning responses; preflight must save nothing.
 
 ### Deterministic checks
 
@@ -111,6 +100,6 @@ and same-name warning responses; preflight must save nothing.
       blocked comments use `Workflow blocked: <reason-code>` and do not link
       the PR.
 - [ ] The file passes the bundled schema and static DAG validator.
-- [ ] The agent calls `validate_workflow_file` when listed; otherwise it reports
-      "organization checks not run" and the remaining checks. The completion
-      report gives both validator results and all remote warnings.
+- [ ] The agent names the file's organization-scoped dependencies for the user
+      to confirm and explains that git sync checks them at import. The
+      completion report gives the local validator result only.
