@@ -52,8 +52,9 @@ const OVERLAP_FORM = `<!doctype html><main><header>
 </form></main>`;
 
 // Some rich-text comboboxes edit plain text only; fill() reaches them like any other contenteditable.
+// A div is not labelable by <label for>; name it through aria-labelledby.
 const PLAINTEXT_FORM = `<!doctype html><main><form>
-  <label for="tag">Tag</label><div id="tag" role="combobox" aria-expanded="false" contenteditable="plaintext-only"></div>
+  <span id="tag-label">Tag</span><div id="tag" role="combobox" aria-labelledby="tag-label" aria-expanded="false" contenteditable="plaintext-only"></div>
 </form></main>`;
 
 async function withPage(fn, html = FORM) {
