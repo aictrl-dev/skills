@@ -17,7 +17,6 @@ export function buildPiPackage(output = join(ROOT, 'dist/pi-package')) {
   mkdirSync(output, { recursive: true });
   for (const [source, destination] of [
     ['skills', 'skills'],
-    ['submission/pi/extensions', 'extensions'],
     ['submission/pi/README.md', 'README.md'],
     ['LICENSE', 'LICENSE'],
   ]) {

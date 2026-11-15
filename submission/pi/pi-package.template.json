@@ -1,24 +1,29 @@
 {
   "name": "@aictrl/skills",
-  "description": "17 MIT engineering skills for Pi, with an optional aictrl connection for cloud code review and backlog work",
+  "description": "17 MIT engineering skills for Pi: code review, specs, bugs, root-cause analysis and more, with an optional aictrl connection for cloud code review",
   "type": "module",
-  "keywords": ["pi-package", "agent-skills", "engineering", "code-review", "workflow"],
+  "keywords": [
+    "pi-package",
+    "agent-skills",
+    "engineering",
+    "code-review",
+    "workflow"
+  ],
   "license": "MIT",
   "homepage": "https://aictrl.dev",
   "repository": {
     "type": "git",
     "url": "https://github.com/aictrl-dev/skills.git"
   },
-  "files": ["skills/", "extensions/", "README.md", "LICENSE"],
-  "engines": {
-    "node": ">=22.19.0"
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
-  },
+  "files": [
+    "skills/",
+    "README.md",
+    "LICENSE"
+  ],
   "pi": {
-    "skills": ["./skills"],
-    "extensions": ["./extensions/aictrl-mcp.ts"],
+    "skills": [
+      "./skills"
+    ],
     "image": "https://raw.githubusercontent.com/aictrl-dev/skills/main/assets/github-social-preview.png"
   }
 }

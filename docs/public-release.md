@@ -66,7 +66,7 @@ Build the candidate from a checkout that has passed the checks above:
 npm run package:pi --prefix tooling
 ```
 
-`scripts/package-pi.mjs` copies the canonical `skills/`, the Pi extension and
+`scripts/package-pi.mjs` copies the canonical `skills/` and
 gallery README from `submission/pi/`, and LICENSE into ignored
 `dist/pi-package/`. It generates `package.json` there from
 `submission/pi/pi-package.template.json`, using the Claude plugin version, then
@@ -85,24 +85,14 @@ and check `https://pi.dev/packages/@aictrl/skills` for the README, preview and
 install command. The `pi-package` npm keyword enables gallery discovery; allow
 for its indexing delay. Building or packing is not publication.
 
-The optional MCP extension targets Pi 1.5.2's `registerMcpServer` API, with
-`exposure: "hidden"` and explicit `toolExposure` overrides for review, findings,
-tasks, backlog/context, organization selection and workflow operations. The
-shared `query_context` and `update_backlog` tools cannot be filtered by action.
-It registers disabled to avoid startup sign-in notices or network errors. The
-user enables `aictrl` through `/mcp` for the current session, then opts in to
-sign-in with `/mcp login aictrl`. Pi requires an enabled server before login;
-its extension-server enabled state is session-scoped.
-Inspect it with `/mcp` inside Pi: shell `pi mcp list` does not load extensions
-and only reports file-configured servers. No sign-in is part of the build or
-local release checks.
+The package ships skills only, with no Pi extension. The optional aictrl connection is
+the user's own file-configured MCP server (`pi mcp add aictrl --url https://aictrl.dev/mcp`,
+then `pi mcp login aictrl`). It persists across sessions, which an extension-registered
+server does not in Pi 1.5.2. No sign-in is part of the build or local release checks.
 
 Pi's [package docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md)
 describe the gallery metadata; the [gallery's rendered manifest](https://pi.dev/packages/pi-smart-web-search)
-also demonstrates an HTTPS URL in `pi.image`. The
-[MCP extension docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md#register-servers-from-an-extension)
-explain the distinction between extension registrations and file configuration.
-Check these APIs against the installed Pi 1.5.2 docs when verifying this release.
+also demonstrates an HTTPS URL in `pi.image`. Check the package metadata against the installed Pi docs when verifying a release.
 
 ## GitHub social preview
 
