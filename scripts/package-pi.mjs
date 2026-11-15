@@ -3,7 +3,7 @@
 // Claude plugin, and skills/ remains the single source for every distribution.
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, readJson } from './public-catalog.mjs';
 
@@ -15,13 +15,14 @@ export function buildPiPackage(output = join(ROOT, 'dist/pi-package')) {
 
   rmSync(output, { recursive: true, force: true });
   mkdirSync(output, { recursive: true });
-  for (const [source, destination] of [
-    ['skills', 'skills'],
-    ['submission/pi/README.md', 'README.md'],
-    ['LICENSE', 'LICENSE'],
-  ]) {
-    cpSync(join(ROOT, source), join(output, destination), { recursive: true });
+  // Copy only git-tracked skill files: a working tree can hold untracked or
+  // ignored files (.env, node_modules, __pycache__) that must never be published.
+  for (const path of trackedSkillFiles()) {
+    mkdirSync(dirname(join(output, path)), { recursive: true });
+    cpSync(join(ROOT, path), join(output, path));
   }
+  cpSync(join(ROOT, 'submission/pi/README.md'), join(output, 'README.md'));
+  cpSync(join(ROOT, 'LICENSE'), join(output, 'LICENSE'));
   writeFileSync(join(output, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
   const [pack] = JSON.parse(execFileSync(
@@ -29,6 +30,13 @@ export function buildPiPackage(output = join(ROOT, 'dist/pi-package')) {
     { cwd: output, encoding: 'utf8', timeout: 60_000, maxBuffer: 4 * 1024 * 1024 },
   ));
   return { output, manifest, pack };
+}
+
+export function trackedSkillFiles() {
+  const files = execFileSync('git', ['ls-files', '-z', '--', 'skills'], { cwd: ROOT, encoding: 'utf8' })
+    .split('\0').filter(Boolean);
+  if (files.length === 0) throw new Error('No tracked files under skills/: run from a git checkout of aictrl-dev/skills.');
+  return files;
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test, { after } from 'node:test';
-import { buildPiPackage } from '../scripts/package-pi.mjs';
+import { buildPiPackage, trackedSkillFiles } from '../scripts/package-pi.mjs';
 import { ROOT, listSkillNames, readJson } from '../scripts/public-catalog.mjs';
 
 const scratch = mkdtempSync(join(tmpdir(), 'aictrl-pi-package-test-'));
@@ -25,10 +25,13 @@ test('Pi npm metadata uses the gallery keyword and shared release version', () =
 test('every canonical skill and supporting file ships unchanged in the npm pack', () => {
   const skills = listSkillNames();
   assert.deepEqual(listSkillNames(output), skills);
-  for (const path of filesUnder(join(ROOT, 'skills'), 'skills')) {
+  const tracked = trackedSkillFiles();
+  for (const path of tracked) {
     assert.ok(packedPaths.has(path), `Not packed: ${path}`);
     assert.deepEqual(readFileSync(join(output, path)), readFileSync(join(ROOT, path)), path);
   }
+  // Exactly the tracked files: nothing untracked or ignored from the working tree.
+  assert.deepEqual([...packedPaths].filter((path) => path.startsWith('skills/')).sort(), [...tracked].sort());
   for (const skill of skills) {
     assert.ok(packedPaths.has(`skills/${skill}/SKILL.md`));
   }
@@ -44,14 +47,32 @@ test('manifest resources exist and the tarball contains only public package file
   for (const path of ['README.md', 'LICENSE', 'package.json']) assert.ok(packedPaths.has(path));
   for (const path of packedPaths) {
     assert.match(path, /^(?:skills\/|README\.md$|LICENSE$|package\.json$)/);
+    for (const segment of path.split('/')) {
+      assert.ok(!segment.startsWith('.') && segment !== 'node_modules' && segment !== '__pycache__', `Must not ship: ${path}`);
+    }
   }
+  // The gallery preview hotlinks this asset on main; it must exist in the repo.
+  assert.ok(statSync(join(ROOT, 'assets/github-social-preview.png')).isFile());
   assert.deepEqual(readFileSync(join(output, 'README.md')), readFileSync(join(ROOT, 'submission/pi/README.md')));
   assert.deepEqual(readFileSync(join(output, 'LICENSE')), readFileSync(join(ROOT, 'LICENSE')));
 });
 
 test('gallery README covers every skill and attributes all aictrl.dev links to Pi', () => {
   const readme = readFileSync(join(output, 'README.md'), 'utf8');
-  for (const skill of listSkillNames()) assert.ok(readme.includes(`\`${skill}\``), skill);
+  const skills = listSkillNames();
+  for (const skill of skills) assert.ok(readme.includes(`\`${skill}\``), skill);
+  // The skill counts and the standalone/connected split must stay true as skills change.
+  const connected = ['create-workflow', 'implement-code-change', 'execute-workflow'];
+  const standalone = skills.filter((skill) => !connected.includes(skill));
+  assert.ok(readme.startsWith(`# aictrl skills for Pi\n\n${skills.length} MIT-licensed`));
+  assert.ok(manifest.description.startsWith(`${skills.length} MIT`));
+  const standaloneParagraph = readme.split(`These ${standalone.length} work on their own`)[1]?.split('\n\n')[1];
+  assert.ok(standaloneParagraph, `README must say "These ${standalone.length} work on their own"`);
+  assert.deepEqual([...standaloneParagraph.matchAll(/`([a-z-]+)`/g)].map(([, name]) => name), standalone);
+  for (const skill of connected) assert.match(readme, new RegExp(`^- \`${skill}\``, 'm'));
+  // Public copy rules: no vendor support claims, no Kimi, lowercase brand.
+  assert.doesNotMatch(readme, /kimi|moonshot|z\.ai|zhipu|official|partner|approved/i);
+  assert.doesNotMatch(readme, /AICtrl|\[ai\]ctrl|Aictrl/);
   assert.match(readme, /pi install npm:@aictrl\/skills/);
   assert.match(readme, /pi mcp add aictrl --url https:\/\/aictrl\.dev\/mcp/);
   assert.match(readme, /pi mcp login aictrl/);
@@ -84,9 +105,3 @@ test('repository contains no new npm manifests or lockfiles outside allowed loca
   execFileSync('git', ['check-ignore', 'dist/pi-package/package.json'], { cwd: ROOT, timeout: 10_000 });
 });
 
-function filesUnder(directory, prefix) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = `${prefix}/${entry.name}`;
-    return entry.isDirectory() ? filesUnder(join(directory, entry.name), path) : [path];
-  });
-}

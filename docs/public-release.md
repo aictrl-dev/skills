@@ -3,8 +3,7 @@
 This repository is the release source for the aictrl.dev skills, Claude plugin
 and Codex plugin, and the Pi npm package. One Git commit and one semantic
 version identify them. The canonical skill bodies live only under `skills/`;
-vendor directories must never
-contain generated copies. Claude and Codex read the tagged repository root;
+vendor directories must never contain generated copies. Claude and Codex read the tagged repository root;
 Pi consumes an npm package staged from that same canonical source at build time.
 
 Repository tooling (tests, validators, Mermaid CLI) lives in `tooling/`. The
@@ -91,8 +90,9 @@ then `pi mcp login aictrl`). It persists across sessions, which an extension-reg
 server does not in Pi 1.5.2. No sign-in is part of the build or local release checks.
 
 Pi's [package docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md)
-describe the gallery metadata; the [gallery's rendered manifest](https://pi.dev/packages/pi-smart-web-search)
-also demonstrates an HTTPS URL in `pi.image`. Check the package metadata against the installed Pi docs when verifying a release.
+describe the gallery metadata. The staging script copies only git-tracked files under
+`skills/`, so publish from a clean checkout of the merged commit. Check the package
+metadata against the installed Pi docs when verifying a release.
 
 ## GitHub social preview
 
