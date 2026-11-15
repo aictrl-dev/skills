@@ -1,10 +1,11 @@
 # Public plugin release
 
 This repository is the release source for the aictrl.dev skills, Claude plugin
-and Codex plugin. One Git commit and one semantic version identify both. The
-canonical skill bodies live only under `skills/`; vendor directories must never
-contain generated copies. Nothing is published to npm: every client reads the
-tagged repository root.
+and Codex plugin, and the Pi npm package. One Git commit and one semantic
+version identify them. The canonical skill bodies live only under `skills/`;
+vendor directories must never
+contain generated copies. Claude and Codex read the tagged repository root;
+Pi consumes an npm package staged from that same canonical source at build time.
 
 Repository tooling (tests, validators, Mermaid CLI) lives in `tooling/`. The
 plugin root must not contain `package.json` or a lockfile: Claude Code installs
@@ -56,6 +57,52 @@ Use `submission/codex/readiness.md` as the Codex submission gate and
 `submission/claude/readiness.md` for the Claude directory. Neither submission
 nor approval counts as publication; close the vendor issue only
 after a clean user installs from the live directory/listing.
+
+## Pi package
+
+Build the candidate from a checkout that has passed the checks above:
+
+```bash
+npm run package:pi --prefix tooling
+```
+
+`scripts/package-pi.mjs` copies the canonical `skills/`, the Pi extension and
+gallery README from `submission/pi/`, and LICENSE into ignored
+`dist/pi-package/`. It generates `package.json` there from
+`submission/pi/pi-package.template.json`, using the Claude plugin version, then
+runs `npm pack --dry-run` and prints the complete file list. Never commit the
+generated manifest, a new lockfile, or a skill mirror into the plugin source.
+
+The first publish must be performed manually by an npm owner of the `@aictrl`
+organization, from the repository root:
+
+```bash
+npm publish dist/pi-package --access public
+```
+
+After publication, verify `pi install npm:@aictrl/skills` in a clean Pi home
+and check `https://pi.dev/packages/@aictrl/skills` for the README, preview and
+install command. The `pi-package` npm keyword enables gallery discovery; allow
+for its indexing delay. Building or packing is not publication.
+
+The optional MCP extension targets Pi 1.5.2's `registerMcpServer` API, with
+`exposure: "hidden"` and explicit `toolExposure` overrides for review, findings,
+tasks, backlog/context, organization selection and workflow operations. The
+shared `query_context` and `update_backlog` tools cannot be filtered by action.
+It registers disabled to avoid startup sign-in notices or network errors. The
+user enables `aictrl` through `/mcp` for the current session, then opts in to
+sign-in with `/mcp login aictrl`. Pi requires an enabled server before login;
+its extension-server enabled state is session-scoped.
+Inspect it with `/mcp` inside Pi: shell `pi mcp list` does not load extensions
+and only reports file-configured servers. No sign-in is part of the build or
+local release checks.
+
+Pi's [package docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md)
+describe the gallery metadata; the [gallery's rendered manifest](https://pi.dev/packages/pi-smart-web-search)
+also demonstrates an HTTPS URL in `pi.image`. The
+[MCP extension docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md#register-servers-from-an-extension)
+explain the distinction between extension registrations and file configuration.
+Check these APIs against the installed Pi 1.5.2 docs when verifying this release.
 
 ## GitHub social preview
 

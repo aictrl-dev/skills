@@ -9,7 +9,8 @@
     "smoke:claude": "cd .. && node scripts/smoke-claude-public.mjs",
     "smoke:codex": "cd .. && node scripts/smoke-codex-public.mjs",
     "smoke:production-mcp": "cd .. && node scripts/smoke-production-mcp-public.mjs",
-    "package:openai": "cd .. && node scripts/package-openai-plugin.mjs"
+    "package:openai": "cd .. && node scripts/package-openai-plugin.mjs",
+    "package:pi": "cd .. && node scripts/package-pi.mjs"
   },
   "license": "MIT",
   "engines": {

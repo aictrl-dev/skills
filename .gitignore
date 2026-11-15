@@ -5,3 +5,4 @@ evals/*.local.md
 __pycache__/
 node_modules/
 *.tgz
+dist/
