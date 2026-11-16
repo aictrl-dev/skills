@@ -1,7 +1,7 @@
 {
   "name": "aictrl",
   "description": "Essential engineering skills for teams building with AI, with optional controlled aictrl workflow execution",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "author": {
     "name": "aictrl.dev",
     "email": "info@aictrl.dev",

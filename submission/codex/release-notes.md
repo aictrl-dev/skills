@@ -1,4 +1,25 @@
-# aictrl.dev 1.2.0 — Codex release notes
+# aictrl.dev 1.2.1 — Codex release notes
+
+Maintenance release of aictrl.dev's engineering plugin for Codex and ChatGPT.
+Essential, local-first skills are unchanged in scope; this release fixes and
+hardens three of them.
+
+- `create-workflow`: the local validator resolves its pinned dependencies
+  from trusted roots only, no longer needs `ajv-formats`, uses the platform's
+  npm cache, and prints a shell-safe, cross-platform remediation command.
+  aictrl imports a workflow once it is merged to the default branch of a
+  connected repository.
+- `recording-product-demo`: narration is provider-neutral; prepared audio and
+  narration inputs are validated consistently, and the media environment and
+  optional provider credentials are isolated.
+- `ux-testing`: simulator keys come only from the environment the user
+  supplies; the skill no longer reads `.env` files, a custom endpoint never
+  falls back to another vendor's key, and requests reject redirects.
+- The same skills are now also published to npm as `@aictrl/skills` for Pi.
+- Claude, Codex, OpenCode and Pi consume the same canonical root `skills/`
+  tree from one release commit.
+
+## 1.2.0
 
 Feature release of aictrl.dev's engineering plugin for Codex and ChatGPT.
 
