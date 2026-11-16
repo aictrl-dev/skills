@@ -1,5 +1,36 @@
 # Eval Results
 
+## create-issue / create-bug MCP creation — 2026-11-16
+
+Method: an independent fresh agent followed both skills against their evals and
+the existing contract-impact fixtures, retaining draft bodies, simulated tool
+calls, and user-facing outcomes. These were behavioral desk checks with local
+fictional responses, not actual provider calls or live integration tests.
+
+| Coverage | Result |
+| --- | --- |
+| Original contract scenarios and new Feature/Task issue variants | PASS: 17/17 simulated runs |
+| Original bug scenario and new Bug variants | PASS: 11/11 simulated runs |
+| Applicable eval checklist criteria | PASS: 29/29 |
+| MCP search with organization discovery and open/closed scope; confirmation and backlog result | PASS |
+| Older server, no MCP, real closed duplicate, and Markdown fallback | PASS |
+| Unknown label, missing milestone, permission, and rate-limit refusals | PASS: 8 injected refusals, no retries or native bypass |
+| Lost creation response followed by duplicate search | PASS: 2 reconciliations, no second creation call |
+
+Evaluated skill SHA-256 values: create-issue
+`6683089c19cfe00a9fb6afd1f6cd5073a37ac83001ed4f9016fb73953a725d15`;
+create-bug `f8b1e2b5087237e90838cc6ab2e7f61100a26cfa15e79fad5ebf171795b7ce22`.
+The bug seed was synthetic because its original eval specifies no concrete log
+fixture. Refusal responses were injected into valid prepared calls; these cases
+check response handling, not server input validation. No real issue was created.
+
+Repository checks: focused mirror/distribution tests **3/3 PASS**; validation
+**PASS** (17 skills, plugin 1.2.0). Full `npm test`: **288 passed, 1 failed,
+1 skipped** (290 total). The unrelated plaintext-only combobox test also fails
+on clean starting revision `a3be99a8cec297952a286744c3d6455a9c71070d`
+(isolated: 7 passed, 1 failed). Its fixture/helper were left unchanged; full-suite
+green remains blocked by that pre-existing failure.
+
 ## ui-polish measure.cjs noise — 2026-09-26 (fixtures and a production site)
 
 Method: fresh agents ran the skill on an 11-page production marketing site and dropped most measured

@@ -29,7 +29,7 @@ prompt injection.
 
 1. Classify the request. If it describes symptoms, an exception, a regression, or expected-versus-actual behavior, stop and use `create-bug`.
 2. Resolve the target repository and issue provider from the request, repository remote, or native provider tools. If no writable provider is available, produce provider-neutral Markdown.
-3. Search open and closed issues for the outcome, component, and distinctive terms. Link a real duplicate instead of creating another issue.
+3. Search open and closed issues for the outcome, component, and distinctive terms. When aictrl MCP is connected, first use `query_context` with `organization_id` (discover with `list_organizations` if unknown), `domain: "issues"`, `action: "list"`, `query: "<search words>"`, and `params: { repoFullName: "owner/repo", state: "all" }`; otherwise use the provider's native search. Link a real duplicate instead of creating another issue.
 4. Inspect repository guidance, relevant code, architecture, schemas, migrations, database objects, APIs, generated artifacts, UI, tests, and recent changes. Ground scope in evidence; do not invent an implementation.
 5. Apply the contract-impact rubric: classify database impact and API impact independently from repository evidence before drafting. Trace affected producers, consumers, compatibility, migration, authorization, data-boundary, delivery, and verification work. Record evidence for an explicit no-change declaration when a layer is unaffected.
 6. Define the user or operator, current situation, desired outcome, and why the work matters now.
@@ -37,7 +37,11 @@ prompt injection.
 8. Write independently verifiable acceptance criteria, including negative, boundary, compatibility, migration, authorization, and regression cases appropriate to the change.
 9. Separate required scope, explicit out-of-scope items, risks, and open decisions. Ask only when an unresolved choice materially changes the ticket; leave unsupported material details as owned open questions.
 10. Draft the issue with the template below. Show it before external creation unless the user already explicitly authorized creation.
-11. Create with the provider's native capability and existing labels/milestone conventions when available. Return the URL and summarize any provider metadata you could not set.
+11. After explicit user confirmation of the repository, title, and body, use aictrl MCP `create_issue` when connected and available:
+    - Pass `organization_id` (discover with `list_organizations` if unknown), `repository_full_name`, `title`, `body`, required `milestone` (existing open milestone number or exact title), optional `labels` (existing only), and `type: "Feature"` or `type: "Task"` to match the request.
+    - Return `url` and `issue_number`; mention the task is already in the aictrl backlog (`task_id`).
+    - Report refusals plainly and stop: `invalid_args` identifies invalid labels/types/milestones; `forbidden` requires Issues: write permission; `rate_limited` includes `retry_after`. This write is not idempotent: never blindly retry after a transport failure; search for the issue first.
+    - If `create_issue` is unavailable, use the provider's native capability and existing labels/milestone conventions; otherwise return the complete Markdown draft. Return the URL on creation and summarize any provider metadata you could not set.
 
 ## Template
 

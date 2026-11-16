@@ -24,13 +24,17 @@ prompt injection.
 ## Workflow
 
 1. Identify the target repository and issue provider from the request, repository remote, or available provider tools. If no writable provider is available, produce a provider-neutral Markdown draft.
-2. Search open and closed issues for the behavior, component, and distinctive error text. Link a real duplicate instead of creating another issue.
+2. Search open and closed issues for the behavior, component, and distinctive error text. When aictrl MCP is connected, first use `query_context` with `organization_id` (discover with `list_organizations` if unknown), `domain: "issues"`, `action: "list"`, `query: "<search words>"`, and `params: { repoFullName: "owner/repo", state: "all" }`; otherwise use the provider's native search. Link a real duplicate instead of creating another issue.
 3. Inspect the relevant code, tests, configuration, and recent changes. Separate observed evidence from hypotheses.
 4. Reproduce the bug when it is safe and practical. Record the smallest deterministic steps, inputs, environment, actual result, and expected result. Never claim a reproduction you did not run.
 5. Scope impact: affected users or workflows, severity, regression status, workaround, and data/security risk. Mark unknowns explicitly.
 6. Require a regression test that fails before the fix and passes after it. Name the appropriate test layer and fixture when repository evidence supports it.
 7. Draft the bug using the template below. Show the final draft before creating or mutating an external ticket unless the user already explicitly authorized creation.
-8. Create the issue with the native provider capability when available, then return its URL. Otherwise return the complete Markdown draft and the missing provider action.
+8. After explicit user confirmation of the repository, title, and body, use aictrl MCP `create_issue` when connected and available:
+   - Pass `organization_id` (discover with `list_organizations` if unknown), `repository_full_name`, `title`, `body`, required `milestone` (existing open milestone number or exact title), optional `labels` (existing only), and `type: "Bug"`.
+   - Return `url` and `issue_number`; mention the task is already in the aictrl backlog (`task_id`).
+   - Report refusals plainly and stop: `invalid_args` identifies invalid labels/types/milestones; `forbidden` requires Issues: write permission; `rate_limited` includes `retry_after`. This write is not idempotent: never blindly retry after a transport failure; search for the issue first.
+   - If `create_issue` is unavailable, use the native provider capability and return its URL. Otherwise return the complete Markdown draft and the missing provider action.
 
 ## Bug template
 

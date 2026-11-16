@@ -82,6 +82,7 @@ test('Codex submission requires the exact public MCP catalog', () => {
     'list_pr_findings',
     'record_finding_verdict',
     'get_started',
+    'create_issue',
   ]);
 });
 

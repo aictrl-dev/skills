@@ -4,9 +4,10 @@
 
 Use the exact fixture repository in
 `evals/fixtures/contract-impact/repository-evidence.md` and the six requests
-in `evals/fixtures/contract-impact/create-issue-requests.md`. Draft only; do not
-create or edit an external issue. Any contract value not present in those
-fixtures must remain an explicit unknown rather than being invented.
+in `evals/fixtures/contract-impact/create-issue-requests.md` for scenarios A–F.
+Draft only; do not create or edit an external issue. Any contract value not
+present in those fixtures must remain an explicit unknown rather than being
+invented.
 
 ### A. Database-changing request
 
@@ -43,6 +44,47 @@ Run Request F against the current cleanup query and supporting index. The
 database contract must classify the change as behavioral, include the exact
 declaration `No ERD topology change.` with evidence, and document the query,
 index, delivery, and verification contract without inventing a schema change.
+
+For scenarios G–L, simulate tools locally; never create a real issue. Use the
+dashboard-copy change from Request C with the simulated targets and
+authorization below: repository `example/project`, organization `org-test`,
+existing label `enhancement`, enabled types `Feature` and `Task`, and open
+milestone 7 titled `Next`. Live search returns no duplicates unless specified. A successful
+creation returns `{ url: "https://github.com/example/project/issues/42",
+issue_number: 42, task_id: "task-test" }`.
+
+### G. MCP connected, creation available
+
+Expose `query_context`, `list_organizations`, and `create_issue`; omit the
+organization ID from the request. Initially ask for a draft, then explicitly
+confirm its repository, title, and body and ask to file it. Run once for a
+feature and once for an engineering task.
+
+### H. MCP connected, creation unavailable
+
+Expose `query_context` and native provider creation, but not `create_issue`.
+Confirm the draft and ask to file it. Repeat with no aictrl MCP connection.
+
+### I. Real duplicate found
+
+Have live search return a closed issue with the same outcome and component,
+alongside an unrelated similar issue. Ask to file the request.
+
+### J. Creation refused
+
+After confirmation, have `create_issue` return `invalid_args` naming an unknown
+label. Repeat with a missing required milestone, then with `forbidden` naming
+Issues: write, and `rate_limited` with `retry_after: 60`.
+
+### K. Ambiguous transport failure
+
+After confirmation, have `create_issue` fail at the transport after creating
+issue 42. Return that matching issue on the next live duplicate search.
+
+### L. No writable provider
+
+Expose neither aictrl creation nor native provider creation. Ask to file the
+confirmed draft.
 
 ## Pass criteria
 
@@ -84,3 +126,19 @@ index, delivery, and verification contract without inventing a schema change.
 - [ ] All five story drafts retain concise issue structure, independently
       verifiable acceptance criteria, provider-neutral behavior, and the
       confirmation boundary before external mutation.
+- [ ] With MCP connected, searches live first using `query_context` with
+      `organization_id: "org-test"`, `domain: "issues"`, `action: "list"`, `query`, and
+      `params: { repoFullName: "example/project", state: "all" }`.
+- [ ] Creates only after explicit confirmation; discovers the organization
+      with `list_organizations` and passes `organization_id`,
+      `repository_full_name`, `title`, `body`, existing labels, an existing open
+      milestone number or exact title, and the appropriate `Feature` or `Task`
+      type. Returns the URL, issue number, and already-created backlog task ID.
+- [ ] With MCP connected but `create_issue` missing, keeps the live duplicate
+      search and uses native creation. Without MCP, uses native search and
+      creation. Without a writable provider, returns the complete Markdown draft.
+- [ ] Links the real closed duplicate and never calls either creation tool.
+- [ ] Reports the refused label or missing milestone, permission, or retry
+      delay plainly; makes no blind retry or native creation after a refusal.
+- [ ] Searches after an ambiguous transport failure, links the matching issue,
+      and makes no second creation call.
