@@ -1,10 +1,11 @@
 # Public plugin release
 
 This repository is the release source for the aictrl.dev skills, Claude plugin
-and Codex plugin. One Git commit and one semantic version identify both. The
-canonical skill bodies live only under `skills/`; vendor directories must never
-contain generated copies. Nothing is published to npm: every client reads the
-tagged repository root.
+and Codex plugin, and the Pi npm package. One Git commit and one semantic
+version identify them. The canonical skill bodies live only under `skills/`;
+vendor directories must never contain generated copies. Claude and Codex read
+the tagged repository root; Pi installs an npm package built from that same
+source.
 
 Repository tooling (tests, validators, Mermaid CLI) lives in `tooling/`. The
 plugin root must not contain `package.json` or a lockfile: Claude Code installs
@@ -56,6 +57,47 @@ Use `submission/codex/readiness.md` as the Codex submission gate and
 `submission/claude/readiness.md` for the Claude directory. Neither submission
 nor approval counts as publication; close the vendor issue only
 after a clean user installs from the live directory/listing.
+
+## Pi package
+
+Build the candidate from a checkout that has passed the checks above:
+
+```bash
+npm run package:pi --prefix tooling
+```
+
+`scripts/package-pi.mjs` stages the committed `skills/` files, the gallery
+README from `submission/pi/` and LICENSE into ignored `dist/pi-package/`. It
+generates `package.json` there from `submission/pi/pi-package.template.json`,
+using the Claude plugin version, packs the tarball
+`dist/aictrl-skills-<version>.tgz` and prints its complete file list. The build
+refuses to run when any package input differs from the commit, so build from a
+clean checkout of the merged commit. Never commit the generated manifest, a new
+lockfile, or a skill mirror into the plugin source.
+
+The first publish must be performed manually by an npm owner of the `@aictrl`
+organization, from the repository root. Publish the tarball the build printed,
+not the directory, so the checked file list is exactly what ships:
+
+```bash
+npm publish dist/aictrl-skills-<version>.tgz --access public
+```
+
+After publication, verify `pi install npm:@aictrl/skills` in a clean Pi home
+and check `https://pi.dev/packages/@aictrl/skills` for the README, preview and
+install command. The `pi-package` npm keyword enables gallery discovery; allow
+for its indexing delay. Building or packing is not publication.
+
+The package ships skills only, with no Pi extension. The optional aictrl
+connection is the user's own file-configured MCP server
+(`pi mcp add aictrl --url https://aictrl.dev/mcp`, then
+`pi mcp login aictrl`). It persists across sessions, which an
+extension-registered server does not in Pi 1.5.2. No sign-in is part of the
+build or local release checks.
+
+Pi's [package docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md)
+describe the gallery metadata. Check the package metadata against the
+installed Pi docs when verifying a release.
 
 ## GitHub social preview
 
