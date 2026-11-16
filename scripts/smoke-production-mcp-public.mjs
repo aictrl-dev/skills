@@ -15,6 +15,7 @@ const {
   readOpenWorld,
   readOpenWorldIdempotent,
   update,
+  create,
   createIdempotent,
   updateOpenWorld,
   updateOpenWorldIdempotent,
@@ -22,71 +23,85 @@ const {
 
 const EXPECTED_TOOL_CONTRACTS = Object.freeze({
   query_context: {
+    title: 'Query aictrl project context',
     annotations: readOpenWorld,
     required: ['organization_id', 'domain', 'action'],
     properties: ['organization_id', 'domain', 'action', 'query', 'params', 'version'],
   },
   update_backlog: {
+    title: 'Create or update aictrl backlog tasks',
     annotations: update,
     required: ['organization_id', 'entity', 'action', 'params'],
     properties: ['organization_id', 'entity', 'action', 'params', 'version'],
   },
   list_organizations: {
+    title: 'List available aictrl organizations',
     annotations: read,
     required: [],
     properties: [],
   },
   list_workflows: {
+    title: 'List published aictrl workflows',
     annotations: read,
     required: [],
     properties: ['organization_id', 'limit'],
   },
   get_workflow: {
+    title: 'Get an aictrl workflow definition',
     annotations: read,
     required: ['organization_id', 'workflow_id'],
     properties: ['organization_id', 'workflow_id'],
   },
   start_workflow: {
+    title: 'Start an aictrl workflow',
     annotations: updateOpenWorldIdempotent,
     required: ['organization_id', 'workflow_id', 'idempotency_key'],
     properties: ['organization_id', 'workflow_id', 'idempotency_key', 'inputs', 'repository_id'],
   },
   list_workflow_runs: {
+    title: 'List aictrl workflow runs',
     annotations: read,
     required: ['organization_id'],
     properties: ['organization_id', 'issue_id', 'epic_id', 'workflow_id', 'status', 'started_by', 'since', 'until', 'needs_attention', 'cursor', 'limit'],
   },
   get_workflow_run: {
+    title: 'Get an aictrl workflow run',
     annotations: read,
     required: ['organization_id', 'run_id'],
     properties: ['organization_id', 'run_id'],
   },
   approve_workflow_step: {
+    title: 'Approve an aictrl workflow step',
     annotations: update,
     required: ['organization_id', 'run_id', 'decision', 'expected_revision'],
     properties: ['organization_id', 'run_id', 'decision', 'expected_revision', 'expected_digest', 'note', 'expected_gate'],
   },
   cancel_workflow_run: {
+    title: 'Cancel an aictrl workflow run',
     annotations: update,
     required: ['organization_id', 'run_id'],
     properties: ['organization_id', 'run_id', 'reason'],
   },
   list_tasks: {
+    title: 'List runnable aictrl tasks',
     annotations: readOpenWorldIdempotent,
     required: ['organization_id', 'repository_full_name'],
     properties: ['organization_id', 'repository_full_name'],
   },
   start_task: {
+    title: 'Start an aictrl task',
     annotations: createIdempotent,
     required: ['organization_id', 'task_id', 'pull_request', 'idempotency_key'],
     properties: ['organization_id', 'task_id', 'pull_request', 'audience', 'idempotency_key'],
   },
   get_task_execution: {
+    title: 'Get aictrl task status',
     annotations: readIdempotent,
     required: ['organization_id', 'execution_id'],
     properties: ['organization_id', 'execution_id'],
   },
   list_pr_findings: {
+    title: 'Pull request review findings',
     annotations: read,
     required: ['organization_id', 'repository', 'pr'],
     properties: ['organization_id', 'repository', 'pr', 'include_history', 'include_obsolete'],
@@ -94,15 +109,27 @@ const EXPECTED_TOOL_CONTRACTS = Object.freeze({
     organizationMinLength: 'omitted',
   },
   record_finding_verdict: {
+    title: 'Review finding verdict',
     annotations: updateOpenWorld,
     required: ['organization_id', 'repository', 'pr', 'finding_id', 'verdict', 'reasoning', 'judged_at_sha'],
     properties: ['organization_id', 'repository', 'pr', 'finding_id', 'verdict', 'action', 'reason', 'reasoning', 'evidence', 'judged_at_sha'],
     organizationMinLength: 'omitted',
   },
   get_started: {
+    title: 'Check aictrl account readiness',
     annotations: readOpenWorld,
     required: [],
-    properties: ['intent'],
+    properties: ['intent', 'organization_id', 'connection_id'],
+    organizationMinLength: 'omitted',
+    organizationDescription: 'Optional organization read selection; current membership is checked.',
+  },
+  create_issue: {
+    title: 'Create an issue',
+    annotations: { ...create, idempotentHint: false },
+    required: ['organization_id', 'repository_full_name', 'title', 'body', 'milestone'],
+    properties: ['organization_id', 'repository_full_name', 'title', 'body', 'labels', 'type', 'milestone'],
+    organizationDescription: 'omitted',
+    securitySchemes: [{ type: 'oauth2', scopes: ['mcp:access'] }],
   },
 });
 
@@ -128,7 +155,12 @@ export function assertProductionCatalog(tools) {
     assert.ok(contract, `No approved production contract exists for ${name}.`);
     assert.equal(typeof tool.description, 'string', `${name} has no description.`);
     assert.ok(tool.description.trim(), `${name} has an empty description.`);
-    assert.deepEqual(tool.annotations, contract.annotations, `${name} annotations drifted.`);
+    assert.equal(tool.title, contract.title, `${name} title drifted.`);
+    assert.deepEqual(tool.annotations, { ...contract.annotations, title: contract.title }, `${name} annotations drifted.`);
+    if (contract.securitySchemes) {
+      assert.deepEqual(tool.securitySchemes, contract.securitySchemes, `${name} securitySchemes drifted.`);
+      assert.deepEqual(tool._meta?.securitySchemes, contract.securitySchemes, `${name} _meta.securitySchemes drifted.`);
+    }
     assert.equal(tool.inputSchema?.type, 'object', `${name} input schema is not an object.`);
     // Pin the deployed omission for list_pr_findings only; retain the strict
     // false contract for every other tool rather than weakening all schemas.
@@ -157,6 +189,8 @@ export function assertProductionCatalog(tools) {
   assertBacklogSchema(toolByName(tools, 'update_backlog').inputSchema);
   assertWorkflowSchemas(tools);
   assertCodeReviewSchemas(tools);
+  assertIssueSchema(toolByName(tools, 'create_issue').inputSchema);
+  assertReadinessSelectionSchema(toolByName(tools, 'get_started').inputSchema);
 }
 
 export async function scanProductionMcp({
@@ -218,18 +252,58 @@ function assertSharedOrganizationSchemas(tools) {
   for (const tool of tools.filter((candidate) => candidate.name !== 'list_organizations')) {
     if (!Object.hasOwn(tool.inputSchema.properties, 'organization_id')) continue;
     const organization = tool.inputSchema.properties.organization_id;
+    const contract = EXPECTED_TOOL_CONTRACTS[tool.name];
     assert.equal(organization.type, 'string', `${tool.name}.organization_id must be a string.`);
-    if (EXPECTED_TOOL_CONTRACTS[tool.name].organizationMinLength === 'omitted') {
+    if (contract.organizationMinLength === 'omitted') {
       assert.equal(Object.hasOwn(organization, 'minLength'), false,
         `${tool.name}.organization_id must omit minLength to match its deployed schema.`);
     } else {
       assert.equal(organization.minLength, 1, `${tool.name}.organization_id must be non-empty.`);
     }
-    assert.match(
-      organization.description ?? '',
-      /list_organizations/,
-      `${tool.name}.organization_id must direct agents to list_organizations.`,
-    );
+    // Pin source metadata omissions/selections per tool; other organization
+    // schemas must still guide agents to list_organizations.
+    if (contract.organizationDescription === 'omitted') {
+      assert.equal(Object.hasOwn(organization, 'description'), false,
+        `${tool.name}.organization_id must omit description to match its published schema.`);
+    } else if (contract.organizationDescription) {
+      assert.equal(organization.description, contract.organizationDescription,
+        `${tool.name}.organization_id description drifted.`);
+    } else {
+      assert.match(
+        organization.description ?? '',
+        /list_organizations/,
+        `${tool.name}.organization_id must direct agents to list_organizations.`,
+      );
+    }
+  }
+}
+
+// Source: aictrl 6665b1c423a8e9839f3422ee415ca7d82390fe75,
+// server/mcp/{issue-tools,get-started,public-tool-catalog}.ts. The public
+// composer adds annotations.title to every tool; create_issue explicitly
+// declares idempotentHint: false and omits organization_id.description.
+function assertIssueSchema(schema) {
+  assert.deepEqual(schemaShape(schema), {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      organization_id: { type: 'string', minLength: 1, maxLength: 128 },
+      repository_full_name: { type: 'string', minLength: 3, maxLength: 256, pattern: '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$' },
+      title: { type: 'string', minLength: 1, maxLength: 256 },
+      body: { type: 'string', maxLength: 60_000 },
+      labels: { type: 'array', maxItems: 100, items: { type: 'string', minLength: 1, maxLength: 100 } },
+      type: { type: 'string', enum: ['Bug', 'Feature', 'Task'] },
+      milestone: { anyOf: [{ type: 'integer', minimum: 1 }, { type: 'string', minLength: 1, maxLength: 256 }] },
+    },
+    required: ['organization_id', 'repository_full_name', 'title', 'body', 'milestone'],
+  }, 'create_issue schema drifted.');
+}
+
+function assertReadinessSelectionSchema(schema) {
+  for (const name of ['organization_id', 'connection_id']) {
+    assert.deepEqual(schemaShape(schema.properties[name]), {
+      type: 'string', pattern: '^[A-Za-z0-9_-]{1,128}$',
+    }, `get_started.${name} schema drifted.`);
   }
 }
 

@@ -68,12 +68,13 @@ Require exactly these production tools:
 14. `list_pr_findings`
 15. `record_finding_verdict`
 16. `get_started`
+17. `create_issue`
 
 Scan again after any server change. Tool names, descriptions, input/output
 schemas, and `readOnlyHint`, `openWorldHint`, `destructiveHint`, and
 `idempotentHint` annotations must match deployed behavior.
 
-The sixteen-tool contract is pinned to backend commit
+The original sixteen-tool contract was pinned to backend commit
 [`12a866d437dcb238f39e491f38597ea8583ece69`](https://github.com/aictrl-dev/aictrl/commit/12a866d437dcb238f39e491f38597ea8583ece69),
 deployed by [run 38956595560](https://github.com/aictrl-dev/aictrl/actions/runs/38956595560).
 `record_finding_verdict` is a write with `readOnlyHint: false`,

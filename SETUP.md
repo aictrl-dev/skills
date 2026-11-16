@@ -52,6 +52,8 @@ Read-only tools (`get_started`, `list_organizations`, `query_context`,
 `list_tasks`, `get_task_execution`, `list_pr_findings`) run without a per-call
 confirmation. Tools that change state prompt first: `update_backlog`
 (creates or updates backlog tasks),
+`create_issue` (files a confirmed GitHub issue in an existing open milestone
+and adds its task to the backlog; non-idempotent, so search before retrying),
 `approve_workflow_step` (a rejection cancels the run), `cancel_workflow_run`,
 `record_finding_verdict` (persists review-finding judgments).
 `start_workflow` and `start_task` start work that a published workflow may

@@ -32,6 +32,7 @@ export const EXPECTED_PUBLIC_MCP_TOOLS = Object.freeze([
   'list_pr_findings',
   'record_finding_verdict',
   'get_started',
+  'create_issue',
 ]);
 export const EXPECTED_SKILLS = Object.freeze([
   'code-review',

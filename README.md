@@ -13,9 +13,9 @@ requests.
 ## aictrl MCP server
 
 The hosted aictrl MCP server gives coding agents access to project context,
-backlog tasks, code-review findings, and controlled workflow execution. Connect
-to `https://aictrl.dev/mcp` using Streamable HTTP and sign in with OAuth. No API
-key or local server process is required.
+backlog tasks, issue creation, code-review findings, and controlled workflow
+execution. Connect to `https://aictrl.dev/mcp` using Streamable HTTP and sign in
+with OAuth. No API key or local server process is required.
 
 You need an [aictrl account](https://aictrl.dev) and membership of an aictrl
 organization. Repository-backed work also needs a GitHub repository connected
@@ -44,6 +44,7 @@ Try these prompts after connecting:
 - "Check my aictrl account readiness."
 - "Which aictrl organizations can I use?"
 - "Show the backlog tasks for my organization."
+- "File this confirmed GitHub issue in an existing open milestone and add it to my backlog."
 - "List the published workflows I can run."
 
 This public repository contains the skills, client configuration, and registry

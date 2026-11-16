@@ -12,6 +12,8 @@ import {
 function catalog() {
   // Independently authored from deployed aictrl 12a866d437dcb238f39e491f38597ea8583ece69:
   // server/mcp/{workflow-tools,code-review-public-tools,tools/code-review}.ts.
+  // Titles, issue creation and readiness selection follow aictrl
+  // 6665b1c423a8e9839f3422ee415ca7d82390fe75's public catalog definitions.
   // Do not derive fixture annotations/schemas/names from the smoke contract.
   const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
   const update = { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
@@ -67,7 +69,7 @@ function catalog() {
   };
 
   const definitions = [
-    definition('query_context', readOpenWorld, {
+    definition('query_context', 'Query aictrl project context', readOpenWorld, {
       organization_id: org,
       domain: { type: 'string', enum: ['code', 'system', 'issues', 'backlog', 'skills', 'stack'] },
       action: { type: 'string' },
@@ -75,30 +77,30 @@ function catalog() {
       params: { type: 'object' },
       version: { type: 'string', enum: ['v1'] },
     }, ['organization_id', 'domain', 'action']),
-    definition('update_backlog', update, {
+    definition('update_backlog', 'Create or update aictrl backlog tasks', update, {
       organization_id: org,
       entity: { type: 'string', enum: ['task'] },
       action: { type: 'string', enum: ['create', 'update'] },
       params: { type: 'object', oneOf: [createParams, updateParams] },
       version: { type: 'string', enum: ['v1'] },
     }, ['organization_id', 'entity', 'action', 'params']),
-    definition('list_organizations', read, {}, []),
-    definition('list_workflows', read, {
+    definition('list_organizations', 'List available aictrl organizations', read, {}, []),
+    definition('list_workflows', 'List published aictrl workflows', read, {
       organization_id: org,
       limit: { type: 'integer', minimum: 1, maximum: 100 },
     }, []),
-    definition('get_workflow', read, {
+    definition('get_workflow', 'Get an aictrl workflow definition', read, {
       organization_id: org,
       workflow_id: id('Workflow'),
     }, ['organization_id', 'workflow_id']),
-    definition('start_workflow', updateOpenWorldIdempotent, {
+    definition('start_workflow', 'Start an aictrl workflow', updateOpenWorldIdempotent, {
       organization_id: org,
       workflow_id: id('Workflow'),
       idempotency_key: { type: 'string', minLength: 8, maxLength: 200 },
       inputs: { type: 'object', additionalProperties: true },
       repository_id: { type: 'string' },
     }, ['organization_id', 'workflow_id', 'idempotency_key']),
-    definition('list_workflow_runs', read, {
+    definition('list_workflow_runs', 'List aictrl workflow runs', read, {
       organization_id: org,
       issue_id: { type: 'string', minLength: 1, maxLength: 200 },
       epic_id: { type: 'string', minLength: 1, maxLength: 200 },
@@ -113,11 +115,11 @@ function catalog() {
       cursor: { type: 'string', minLength: 1, maxLength: 2048 },
       limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
     }, ['organization_id']),
-    definition('get_workflow_run', read, {
+    definition('get_workflow_run', 'Get an aictrl workflow run', read, {
       organization_id: org,
       run_id: id('Run'),
     }, ['organization_id', 'run_id']),
-    definition('approve_workflow_step', update, {
+    definition('approve_workflow_step', 'Approve an aictrl workflow step', update, {
       organization_id: org,
       run_id: id('Run'),
       decision: { type: 'string', enum: ['approve', 'reject'] },
@@ -129,31 +131,31 @@ function catalog() {
         gate_index: { type: 'integer', minimum: 0 },
       }, required: ['after_wave', 'gate_index'], additionalProperties: false },
     }, ['organization_id', 'run_id', 'decision', 'expected_revision']),
-    definition('cancel_workflow_run', update, {
+    definition('cancel_workflow_run', 'Cancel an aictrl workflow run', update, {
       organization_id: org,
       run_id: id('Run'),
       reason: { type: 'string', maxLength: 2000 },
     }, ['organization_id', 'run_id']),
-    definition('list_tasks', readOpenWorldIdempotent, {
+    definition('list_tasks', 'List runnable aictrl tasks', readOpenWorldIdempotent, {
       organization_id: org,
       repository_full_name: id('Repository'),
     }, ['organization_id', 'repository_full_name']),
-    definition('start_task', createIdempotent, {
+    definition('start_task', 'Start an aictrl task', createIdempotent, {
       organization_id: org,
       task_id: id('Task'),
       pull_request: { type: 'object' },
       audience: { type: 'string' },
       idempotency_key: { type: 'string', minLength: 8, maxLength: 200 },
     }, ['organization_id', 'task_id', 'pull_request', 'idempotency_key']),
-    definition('get_task_execution', readIdempotent, {
+    definition('get_task_execution', 'Get aictrl task status', readIdempotent, {
       organization_id: org,
       execution_id: id('Execution'),
     }, ['organization_id', 'execution_id']),
-    definition('list_pr_findings', read, {
+    definition('list_pr_findings', 'Pull request review findings', read, {
       organization_id: reviewOrg, repository, pr,
       include_history: { type: 'boolean' }, include_obsolete: { type: 'boolean' },
     }, ['organization_id', 'repository', 'pr']),
-    definition('record_finding_verdict', updateOpenWorld, {
+    definition('record_finding_verdict', 'Review finding verdict', updateOpenWorld, {
       organization_id: reviewOrg, repository, pr,
       finding_id: { type: 'string' },
       verdict: { type: 'string', enum: ['TRUE', 'FALSE', 'UNCERTAIN'] },
@@ -167,20 +169,44 @@ function catalog() {
       }, required: ['file'], additionalProperties: false } },
       judged_at_sha: { type: 'string' },
     }, ['organization_id', 'repository', 'pr', 'finding_id', 'verdict', 'reasoning', 'judged_at_sha']),
-    definition('get_started', readOpenWorld, {
+    definition('get_started', 'Check aictrl account readiness', readOpenWorld, {
       intent: { type: 'string' },
+      organization_id: {
+        type: 'string', pattern: '^[A-Za-z0-9_-]{1,128}$',
+        description: 'Optional organization read selection; current membership is checked.',
+      },
+      connection_id: {
+        type: 'string', pattern: '^[A-Za-z0-9_-]{1,128}$',
+        description: 'Optional exact repository connection read selection; requires organization_id.',
+      },
     }, []),
+    definition('create_issue', 'Create an issue', { ...create, idempotentHint: false }, {
+      organization_id: { type: 'string', minLength: 1, maxLength: 128 },
+      repository_full_name: { type: 'string', minLength: 3, maxLength: 256, pattern: '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$' },
+      title: { type: 'string', minLength: 1, maxLength: 256 },
+      body: { type: 'string', maxLength: 60_000 },
+      labels: { type: 'array', maxItems: 100, items: { type: 'string', minLength: 1, maxLength: 100 } },
+      type: { type: 'string', enum: ['Bug', 'Feature', 'Task'] },
+      milestone: {
+        anyOf: [{ type: 'integer', minimum: 1 }, { type: 'string', minLength: 1, maxLength: 256 }],
+        description: 'Existing open milestone number or exact title. Required for the importer epic mapping.',
+      },
+    }, ['organization_id', 'repository_full_name', 'title', 'body', 'milestone']),
   ];
+  const issue = definitions.find((tool) => tool.name === 'create_issue');
+  issue.securitySchemes = [{ type: 'oauth2', scopes: ['mcp:access'] }];
+  issue._meta = { securitySchemes: structuredClone(issue.securitySchemes) };
   // This omission is present in the deployed public wrapper, not a global relaxation.
   delete definitions.find((tool) => tool.name === 'list_pr_findings').inputSchema.additionalProperties;
   return definitions;
 }
 
-function definition(name, annotations, properties, required) {
+function definition(name, title, annotations, properties, required) {
   return structuredClone({
     name,
+    title,
     description: `${name} description`,
-    annotations,
+    annotations: { ...annotations, title },
     inputSchema: {
       type: 'object',
       properties,
@@ -207,7 +233,7 @@ test('accepts exactly the public catalog with approved schemas and safety annota
     Object.keys(PUBLIC_MCP_ANNOTATIONS),
     ['read', 'update', 'readIdempotent', 'readOpenWorld', 'readOpenWorldIdempotent', 'create', 'createIdempotent', 'updateOpenWorld', 'updateOpenWorldIdempotent'],
   );
-  assert.equal(catalog().length, 16);
+  assert.equal(catalog().length, 17);
   assert.doesNotThrow(() => assertProductionCatalog(catalog()));
 
   const reordered = catalog().reverse();
@@ -217,7 +243,7 @@ test('accepts exactly the public catalog with approved schemas and safety annota
   assert.doesNotThrow(() => assertProductionCatalog(reordered));
 });
 
-for (const name of ['list_workflow_runs', 'list_pr_findings', 'record_finding_verdict']) {
+for (const name of ['list_workflow_runs', 'list_pr_findings', 'record_finding_verdict', 'create_issue']) {
   test(`rejects missing public tool ${name}`, () => {
     assert.throws(() => assertProductionCatalog(catalog().filter((tool) => tool.name !== name)), /public catalog contract/);
   });
@@ -249,6 +275,20 @@ const schemaMutations = [
   ['approve_workflow_step', (s) => { s.properties.expected_gate.additionalProperties = true; }],
   ['get_workflow', (s) => { delete s.properties.organization_id.minLength; }, /get_workflow\.organization_id/],
   ['get_workflow', (s) => { delete s.additionalProperties; }],
+  ...['organization_id', 'repository_full_name', 'title', 'body', 'milestone'].map((field) =>
+    ['create_issue', (s) => { s.required = s.required.filter((name) => name !== field); }, /required inputs drifted/]),
+  ['create_issue', (s) => { delete s.properties.labels; }, /input properties drifted/],
+  ['create_issue', (s) => { delete s.properties.type; }, /input properties drifted/],
+  ['create_issue', (s) => { s.additionalProperties = true; }, /reject unknown top-level inputs/],
+  ['create_issue', (s) => { delete s.properties.organization_id.minLength; }, /create_issue\.organization_id/],
+  ['create_issue', (s) => { s.properties.organization_id.description = 'ID from list_organizations.'; }, /create_issue\.organization_id/],
+  ['create_issue', (s) => { s.properties.milestone.anyOf[0].minimum = 0; }, /create_issue schema drifted/],
+  ['create_issue', (s) => { s.properties.repository_full_name.pattern = '.*'; }, /create_issue schema drifted/],
+  ['create_issue', (s) => { s.properties.type.enum.push('Epic'); }, /create_issue schema drifted/],
+  ['create_issue', (s) => { s.properties.body.maxLength = 100_000; }, /create_issue schema drifted/],
+  ['get_started', (s) => { delete s.properties.connection_id; }, /input properties drifted/],
+  ['get_started', (s) => { s.properties.organization_id.pattern = '.*'; }, /get_started.*schema drifted/],
+  ['get_started', (s) => { s.properties.organization_id.minLength = 1; }, /get_started\.organization_id/],
 ];
 for (const [index, [name, mutate, message]] of schemaMutations.entries()) {
   test(`rejects schema drift ${index + 1} in ${name}`, () => {
@@ -275,6 +315,11 @@ for (const [name, change] of [
   ['start_workflow', { destructiveHint: false }],
   ['record_finding_verdict', { openWorldHint: false }],
   ['record_finding_verdict', { idempotentHint: true }],
+  ['create_issue', { readOnlyHint: true }],
+  ['create_issue', { destructiveHint: true }],
+  ['create_issue', { openWorldHint: false }],
+  ['create_issue', { idempotentHint: true }],
+  ['create_issue', { title: 'File something else' }],
 ]) {
   test(`rejects unsafe or invented annotations on ${name}: ${JSON.stringify(change)}`, () => {
     const tools = catalog();
@@ -284,11 +329,25 @@ for (const [name, change] of [
   });
 }
 
+test('rejects omitted non-idempotency, title and OAuth metadata on issue creation', () => {
+  for (const mutate of [
+    (tool) => { delete tool.annotations.idempotentHint; },
+    (tool) => { delete tool.annotations.title; },
+    (tool) => { tool.title = 'Different issue title'; },
+    (tool) => { delete tool.securitySchemes; },
+    (tool) => { tool._meta.securitySchemes[0].scopes = []; },
+  ]) {
+    const tools = catalog();
+    mutate(tools.find((tool) => tool.name === 'create_issue'));
+    assert.throws(() => assertProductionCatalog(tools), /create_issue.*(annotations|title|securitySchemes).*drifted/);
+  }
+});
+
 test('rejects catalog, schema, annotation, description, and custom-UI drift', () => {
   const extra = catalog();
   extra.push(extra.find((tool) => tool.name === 'query_context'));
   assert.throws(() => assertProductionCatalog(extra), /public catalog contract/);
-  const unknown = [...catalog(), definition('unexpected_write', { readOnlyHint: false }, {}, [])];
+  const unknown = [...catalog(), definition('unexpected_write', 'Unexpected write', { readOnlyHint: false }, {}, [])];
   assert.throws(() => assertProductionCatalog(unknown), /public catalog contract/);
 
   const schema = catalog();
