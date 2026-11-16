@@ -4,13 +4,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test, { after } from 'node:test';
-import { buildPiPackage, dirtyPackageInputs, trackedSkillFiles } from '../scripts/package-pi.mjs';
+import { buildPiPackage, divergentPackageInputs, trackedSkillFiles } from '../scripts/package-pi.mjs';
 import { ROOT, listSkillNames, readJson } from '../scripts/public-catalog.mjs';
 
 const scratch = mkdtempSync(join(tmpdir(), 'aictrl-pi-package-test-'));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 // Tests run in working checkouts; the publish path (the CLI) keeps the clean-tree guard.
-const { output, manifest, pack } = buildPiPackage({ output: join(scratch, 'package'), requireClean: false });
+const { output, manifest, pack, tarball } = buildPiPackage({ output: join(scratch, 'package'), requireClean: false });
 const packedPaths = new Set(pack.files.map(({ path }) => path));
 
 test('Pi npm metadata uses the gallery keyword and shared release version', () => {
@@ -31,20 +31,36 @@ test('the publish build refuses package inputs that differ from the commit', () 
   const repo = join(scratch, 'dirty-repo');
   const run = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...args], { cwd: repo, timeout: 10_000 });
   mkdirSync(join(repo, 'skills/a'), { recursive: true });
-  writeFileSync(join(repo, 'skills/a/SKILL.md'), 'one\n');
+  mkdirSync(join(repo, 'submission/pi'), { recursive: true });
+  for (const name of ['SKILL.md', 'hidden.md', 'gone.md', 'old.md']) writeFileSync(join(repo, 'skills/a', name), `${name}\n`);
+  writeFileSync(join(repo, 'submission/pi/README.md'), 'readme\n');
   writeFileSync(join(repo, 'LICENSE'), 'MIT\n');
   writeFileSync(join(repo, 'notes.md'), 'not a package input\n');
   run('init', '-q');
   run('add', '.');
   run('commit', '-qm', 'init');
-  assert.deepEqual(dirtyPackageInputs(repo), []);
+  assert.deepEqual(divergentPackageInputs(repo), []);
+  // Outside the inputs, or untracked: never copied, so allowed.
   writeFileSync(join(repo, 'notes.md'), 'changed\n');
   writeFileSync(join(repo, 'skills/a/untracked.md'), 'never copied\n');
-  assert.deepEqual(dirtyPackageInputs(repo), []);
-  writeFileSync(join(repo, 'skills/a/SKILL.md'), 'two\n');
-  writeFileSync(join(repo, 'LICENSE'), 'changed\n');
+  assert.deepEqual(divergentPackageInputs(repo), []);
+  writeFileSync(join(repo, 'skills/a/SKILL.md'), 'edited\n');
+  writeFileSync(join(repo, 'LICENSE'), 'staged\n');
   run('add', 'LICENSE');
-  assert.deepEqual(dirtyPackageInputs(repo).sort(), ['LICENSE', 'skills/a/SKILL.md']);
+  run('update-index', '--skip-worktree', 'skills/a/hidden.md');
+  writeFileSync(join(repo, 'skills/a/hidden.md'), 'masked from git status\n');
+  rmSync(join(repo, 'skills/a/gone.md'));
+  run('mv', 'skills/a/old.md', 'skills/a/new.md');
+  assert.deepEqual(divergentPackageInputs(repo).sort(), [
+    'LICENSE', 'skills/a/SKILL.md', 'skills/a/gone.md', 'skills/a/hidden.md', 'skills/a/old.md',
+  ]);
+});
+
+test('the build packs a tarball with exactly the verified file list', () => {
+  assert.equal(basename(tarball), `aictrl-skills-${manifest.version}.tgz`);
+  const entries = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8', timeout: 10_000 })
+    .split('\n').filter((entry) => entry && !entry.endsWith('/'));
+  assert.deepEqual(entries.map((entry) => entry.replace(/^package\//, '')).sort(), [...packedPaths].sort());
 });
 
 test('every canonical skill and supporting file ships unchanged in the npm pack', () => {
