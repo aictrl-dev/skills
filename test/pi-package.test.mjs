@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test, { after } from 'node:test';
-import { buildPiPackage, trackedSkillFiles } from '../scripts/package-pi.mjs';
+import { buildPiPackage, dirtyPackageInputs, trackedSkillFiles } from '../scripts/package-pi.mjs';
 import { ROOT, listSkillNames, readJson } from '../scripts/public-catalog.mjs';
 
 const scratch = mkdtempSync(join(tmpdir(), 'aictrl-pi-package-test-'));
 after(() => rmSync(scratch, { recursive: true, force: true }));
-const { output, manifest, pack } = buildPiPackage(join(scratch, 'package'));
+// Tests run in working checkouts; the publish path (the CLI) keeps the clean-tree guard.
+const { output, manifest, pack } = buildPiPackage({ output: join(scratch, 'package'), requireClean: false });
 const packedPaths = new Set(pack.files.map(({ path }) => path));
 
 test('Pi npm metadata uses the gallery keyword and shared release version', () => {
@@ -20,6 +21,30 @@ test('Pi npm metadata uses the gallery keyword and shared release version', () =
   assert.equal(manifest.homepage, 'https://aictrl.dev');
   assert.equal(manifest.repository.url, 'https://github.com/aictrl-dev/skills.git');
   assert.deepEqual(readJson('package.json', output), manifest);
+  // Fixed key set: no scripts or bin, so installing the package never runs code.
+  assert.deepEqual(Object.keys(manifest).sort(), [
+    'description', 'files', 'homepage', 'keywords', 'license', 'name', 'pi', 'repository', 'type', 'version',
+  ]);
+});
+
+test('the publish build refuses package inputs that differ from the commit', () => {
+  const repo = join(scratch, 'dirty-repo');
+  const run = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...args], { cwd: repo, timeout: 10_000 });
+  mkdirSync(join(repo, 'skills/a'), { recursive: true });
+  writeFileSync(join(repo, 'skills/a/SKILL.md'), 'one\n');
+  writeFileSync(join(repo, 'LICENSE'), 'MIT\n');
+  writeFileSync(join(repo, 'notes.md'), 'not a package input\n');
+  run('init', '-q');
+  run('add', '.');
+  run('commit', '-qm', 'init');
+  assert.deepEqual(dirtyPackageInputs(repo), []);
+  writeFileSync(join(repo, 'notes.md'), 'changed\n');
+  writeFileSync(join(repo, 'skills/a/untracked.md'), 'never copied\n');
+  assert.deepEqual(dirtyPackageInputs(repo), []);
+  writeFileSync(join(repo, 'skills/a/SKILL.md'), 'two\n');
+  writeFileSync(join(repo, 'LICENSE'), 'changed\n');
+  run('add', 'LICENSE');
+  assert.deepEqual(dirtyPackageInputs(repo).sort(), ['LICENSE', 'skills/a/SKILL.md']);
 });
 
 test('every canonical skill and supporting file ships unchanged in the npm pack', () => {

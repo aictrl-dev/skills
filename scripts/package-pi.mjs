@@ -7,7 +7,17 @@ import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, readJson } from './public-catalog.mjs';
 
-export function buildPiPackage(output = join(ROOT, 'dist/pi-package')) {
+// Everything the package is built from. The build copies working-tree bytes, so
+// publishing requires these paths to match the checked-out commit exactly.
+export const PACKAGE_INPUTS = ['skills', 'submission/pi', 'LICENSE', '.claude-plugin/plugin.json'];
+
+export function buildPiPackage({ output = join(ROOT, 'dist/pi-package'), requireClean = true } = {}) {
+  if (requireClean) {
+    const dirty = dirtyPackageInputs();
+    if (dirty.length > 0) {
+      throw new Error(`Refusing to build: package inputs differ from the commit (${dirty.join(', ')}). Publish from a clean checkout.`);
+    }
+  }
   const manifest = {
     ...readJson('submission/pi/pi-package.template.json'),
     version: readJson('.claude-plugin/plugin.json').version,
@@ -25,18 +35,30 @@ export function buildPiPackage(output = join(ROOT, 'dist/pi-package')) {
   cpSync(join(ROOT, 'LICENSE'), join(output, 'LICENSE'));
   writeFileSync(join(output, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
-  const [pack] = JSON.parse(execFileSync(
+  const parsed = JSON.parse(execFileSync(
     'npm', ['pack', '--dry-run', '--json', '--ignore-scripts'],
     { cwd: output, encoding: 'utf8', timeout: 60_000, maxBuffer: 4 * 1024 * 1024 },
   ));
+  // npm prints an array today; a later npm may key the result by package name.
+  const pack = Array.isArray(parsed) ? parsed[0] : parsed[manifest.name];
+  if (!Array.isArray(pack?.files)) throw new Error('Unexpected npm pack --json output: no file list.');
   return { output, manifest, pack };
 }
 
 export function trackedSkillFiles() {
-  const files = execFileSync('git', ['ls-files', '-z', '--', 'skills'], { cwd: ROOT, encoding: 'utf8' })
-    .split('\0').filter(Boolean);
+  const files = git(ROOT, ['ls-files', '-z', '--', 'skills']).split('\0').filter(Boolean);
   if (files.length === 0) throw new Error('No tracked files under skills/: run from a git checkout of aictrl-dev/skills.');
   return files;
+}
+
+// Staged or unstaged changes to tracked package inputs (untracked files are never copied).
+export function dirtyPackageInputs(cwd = ROOT) {
+  return git(cwd, ['status', '--porcelain', '-z', '--untracked-files=no', '--', ...PACKAGE_INPUTS])
+    .split('\0').filter(Boolean).map((entry) => entry.slice(3));
+}
+
+function git(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 10_000, maxBuffer: 4 * 1024 * 1024 });
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {

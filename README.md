@@ -77,6 +77,12 @@ add the connected-workflow server to `opencode.json` and sign in:
 opencode mcp auth aictrl
 ```
 
+**Pi** — install the skills from npm; the optional aictrl connection is in the
+[Pi package README](submission/pi/README.md):
+```bash
+pi install npm:@aictrl/skills
+```
+
 **Cursor / direct OpenCode skills** — skills use the cross-tool [Agent Skills](https://agentskills.io) standard:
 ```
 git clone https://github.com/aictrl-dev/skills && cd skills
