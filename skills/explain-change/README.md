@@ -62,4 +62,4 @@ sequenceDiagram
 
 ## Explore the same example in aictrl
 
-The standalone skill produces Markdown with Mermaid fences and commit-pinned source links. In aictrl, select a step to see its code or the lines changed by the PR. [Open the interactive example](https://aictrl.dev/features/explain-pr#pr-replica)
+The standalone skill produces Markdown with Mermaid fences and commit-pinned source links. In aictrl, select a step to see its code or the lines changed by the PR. [Open the interactive example](https://aictrl.dev/features/explain-pr?utm_source=oss-skills&utm_medium=readme&utm_campaign=explain-change&utm_listing=github-skills&utm_platform=portable&utm_skill=explain-change#pr-replica)

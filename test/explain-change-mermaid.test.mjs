@@ -7,13 +7,14 @@ import test from 'node:test';
 import { ROOT } from '../scripts/public-catalog.mjs';
 import { extractMermaid, verifyMarkdown } from '../skills/explain-change/scripts/verify-mermaid.mjs';
 
-const verifier = join(ROOT, 'skills/explain-change/scripts/verify-mermaid.mjs');
+const skill = join(ROOT, 'skills/explain-change');
+const verifier = join(skill, 'scripts/verify-mermaid.mjs');
 const fixtures = join(ROOT, 'test/fixtures/explain-change-mermaid');
 // The repository's own Mermaid CLI is a tooling/ dev dependency, outside the plugin root the verifier defaults to.
 const toolingMmdc = join(ROOT, 'tooling/node_modules/.bin/mmdc');
 
-function verify(name, env = process.env) {
-  const result = spawnSync(process.execPath, [verifier, '--input', join(fixtures, name)], {
+function verify(name, env = process.env, directory = fixtures) {
+  const result = spawnSync(process.execPath, [verifier, '--input', join(directory, name)], {
     cwd: ROOT,
     env,
     encoding: 'utf8',
@@ -90,4 +91,14 @@ test('reports invalid syntax without masking successful sibling diagrams', { ski
   assert.equal(result.report.diagrams[0].status, 'rendered');
   assert.equal(result.report.diagrams[1].status, 'failed');
   assert.equal(result.report.failures[0].code, 'RENDER_ERROR');
+});
+
+test('renders both Mermaid examples in the explain-change README', { skip: !existsSync(toolingMmdc) }, () => {
+  const result = verify('README.md', {
+    ...process.env,
+    MERMAID_CLI: toolingMmdc,
+    MERMAID_ALLOW_NO_SANDBOX: '1',
+  }, skill);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.deepEqual(result.report.diagrams.map(({ status }) => status), ['rendered', 'rendered']);
 });
