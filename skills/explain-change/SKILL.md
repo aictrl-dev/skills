@@ -241,7 +241,7 @@ Re-walk the claim ledger before showing the draft:
 
 Use the verified Markdown as the source for both local deliverables. For
 Markdown, save `explain-change.md`. For interactive HTML, follow
-[the HTML export guide](references/interactive-html.md) and save
+[the HTML export guide](reference/interactive-html.md) and save
 `explain-change.html`. Report the actual path and the verification result.
 
 Show the draft with its evidence ledger (or an evidence summary for a

@@ -44,8 +44,8 @@ A separate Mermaid CLI can be selected through `MERMAID_CLI` without changing
 the Markdown parser. If the bundled Chromium cannot use its sandbox, set
 `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome that can.
 
-Put diagrams to explore in top-level Mermaid fences. To show an example
-as source code, quote it inside a longer Markdown code fence.
+Write diagrams to explore in Mermaid fences. To show an example as source
+code, quote it inside a longer Markdown code fence.
 
 ```bash
 node "<skill-dir>/scripts/render-interactive.mjs" \

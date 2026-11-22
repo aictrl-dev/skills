@@ -72,7 +72,7 @@
     let selection;
     let selectedTrace;
     const routeButtons = [];
-    const pathElements = [...svg.querySelectorAll('path.flowchart-link[data-id]')];
+    const pathElements = [...svg.querySelectorAll('path.flowchart-link[data-trace-from][data-trace-to]')];
 
     function showStep(id, moveFocus = false) {
       const { step, button, target } = entries.get(id);
@@ -128,10 +128,10 @@
         button.toggleAttribute('data-on-path', ids.has(id));
         target?.toggleAttribute('data-on-path', ids.has(id));
       }
-      const edgeIds = trace?.steps.slice(1).map((id, index) => `L_${trace.steps[index]}_${id}_`) ?? [];
       for (const path of pathElements) {
-        const edge = path.getAttribute('data-id');
-        path.toggleAttribute('data-on-path', edgeIds.some((prefix) => edge.startsWith(prefix) && /^\d+$/.test(edge.slice(prefix.length))));
+        const { traceFrom, traceTo } = path.dataset;
+        const lit = Boolean(trace?.steps.some((step, index) => step === traceFrom && trace.steps[index + 1] === traceTo));
+        path.toggleAttribute('data-on-path', lit);
       }
       for (const [entry, button] of routeButtons) button.setAttribute('aria-pressed', String(entry === trace));
       selectedTrace = trace;

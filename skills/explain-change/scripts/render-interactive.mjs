@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, realpath, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { browserOptions, toolingPath, verifyMermaidSource } from './verify-mermaid.mjs';
+import { browserOptions, extractMermaid, toolingPath, verifyMermaidDiagrams } from './verify-mermaid.mjs';
 
 const assets = new URL('../assets/', import.meta.url);
+const stylesheet = new URL('interactive.css', assets);
+const runtime = new URL('interactive.js', assets);
 const escapeHtml = (value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 
 function isText(value) {
@@ -54,10 +56,13 @@ function checkSteps(stepsByDiagram, diagramCount) {
   }
 }
 
-function markdownHtml(markdown, count, Marked, Renderer) {
+function markdownHtml(markdown, { Marked, Renderer, TextRenderer }) {
   const renderer = new Renderer();
   const defaultCode = renderer.code.bind(renderer);
-  let index = 0;
+  const defaultHeading = renderer.heading;
+  const diagrams = [];
+  const errors = [];
+  let title;
   renderer.html = ({ text }) => escapeHtml(text);
   renderer.image = ({ text }) => escapeHtml(text);
   renderer.link = function ({ href, tokens }) {
@@ -66,12 +71,22 @@ function markdownHtml(markdown, count, Marked, Renderer) {
       ? `<a href="${escapeHtml(href)}" rel="noreferrer">${label}</a>`
       : label;
   };
-  renderer.code = (token) => /^mermaid(?:\s|$)/i.test(token.lang ?? '')
-    ? `<div data-diagram="${index++}"></div>\n`
-    : defaultCode(token);
-  const html = new Marked({ renderer }).parse(markdown);
-  if (index !== count) throw new Error('Place executable Mermaid fences at the top level. Quoted examples can stay inside ordinary code fences.');
-  return html;
+  renderer.heading = function (token) {
+    if (token.depth === 1 && title === undefined) {
+      title = this.parser.parseInline(token.tokens, new TextRenderer()).trim();
+    }
+    return defaultHeading.call(this, token);
+  };
+  renderer.code = (token) => {
+    if (!/^mermaid(?:\s|$)/i.test(token.lang ?? '')) return defaultCode(token);
+    const index = diagrams.length + 1;
+    const { errors: fenceErrors } = extractMermaid(token.raw);
+    if (fenceErrors.length) errors.push({ ...fenceErrors[0], index });
+    diagrams.push({ index, source: token.text });
+    return `<div data-diagram="${index - 1}"></div>\n`;
+  };
+  const body = new Marked({ renderer }).parse(markdown);
+  return { body, title: title || 'Change explanation', diagrams, errors };
 }
 
 // Snapshot the rendered presentation without carrying SVG rules into the reader's page.
@@ -112,6 +127,45 @@ export async function drawingTrees(diagrams, puppeteer) {
         return [node.namespaceURI, node.localName, attributes, children, styles];
       }
 
+      // Generated Mermaid IDs can collide when different pairs join to the
+      // same underscore-separated text. Resolve those pairs by drawn endpoints.
+      function identifyFlowchartEdges(svg) {
+        const vertices = new Map();
+        for (const node of svg.querySelectorAll('g.node[id]')) {
+          const id = /(?:^|-)flowchart-(.+)-\d+$/.exec(node.id)?.[1];
+          if (id) vertices.set(id, node.getBoundingClientRect());
+        }
+        const distance = (point, box) => Math.hypot(
+          Math.max(box.left - point.x, point.x - box.right, 0),
+          Math.max(box.top - point.y, point.y - box.bottom, 0),
+        );
+        for (const path of svg.querySelectorAll('path.flowchart-link[data-id]')) {
+          const key = /^L_(.+)_\d+$/.exec(path.dataset.id)?.[1];
+          if (!key) continue;
+          const pairs = [];
+          for (const from of vertices.keys()) {
+            if (!key.startsWith(`${from}_`)) continue;
+            const to = key.slice(from.length + 1);
+            if (vertices.has(to)) pairs.push({ from, to });
+          }
+          if (!pairs.length) continue;
+          let chosen = pairs[0];
+          if (pairs.length > 1) {
+            const matrix = path.getScreenCTM();
+            if (!matrix) continue;
+            const start = path.getPointAtLength(0).matrixTransform(matrix);
+            const end = path.getPointAtLength(path.getTotalLength()).matrixTransform(matrix);
+            const ranked = pairs.map(pair => ({
+              pair, score: distance(start, vertices.get(pair.from)) + distance(end, vertices.get(pair.to)),
+            })).sort((a, b) => a.score - b.score);
+            if (ranked[1].score - ranked[0].score < 0.01) continue;
+            chosen = ranked[0].pair;
+          }
+          path.dataset.traceFrom = chosen.from;
+          path.dataset.traceTo = chosen.to;
+        }
+      }
+
       return sources.map((markup) => {
         const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
         const root = parsed.documentElement;
@@ -125,7 +179,7 @@ export async function drawingTrees(diagrams, puppeteer) {
           }
           for (const attribute of [...node.attributes]) {
             const { localName, value } = attribute;
-            if (/^on/i.test(localName) || ['src', 'srcdoc', 'srcset'].includes(localName) ||
+            if (/^on/i.test(localName) || ['src', 'srcdoc', 'srcset', 'data-trace-from', 'data-trace-to'].includes(localName) ||
                 (localName === 'href' && !/^#[\w:.-]+$/.test(value)) ||
                 (localName !== 'style' && !localPaint(value))) {
               node.removeAttributeNode(attribute);
@@ -135,6 +189,7 @@ export async function drawingTrees(diagrams, puppeteer) {
         const drawing = document.importNode(root, true);
         document.body.append(drawing);
         try {
+          identifyFlowchartEdges(drawing);
           return encode(drawing);
         } finally {
           drawing.remove();
@@ -146,35 +201,46 @@ export async function drawingTrees(diagrams, puppeteer) {
   }
 }
 
+async function outputIdentity(path) {
+  try {
+    return await realpath(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return resolve(path);
+    throw error;
+  }
+}
+
 export async function writeInteractive({ input, steps, output }) {
-  if ([input, steps].some((path) => resolve(output) === resolve(path))) {
-    throw new Error('Choose an output file separate from the Markdown and steps inputs.');
+  const protectedPaths = [input, steps, ...[
+    stylesheet, runtime, import.meta.url, new URL('verify-mermaid.mjs', import.meta.url),
+  ].map(fileURLToPath)];
+  const [target, ...protectedIdentities] = await Promise.all([output, ...protectedPaths].map(outputIdentity));
+  if (protectedIdentities.includes(target)) {
+    throw new Error('Choose an output file separate from the Markdown, steps, and skill files.');
   }
   const markdown = await readFile(input, 'utf8');
   const entries = JSON.parse(await readFile(steps, 'utf8'));
-  const report = await verifyMermaidSource(markdown, { includeSvg: true });
+  // Markdown and browser tooling are independent of the selected mmdc binary.
+  const require = createRequire(join(toolingPath(), 'package.json'));
+  const { default: puppeteer } = require('puppeteer');
+  const { body, title, diagrams, errors } = markdownHtml(markdown, require('marked'));
+  checkSteps(entries, diagrams.length);
+  const report = await verifyMermaidDiagrams({ diagrams, errors }, { includeSvg: true });
   if (!report.valid) {
     const reasons = report.failures.map(({ index, error }) => `${index ? `Diagram ${index}: ` : ''}${error}`);
     throw new Error(reasons.join('\n'));
   }
-  checkSteps(entries, report.diagrams.length);
-  // Markdown and browser tooling are independent of the selected mmdc binary.
-  const require = createRequire(join(toolingPath(), 'package.json'));
-  const { Marked, Renderer } = require('marked');
-  const { default: puppeteer } = require('puppeteer');
-  const body = markdownHtml(markdown, report.diagrams.length, Marked, Renderer);
+  // HTML parsing normalises line endings before checking inline CSP hashes.
+  const inlineAsset = async (path) => (await readFile(path, 'utf8')).replace(/\r\n?/g, '\n');
   const [style, script, drawings] = await Promise.all([
-    readFile(new URL('interactive.css', assets), 'utf8'),
-    readFile(new URL('interactive.js', assets), 'utf8'),
-    drawingTrees(report.diagrams, puppeteer),
+    inlineAsset(stylesheet), inlineAsset(runtime), drawingTrees(report.diagrams, puppeteer),
   ]);
-  const hash = createHash('sha256').update(script).digest('base64');
+  const contentHash = (value) => createHash('sha256').update(value).digest('base64');
   const data = JSON.stringify(entries.map((entry, index) => ({
     ...entry,
     drawing: drawings[index],
   }))).replaceAll('<', '\\u003c');
-  const policy = `default-src 'none'; script-src 'sha256-${hash}'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'`;
-  const title = /^#\s+([^\r\n]+)/m.exec(markdown)?.[1] ?? 'Change explanation';
+  const policy = `default-src 'none'; script-src 'sha256-${contentHash(script)}'; style-src 'sha256-${contentHash(style)}'; base-uri 'none'; form-action 'none'`;
   await writeFile(output, `<!doctype html>
 <html lang="en">
 <head>

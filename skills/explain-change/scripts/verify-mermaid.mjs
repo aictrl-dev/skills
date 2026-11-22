@@ -146,8 +146,11 @@ export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAU
   return verifyMermaidSource(await readFile(inputPath, 'utf8'), { root, timeoutMs });
 }
 
-export async function verifyMermaidSource(markdown, { root = ROOT, timeoutMs = DEFAULT_TIMEOUT_MS, includeSvg = false } = {}) {
-  const extracted = extractMermaid(markdown);
+export async function verifyMermaidSource(markdown, options = {}) {
+  return verifyMermaidDiagrams(extractMermaid(markdown), options);
+}
+
+export async function verifyMermaidDiagrams(extracted, { root = ROOT, timeoutMs = DEFAULT_TIMEOUT_MS, includeSvg = false } = {}) {
   const failures = [...extracted.errors];
   const diagrams = extracted.diagrams.map((diagram) => ({
     index: diagram.index,

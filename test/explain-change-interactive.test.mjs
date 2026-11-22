@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { ROOT } from '../scripts/public-catalog.mjs';
-import { drawingTrees } from '../skills/explain-change/scripts/render-interactive.mjs';
+import { drawingTrees, writeInteractive } from '../skills/explain-change/scripts/render-interactive.mjs';
 import { cliPath, toolingPath } from '../skills/explain-change/scripts/verify-mermaid.mjs';
 
 const script = join(ROOT, 'skills/explain-change/scripts/render-interactive.mjs');
@@ -16,9 +16,23 @@ const sourceLink = 'https://github.com/owner/repo/blob/0123456789abcdef012345678
 const code = 'return "</script><script>window.injected = true</script>";';
 const steps = [
   { id: 'check', label: 'Check generation', summary: 'Compare the versions.' },
-  { id: 'stop', label: 'Ignore stale job', summary: 'Return without writing.', outcome: 'fail',
+  { id: 'job_stop', label: 'Ignore stale job', summary: 'Return without writing.', outcome: 'fail',
     source: { label: 'src/jobs.ts:24', url: sourceLink, code } },
 ];
+
+test('protects packaged assets from a direct or aliased output path', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aictrl-output-test-'));
+  const asset = join(ROOT, 'skills/explain-change/assets/interactive.css');
+  const alias = join(dir, 'explain-change.html');
+  try {
+    symlinkSync(asset, alias);
+    for (const output of [asset, alias]) {
+      await assert.rejects(writeInteractive({ input: join(dir, 'missing.md'), steps: join(dir, 'missing.json'), output }), /separate from the Markdown, steps, and skill files/);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test('exports drawing presentation without SVG rules or animation elements', { skip: !existsSync(mmdc) }, async () => {
   const { default: puppeteer } = createRequire(join(toolingPath(), 'package.json'))('puppeteer');
@@ -52,11 +66,13 @@ test('exports a standalone walkthrough with working keyboard selection, source a
   const { default: puppeteer } = createRequire(join(toolingPath(), 'package.json'))('puppeteer');
   try {
     writeFileSync(input, [
-      '# Stale jobs', 'The comparison protects the record.', '',
+      '```sh', '# Example comment', '```', '',
+      '# Stale **jobs**', 'The comparison protects the record.', '',
       'Read the [pinned **source**](https://example.com/revision).', '',
       '<img src="https://example.com/tracker">', '',
       '````markdown', '```mermaid', 'Example syntax shown as text', '```', '````', '',
-      '~~~mermaid', 'flowchart TD', '  check["Check generation"] --> stop["Ignore stale job"]', '~~~',
+      '> ~~~mermaid', '> flowchart TD', '>   check["Check generation"] --> job_stop["Ignore stale job"]',
+      '>   check_job["Other check"] --> stop["Other stop"]', '> ~~~', '',
       '## Reviewer notes', 'Verify the exact line referenced from the diagram.',
     ].join('\n'));
 
@@ -66,10 +82,10 @@ test('exports a standalone walkthrough with working keyboard selection, source a
     assert.match(invalid.stderr, /invalid trace/);
     assert.equal(existsSync(output), false);
 
-    writeFileSync(sidecar, JSON.stringify([{ title: 'Stale path', steps, traces: [{ label: 'Stale job', steps: ['check', 'stop'] }] }]));
+    writeFileSync(sidecar, JSON.stringify([{ title: 'Stale path', steps, traces: [{ label: 'Stale job', steps: ['check', 'job_stop'] }] }]));
     const exported = spawnSync(process.execPath, args, { env, encoding: 'utf8' });
     assert.equal(exported.status, 0, exported.stderr);
-    assert.match(readFileSync(output, 'utf8'), /Content-Security-Policy/);
+    assert.match(readFileSync(output, 'utf8'), /style-src 'sha256-/);
 
     const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
     try {
@@ -81,18 +97,20 @@ test('exports a standalone walkthrough with working keyboard selection, source a
       await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
       await page.goto(pathToFileURL(output).href);
       assert.equal(await page.$$eval('.explorer', nodes => nodes.length), 1);
-      assert.equal(await page.$eval('main > pre', node => node.textContent.includes('Example syntax shown as text')), true);
+      assert.equal(await page.title(), 'Stale jobs');
+      assert.equal(await page.$eval('main > pre > code.language-markdown', node => node.textContent.includes('Example syntax shown as text')), true);
       assert.equal(await page.$eval('main a strong', node => node.textContent), 'source');
-      const stop = '[data-explore-step="stop"]';
+      const stop = '[data-explore-step="job_stop"]';
       await page.waitForSelector(stop);
       await page.$eval(stop, node => node.focus());
-      assert.equal(await page.evaluate(() => document.activeElement.dataset.exploreStep), 'stop');
+      assert.equal(await page.evaluate(() => document.activeElement.dataset.exploreStep), 'job_stop');
       await page.keyboard.press('Enter');
       assert.equal(await page.$eval('.inspector code', node => node.textContent), code);
       assert.equal(await page.$eval('.inspector a', node => node.href), sourceLink);
       assert.equal(await page.evaluate(() => window.injected), undefined);
       await page.click('.traces button');
-      assert.equal(await page.$$eval('.flowchart-link[data-on-path]', paths => paths.length), 1);
+      const lit = await page.$$eval('.flowchart-link[data-on-path]', paths => paths.map(path => [path.dataset.traceFrom, path.dataset.traceTo]));
+      assert.deepEqual(lit, [['check', 'job_stop']]);
       const traceStyle = await page.$eval('.flowchart-link[data-on-path]', path => {
         const style = getComputedStyle(path);
         return { animation: style.animationName, dashes: style.strokeDasharray };
