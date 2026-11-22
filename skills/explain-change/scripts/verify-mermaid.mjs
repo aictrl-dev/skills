@@ -64,9 +64,11 @@ function clip(value) {
   return value.replaceAll(process.cwd(), '<cwd>').slice(0, MAX_ERROR_CHARS);
 }
 
-function cliPath(root) {
+export function cliPath(root = ROOT) {
   if (process.env.MERMAID_CLI) return process.env.MERMAID_CLI;
-  return join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'mmdc.cmd' : 'mmdc');
+  const executable = process.platform === 'win32' ? 'mmdc.cmd' : 'mmdc';
+  const toolingCli = join(root, 'tooling', 'node_modules', '.bin', executable);
+  return existsSync(toolingCli) ? toolingCli : join(root, 'node_modules', '.bin', executable);
 }
 
 function run(command, args, { cwd, timeoutMs = DEFAULT_TIMEOUT_MS }) {
@@ -120,7 +122,10 @@ function safeDiagramError(diagram) {
 }
 
 export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
-  const markdown = await readFile(inputPath, 'utf8');
+  return verifyMermaidSource(await readFile(inputPath, 'utf8'), { root, timeoutMs });
+}
+
+export async function verifyMermaidSource(markdown, { root = ROOT, timeoutMs = DEFAULT_TIMEOUT_MS, includeSvg = false } = {}) {
   const extracted = extractMermaid(markdown);
   const failures = [...extracted.errors];
   const diagrams = extracted.diagrams.map((diagram) => ({
@@ -198,6 +203,8 @@ export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAU
       const rendered = await run(command, [
         '--input', input,
         '--output', output,
+        '--svgId', `aictrl-diagram-${diagram.index}`,
+        ...(includeSvg ? ['--backgroundColor', 'transparent'] : []),
         '--configFile', mermaidConfig,
         '--puppeteerConfigFile', browserConfig,
         '--quiet',
@@ -225,6 +232,7 @@ export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAU
         });
         continue;
       }
+      if (includeSvg) result.svg = await readFile(output, 'utf8');
       result.status = 'rendered';
     }
     return { valid: failures.length === 0, renderer, diagrams, failures };

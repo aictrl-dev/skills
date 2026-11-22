@@ -56,3 +56,16 @@ deployment record.
   and any unresolved facts.
 - [ ] Shows a draft only and does not post a comment, edit documentation, or
   make another external mutation without explicit confirmation.
+
+## Format selection
+
+Repeat the scenario first without a format and then with interactive HTML,
+Markdown, and a headless output contract specified.
+
+- [ ] Asks the person to choose HTML or Markdown before investigation when
+  the format is open. Proceeds directly when the format is already given.
+- [ ] A Markdown request returns a verified `explain-change.md`.
+- [ ] An HTML request opens locally. A click or keyboard action reveals the
+  exact cited source excerpt. A supported flowchart path highlights its
+  edges. Source remains readable when no path is supplied.
+- [ ] A headless run follows its existing output contract without asking.

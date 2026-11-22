@@ -8,7 +8,7 @@ A free, MIT-licensed skill for understanding a pull request, commit range or com
 npx skills add aictrl-dev/skills --skill explain-change -a claude-code
 ```
 
-Open the repository in Claude Code and run `/explain-change https://github.com/aictrl-dev/cli/pull/129`. Ask for a reviewer walkthrough with a Mermaid diagram and commit-pinned source links.
+Open the repository in Claude Code and run `/explain-change https://github.com/aictrl-dev/cli/pull/129`. Ask for a reviewer walkthrough with diagrams and commit-pinned source links. Choose Markdown for a file you can review in GitHub, or interactive HTML to select diagram steps and read their code locally.
 
 ## Example from a real pull request
 
@@ -62,4 +62,4 @@ sequenceDiagram
 
 ## Explore the same example in aictrl
 
-The standalone skill produces Markdown with Mermaid fences and commit-pinned source links. In aictrl, select a step to see its code or the lines changed by the PR. [Open the interactive example](https://aictrl.dev/features/explain-pr?utm_source=oss-skills&utm_medium=readme&utm_campaign=explain-change&utm_listing=github-skills&utm_platform=portable&utm_skill=explain-change#pr-replica)
+The standalone HTML opens locally with the diagram, code excerpts, and source links embedded. In aictrl, the interactive review sits alongside the live pull request and includes the lines changed by the PR. [Open the interactive example](https://aictrl.dev/features/explain-pr?utm_source=oss-skills&utm_medium=readme&utm_campaign=explain-change&utm_listing=github-skills&utm_platform=portable&utm_skill=explain-change#pr-replica)

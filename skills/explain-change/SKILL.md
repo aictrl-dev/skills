@@ -1,6 +1,6 @@
 ---
 name: explain-change
-description: Turn a pull request, commit range, issue, ADR, or other completed change into a repository-grounded technical explainer that teaches the design, difficult trade-offs, and current rollout state. Use when the user says "explain this change", "walk me through this PR", "what does this commit do", "document this change", "write an architecture explainer", or "teach me this subsystem".
+description: Turn a pull request, commit range, issue, ADR, or other completed change into an interactive HTML or Markdown explainer that teaches the design, difficult trade-offs, and current rollout state. Use when the user says "explain this change", "walk me through this PR", "what does this commit do", "document this change", "write an architecture explainer", or "teach me this subsystem".
 ---
 
 # Explain a Change
@@ -29,8 +29,12 @@ branch comparison, issue, ADR/RFC, or a set of changed files. Ask for a source
 only when none can be inferred. Also establish:
 
 1. **Audience** — a current reviewer, a future maintainer, or a broader team.
-2. **Target** — an in-chat explanation, a change comment, repository docs, or
-   a knowledge-base page.
+2. **Format** — when a person asks for an explainer and leaves the format
+   open, ask up front: “Would you like interactive HTML or a Markdown file?”
+   Honor an explicit format or destination. For example, a GitHub comment
+   uses Markdown. Follow a headless run's output contract without asking.
+   Default to a local Markdown file when no answer is possible and there is
+   no output contract.
 3. **Revision** — the exact immutable commit identifier to explain. For an
    unmerged change, use its current head commit; for a merged change, use the
    merge or resulting commit and identify the relevant parent.
@@ -145,7 +149,7 @@ written, then validate the complete draft again before presenting it:
 
 ```bash
 SCRATCH="$(mktemp -d)"
-node skills/explain-change/scripts/verify-mermaid.mjs \
+node "<skill-dir>/scripts/verify-mermaid.mjs" \
   --input "$SCRATCH/explainer.md" > "$SCRATCH/mermaid-result.json"
 ```
 
@@ -233,6 +237,11 @@ Re-walk the claim ledger before showing the draft:
 - [ ] The draft records the Mermaid result, number of attempts, and any
   diagram-only correction; it does not conceal an initial render failure.
 - [ ] The draft contains no secret or sensitive operational data.
+
+Use the verified Markdown as the source for both local deliverables. For
+Markdown, save `explain-change.md`. For interactive HTML, follow
+[the HTML export guide](references/interactive-html.md) and save
+`explain-change.html`. Report the actual path and the verification result.
 
 Show the draft with its evidence ledger (or an evidence summary for a
 reader-facing artifact). If the user requested posting, ask for confirmation
