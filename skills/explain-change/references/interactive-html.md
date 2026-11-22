@@ -36,10 +36,16 @@ an accessible step list even when a drawn label cannot be matched uniquely.
 A document without Mermaid fences uses an empty steps array.
 
 Use the installed skill directory and the same pinned `mmdc` as the
-Mermaid verification step. The CLI provides the Markdown parser used by
-the exporter. When the CLI is installed separately, set `MERMAID_CLI`
-to its executable path. If the bundled Chromium cannot use its sandbox,
-set `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome that can.
+Mermaid verification step. In a checkout of this plugin, install the
+exporter dependencies with `npm ci --prefix tooling`. For a standalone
+skill installation, point `AICTRL_EXPLAIN_CHANGE_TOOLING` at the directory
+containing `package.json` and `node_modules` from the plugin's `tooling` directory.
+A separate Mermaid CLI can be selected through `MERMAID_CLI` without changing
+the Markdown parser. If the bundled Chromium cannot use its sandbox, set
+`PUPPETEER_EXECUTABLE_PATH` to an installed Chrome that can.
+
+Put diagrams to explore in top-level Mermaid fences. To show an example
+as source code, quote it inside a longer Markdown code fence.
 
 ```bash
 node "<skill-dir>/scripts/render-interactive.mjs" \

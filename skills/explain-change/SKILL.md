@@ -29,10 +29,11 @@ branch comparison, issue, ADR/RFC, or a set of changed files. Ask for a source
 only when none can be inferred. Also establish:
 
 1. **Audience** — a current reviewer, a future maintainer, or a broader team.
-2. **Format** — when a person asks for an explainer and leaves the format
+2. **Format and destination** — when a person asks for an explainer and leaves the format
    open, ask up front: “Would you like interactive HTML or a Markdown file?”
-   Honor an explicit format or destination. For example, a GitHub comment
-   uses Markdown. Follow a headless run's output contract without asking.
+   Honor an explicit format or destination, including an in-chat explanation,
+   a GitHub comment, repository documentation, or a knowledge-base page.
+   Follow a headless run's output contract without asking.
    Default to a local Markdown file when no answer is possible and there is
    no output contract.
 3. **Revision** — the exact immutable commit identifier to explain. For an

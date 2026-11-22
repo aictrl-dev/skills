@@ -37,6 +37,7 @@ code { font-family: ui-monospace, monospace; }
 .drawing {
   background: #fafafa radial-gradient(#d4d4d8 1px, transparent 1.4px) 0 0 / 16px 16px;
   border: 1px solid var(--border);
+  position: relative;
   overflow: auto;
   padding: 1rem;
 }
@@ -70,9 +71,9 @@ button[aria-pressed="true"], button[data-on-path], button:focus-visible {
   fill: var(--outcome) !important;
   stroke: var(--outcome) !important;
 }
-.drawing g[data-outcome] .nodeLabel { color: var(--outcome-ink) !important; }
-.drawing text[data-outcome] { fill: var(--outcome) !important; }
-.drawing[data-tracing] :is([data-explore-step], .flowchart-link):not([data-on-path]) { opacity: .35; }
+.drawing g[data-outcome] :is(.nodeLabel, .nodeLabel *) { color: var(--outcome-ink) !important; }
+.drawing text[data-outcome], .drawing text[data-outcome] tspan { fill: var(--outcome) !important; }
+.drawing[data-tracing] :is([data-explore-step], .flowchart-link):not([data-on-path]) { opacity: .35 !important; }
 .drawing .flowchart-link[data-on-path] {
   stroke: #4338ca !important;
   stroke-width: 2.5px !important;

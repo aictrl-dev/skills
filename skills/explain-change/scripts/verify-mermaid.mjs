@@ -28,27 +28,29 @@ export function extractMermaid(markdown) {
   for (let offset = 0; offset < lines.length; offset += 1) {
     const line = lines[offset];
     if (!open) {
-      const match = line.match(/^ {0,3}(`{3,}|~{3,})\s*mermaid(?:\s.*)?$/i);
-      if (match) {
-        open = { fence: match[1], line: offset + 1, content: [] };
-      }
+      const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+      if (!match || (match[1][0] === '`' && match[2].includes('`'))) continue;
+      const mermaid = /^mermaid(?:\s|$)/i.test(match[2].trim());
+      open = { fence: match[1], line: offset + 1, mermaid, content: [] };
       continue;
     }
 
     const closing = new RegExp(`^ {0,3}${open.fence[0]}{${open.fence.length},}\\s*$`);
     if (closing.test(line)) {
-      diagrams.push({
-        index: diagrams.length + 1,
-        startLine: open.line,
-        source: open.content.join('\n'),
-      });
+      if (open.mermaid) {
+        diagrams.push({
+          index: diagrams.length + 1,
+          startLine: open.line,
+          source: open.content.join('\n'),
+        });
+      }
       open = null;
       continue;
     }
-    open.content.push(line);
+    if (open.mermaid) open.content.push(line);
   }
 
-  if (open) {
+  if (open?.mermaid) {
     errors.push({
       index: diagrams.length + 1,
       startLine: open.line,
@@ -64,10 +66,14 @@ function clip(value) {
   return value.replaceAll(process.cwd(), '<cwd>').slice(0, MAX_ERROR_CHARS);
 }
 
+export function toolingPath(root = ROOT) {
+  return resolve(process.env.AICTRL_EXPLAIN_CHANGE_TOOLING ?? join(root, 'tooling'));
+}
+
 export function cliPath(root = ROOT) {
   if (process.env.MERMAID_CLI) return process.env.MERMAID_CLI;
   const executable = process.platform === 'win32' ? 'mmdc.cmd' : 'mmdc';
-  const toolingCli = join(root, 'tooling', 'node_modules', '.bin', executable);
+  const toolingCli = join(toolingPath(root), 'node_modules', '.bin', executable);
   return existsSync(toolingCli) ? toolingCli : join(root, 'node_modules', '.bin', executable);
 }
 

@@ -7,9 +7,11 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { ROOT } from '../scripts/public-catalog.mjs';
+import { drawingTrees } from '../skills/explain-change/scripts/render-interactive.mjs';
+import { cliPath, toolingPath } from '../skills/explain-change/scripts/verify-mermaid.mjs';
 
 const script = join(ROOT, 'skills/explain-change/scripts/render-interactive.mjs');
-const mmdc = join(ROOT, 'tooling/node_modules/.bin/mmdc');
+const mmdc = cliPath();
 const sourceLink = 'https://github.com/owner/repo/blob/0123456789abcdef0123456789abcdef01234567/src/jobs.ts#L24';
 const code = 'return "</script><script>window.injected = true</script>";';
 const steps = [
@@ -18,6 +20,28 @@ const steps = [
     source: { label: 'src/jobs.ts:24', url: sourceLink, code } },
 ];
 
+test('exports drawing presentation without SVG rules or animation elements', { skip: !existsSync(mmdc) }, async () => {
+  const { default: puppeteer } = createRequire(join(toolingPath(), 'package.json'))('puppeteer');
+  // The test harness supplies a local synthetic SVG and never renders a repository diagram.
+  const testLauncher = { launch: options => puppeteer.launch({
+    ...options, args: [...options.args, '--no-sandbox'],
+  }) };
+  const [drawing] = await drawingTrees([{ svg: `<svg xmlns="http://www.w3.org/2000/svg">
+    <style>rect { fill: #15803d; }</style>
+    <rect width="50" height="20" style="position: fixed; z-index: 10">
+      <animate attributeName="opacity" values="0;1" dur="1s" />
+    </rect>
+  </svg>` }], testLauncher);
+  const [, , , children] = drawing;
+  const shapes = children.filter(Array.isArray);
+  assert.deepEqual(shapes.map(shape => shape[1]), ['rect']);
+  const [, , attributes, rectChildren, styles] = shapes[0];
+  assert.equal(attributes.some(([, name]) => name === 'style'), false);
+  assert.equal(rectChildren.some(Array.isArray), false);
+  assert.equal(styles.some(([name]) => name === 'position' || name === 'z-index'), false);
+  assert.equal(new Map(styles).get('fill'), 'rgb(21, 128, 61)');
+});
+
 test('exports a standalone walkthrough with working keyboard selection, source and trace', { skip: !existsSync(mmdc) }, async () => {
   const dir = mkdtempSync(join(tmpdir(), 'aictrl-interactive-test-'));
   const input = join(dir, 'explainer.md');
@@ -25,10 +49,13 @@ test('exports a standalone walkthrough with working keyboard selection, source a
   const output = join(dir, 'explain-change.html');
   const env = { ...process.env, MERMAID_CLI: mmdc, MERMAID_ALLOW_NO_SANDBOX: '1' };
   const args = [script, '--input', input, '--steps', sidecar, '--output', output];
-  const { default: puppeteer } = createRequire(join(ROOT, 'tooling/package.json'))('puppeteer');
+  const { default: puppeteer } = createRequire(join(toolingPath(), 'package.json'))('puppeteer');
   try {
     writeFileSync(input, [
-      '# Stale jobs', 'The comparison protects the record.', '<img src="https://example.com/tracker">',
+      '# Stale jobs', 'The comparison protects the record.', '',
+      'Read the [pinned **source**](https://example.com/revision).', '',
+      '<img src="https://example.com/tracker">', '',
+      '````markdown', '```mermaid', 'Example syntax shown as text', '```', '````', '',
       '~~~mermaid', 'flowchart TD', '  check["Check generation"] --> stop["Ignore stale job"]', '~~~',
       '## Reviewer notes', 'Verify the exact line referenced from the diagram.',
     ].join('\n'));
@@ -53,6 +80,9 @@ test('exports a standalone walkthrough with working keyboard selection, source a
       page.on('pageerror', error => errors.push(error.message));
       await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
       await page.goto(pathToFileURL(output).href);
+      assert.equal(await page.$$eval('.explorer', nodes => nodes.length), 1);
+      assert.equal(await page.$eval('main > pre', node => node.textContent.includes('Example syntax shown as text')), true);
+      assert.equal(await page.$eval('main a strong', node => node.textContent), 'source');
       const stop = '[data-explore-step="stop"]';
       await page.waitForSelector(stop);
       await page.$eval(stop, node => node.focus());

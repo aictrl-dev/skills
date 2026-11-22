@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { readFile, realpath, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { browserOptions, cliPath, verifyMermaidSource } from './verify-mermaid.mjs';
+import { browserOptions, toolingPath, verifyMermaidSource } from './verify-mermaid.mjs';
 
 const assets = new URL('../assets/', import.meta.url);
 const escapeHtml = (value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -54,48 +54,62 @@ function checkSteps(stepsByDiagram, diagramCount) {
   }
 }
 
-function markdownHtml(markdown, count, marked) {
-  const renderer = new marked.Renderer();
+function markdownHtml(markdown, count, Marked, Renderer) {
+  const renderer = new Renderer();
   const defaultCode = renderer.code.bind(renderer);
   let index = 0;
-  renderer.html = escapeHtml;
-  renderer.image = (_href, _title, text) => escapeHtml(text);
-  renderer.link = (href, _title, text) => checkSourceLink(href)
-    ? `<a href="${escapeHtml(href)}" rel="noreferrer">${text}</a>`
-    : text;
-  renderer.code = (code, info) => /^mermaid(?:\s|$)/i.test(info ?? '')
+  renderer.html = ({ text }) => escapeHtml(text);
+  renderer.image = ({ text }) => escapeHtml(text);
+  renderer.link = function ({ href, tokens }) {
+    const label = this.parser.parseInline(tokens);
+    return checkSourceLink(href)
+      ? `<a href="${escapeHtml(href)}" rel="noreferrer">${label}</a>`
+      : label;
+  };
+  renderer.code = (token) => /^mermaid(?:\s|$)/i.test(token.lang ?? '')
     ? `<div data-diagram="${index++}"></div>\n`
-    : defaultCode(code, info);
-  const html = marked.parse(markdown, { renderer, headerIds: false, mangle: false });
-  if (index !== count) throw new Error('Markdown and Mermaid disagree on the number of diagrams.');
+    : defaultCode(token);
+  const html = new Marked({ renderer }).parse(markdown);
+  if (index !== count) throw new Error('Place executable Mermaid fences at the top level. Quoted examples can stay inside ordinary code fences.');
   return html;
 }
 
-// Convert the verified drawing into inert element and text data at export time.
-async function drawingTrees(diagrams, puppeteer) {
+// Snapshot the rendered presentation without carrying SVG rules into the reader's page.
+export async function drawingTrees(diagrams, puppeteer) {
   if (!diagrams.length) return [];
   const browser = await puppeteer.launch(browserOptions());
   try {
     const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on('request', (request) => request.abort());
     return await page.evaluate((sources) => {
       const svgNamespace = 'http://www.w3.org/2000/svg';
       const htmlNamespace = 'http://www.w3.org/1999/xhtml';
       const svgTags = new Set(['svg', 'g', 'path', 'polygon', 'polyline', 'line', 'rect', 'circle', 'ellipse', 'text', 'tspan', 'defs',
         'marker', 'style', 'foreignObject', 'title', 'desc', 'clipPath', 'mask', 'pattern', 'linearGradient', 'radialGradient', 'stop', 'use']);
       const htmlTags = new Set(['div', 'span', 'p', 'br', 'b', 'strong', 'i', 'em', 'code', 'small', 'sub', 'sup']);
+      const presentation = ['color', 'background-color', 'fill', 'fill-opacity', 'stroke', 'stroke-opacity', 'stroke-width', 'stroke-dasharray',
+        'stroke-linecap', 'stroke-linejoin', 'paint-order', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style',
+        'text-anchor', 'text-align', 'dominant-baseline', 'white-space', 'letter-spacing', 'line-height', 'max-width'];
+      const htmlLayout = ['display', 'margin', 'padding', 'width', 'height', 'box-sizing'];
+      const localPaint = (value) => !/\burl\s*\(/i.test(value) || /^url\(["']?#[\w:.-]+["']?\)$/.test(value);
+      function isAllowed(node) {
+        if (node.namespaceURI === svgNamespace) return svgTags.has(node.localName);
+        if (node.namespaceURI === htmlNamespace) return htmlTags.has(node.localName);
+        return false;
+      }
+
       function encode(node) {
         if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) return node.nodeValue;
-        const tag = node.localName;
-        const namespace = node.namespaceURI;
-        const allowedTags = namespace === svgNamespace ? svgTags : namespace === htmlNamespace ? htmlTags : null;
-        if (!allowedTags?.has(tag)) return null;
+        if (node.nodeType !== Node.ELEMENT_NODE || node.localName === 'style') return null;
         const attributes = [...node.attributes]
-          .filter(({ localName, value }) => !/^on/i.test(localName) &&
-            !['src', 'srcdoc', 'srcset'].includes(localName) &&
-            (localName !== 'href' || /^#[\w:.-]+$/.test(value)))
-          .map((attribute) => [attribute.namespaceURI, attribute.name, attribute.value]);
+          .filter(({ localName }) => localName !== 'style')
+          .map(({ namespaceURI, name, value }) => [namespaceURI, name, value]);
+        const computed = getComputedStyle(node);
+        const names = node.namespaceURI === htmlNamespace ? [...presentation, ...htmlLayout] : presentation;
+        const styles = names.map((name) => [name, computed.getPropertyValue(name)]).filter(([, value]) => value && localPaint(value));
         const children = [...node.childNodes].map(encode).filter((child) => child !== null);
-        return [namespace, tag, attributes, children];
+        return [node.namespaceURI, node.localName, attributes, children, styles];
       }
 
       return sources.map((markup) => {
@@ -104,7 +118,27 @@ async function drawingTrees(diagrams, puppeteer) {
         if (root.namespaceURI !== svgNamespace || root.localName !== 'svg') {
           throw new Error('Mermaid output is not a valid SVG.');
         }
-        return encode(root);
+        for (const node of [root, ...root.querySelectorAll('*')]) {
+          if (!isAllowed(node)) {
+            node.remove();
+            continue;
+          }
+          for (const attribute of [...node.attributes]) {
+            const { localName, value } = attribute;
+            if (/^on/i.test(localName) || ['src', 'srcdoc', 'srcset'].includes(localName) ||
+                (localName === 'href' && !/^#[\w:.-]+$/.test(value)) ||
+                (localName !== 'style' && !localPaint(value))) {
+              node.removeAttributeNode(attribute);
+            }
+          }
+        }
+        const drawing = document.importNode(root, true);
+        document.body.append(drawing);
+        try {
+          return encode(drawing);
+        } finally {
+          drawing.remove();
+        }
       });
     }, diagrams.map((diagram) => diagram.svg));
   } finally {
@@ -124,11 +158,11 @@ export async function writeInteractive({ input, steps, output }) {
     throw new Error(reasons.join('\n'));
   }
   checkSteps(entries, report.diagrams.length);
-  // Resolve the Markdown parser and Puppeteer installed alongside the pinned renderer.
-  const require = createRequire(await realpath(cliPath()));
-  const { marked } = require('marked');
+  // Markdown and browser tooling are independent of the selected mmdc binary.
+  const require = createRequire(join(toolingPath(), 'package.json'));
+  const { Marked, Renderer } = require('marked');
   const { default: puppeteer } = require('puppeteer');
-  const body = markdownHtml(markdown, report.diagrams.length, marked);
+  const body = markdownHtml(markdown, report.diagrams.length, Marked, Renderer);
   const [style, script, drawings] = await Promise.all([
     readFile(new URL('interactive.css', assets), 'utf8'),
     readFile(new URL('interactive.js', assets), 'utf8'),

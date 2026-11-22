@@ -13,10 +13,13 @@
 
   function createDrawing(tree) {
     if (typeof tree === 'string') return document.createTextNode(tree);
-    const [namespace, tag, attributes, children] = tree;
+    const [namespace, tag, attributes, children, styles] = tree;
     const node = document.createElementNS(namespace, tag);
     for (const [attributeNamespace, name, value] of attributes) {
       node.setAttributeNS(attributeNamespace, name, value);
+    }
+    for (const [name, value] of styles) {
+      node.style.setProperty(name, value);
     }
     node.append(...children.map(createDrawing));
     return node;
