@@ -2,7 +2,6 @@
   'use strict';
 
   const diagrams = JSON.parse(document.getElementById('diagram-data').textContent);
-  const svgNamespace = 'http://www.w3.org/2000/svg';
   const normalise = (value) => value.replace(/\s+/g, ' ').trim();
   function element(tag, text, className) {
     const node = document.createElement(tag);
@@ -12,23 +11,15 @@
     return node;
   }
 
-  function parseDrawing(markup) {
-    const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
-    const root = parsed.documentElement;
-    if (root.namespaceURI !== svgNamespace || root.localName !== 'svg') {
-      throw new Error('Mermaid output is not a valid SVG.');
+  function createDrawing(tree) {
+    if (typeof tree === 'string') return document.createTextNode(tree);
+    const [namespace, tag, attributes, children] = tree;
+    const node = document.createElementNS(namespace, tag);
+    for (const [attributeNamespace, name, value] of attributes) {
+      node.setAttributeNS(attributeNamespace, name, value);
     }
-    root.querySelectorAll('script, iframe, object, embed, image, img, audio, video, form, input, button, base, link, meta').forEach((node) => node.remove());
-    for (const node of [root, ...root.querySelectorAll('*')]) {
-      for (const attribute of [...node.attributes]) {
-        const { name, value } = attribute;
-        if (/^on/i.test(name) || name === 'src' || name === 'srcdoc' ||
-            (/^(?:xlink:)?href$/.test(name) && !value.startsWith('#'))) {
-          node.removeAttribute(name);
-        }
-      }
-    }
-    return document.importNode(root, true);
+    node.append(...children.map(createDrawing));
+    return node;
   }
 
   function candidatesFor(svg) {
@@ -47,7 +38,7 @@
   }
 
   function mount(slot, diagram) {
-    const svg = parseDrawing(diagram.svg);
+    const svg = createDrawing(diagram.drawing);
     const wrapper = element('section', '', 'explorer');
     const heading = element('h2', diagram.title);
     wrapper.append(heading);

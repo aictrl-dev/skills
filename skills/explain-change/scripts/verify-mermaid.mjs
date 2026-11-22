@@ -71,6 +71,21 @@ export function cliPath(root = ROOT) {
   return existsSync(toolingCli) ? toolingCli : join(root, 'node_modules', '.bin', executable);
 }
 
+export function browserOptions() {
+  return {
+    headless: true,
+    args: [
+      '--disable-background-networking',
+      '--disable-component-update',
+      '--disable-default-apps',
+      '--disable-sync',
+      '--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE localhost',
+      '--no-first-run',
+      ...(process.env.MERMAID_ALLOW_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
+    ],
+  };
+}
+
 function run(command, args, { cwd, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   return new Promise((resolveRun) => {
     const child = spawn(command, args, {
@@ -180,18 +195,7 @@ export async function verifyMermaidSource(markdown, { root = ROOT, timeoutMs = D
       startOnLoad: false,
       maxTextSize: MAX_DIAGRAM_BYTES,
     })}\n`);
-    await writeFile(browserConfig, `${JSON.stringify({
-      headless: true,
-      args: [
-        '--disable-background-networking',
-        '--disable-component-update',
-        '--disable-default-apps',
-        '--disable-sync',
-        '--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE localhost',
-        '--no-first-run',
-        ...(process.env.MERMAID_ALLOW_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
-      ],
-    })}\n`);
+    await writeFile(browserConfig, `${JSON.stringify(browserOptions())}\n`);
 
     const renderer = await rendererVersion(command, scratch);
     for (const diagram of extracted.diagrams) {

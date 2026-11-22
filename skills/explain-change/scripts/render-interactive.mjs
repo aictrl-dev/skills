@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { cliPath, verifyMermaidSource } from './verify-mermaid.mjs';
+import { browserOptions, cliPath, verifyMermaidSource } from './verify-mermaid.mjs';
 
 const assets = new URL('../assets/', import.meta.url);
 const escapeHtml = (value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -54,10 +54,7 @@ function checkSteps(stepsByDiagram, diagramCount) {
   }
 }
 
-async function markdownHtml(markdown, count) {
-  // Use the Markdown parser installed alongside the pinned Mermaid renderer.
-  const require = createRequire(await realpath(cliPath()));
-  const { marked } = require('marked');
+function markdownHtml(markdown, count, marked) {
   const renderer = new marked.Renderer();
   const defaultCode = renderer.code.bind(renderer);
   let index = 0;
@@ -74,6 +71,47 @@ async function markdownHtml(markdown, count) {
   return html;
 }
 
+// Convert the verified drawing into inert element and text data at export time.
+async function drawingTrees(diagrams, puppeteer) {
+  if (!diagrams.length) return [];
+  const browser = await puppeteer.launch(browserOptions());
+  try {
+    const page = await browser.newPage();
+    return await page.evaluate((sources) => {
+      const svgNamespace = 'http://www.w3.org/2000/svg';
+      const htmlNamespace = 'http://www.w3.org/1999/xhtml';
+      const svgTags = new Set(['svg', 'g', 'path', 'polygon', 'polyline', 'line', 'rect', 'circle', 'ellipse', 'text', 'tspan', 'defs',
+        'marker', 'style', 'foreignObject', 'title', 'desc', 'clipPath', 'mask', 'pattern', 'linearGradient', 'radialGradient', 'stop', 'use']);
+      const htmlTags = new Set(['div', 'span', 'p', 'br', 'b', 'strong', 'i', 'em', 'code', 'small', 'sub', 'sup']);
+      function encode(node) {
+        if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) return node.nodeValue;
+        const tag = node.localName;
+        const namespace = node.namespaceURI;
+        const allowedTags = namespace === svgNamespace ? svgTags : namespace === htmlNamespace ? htmlTags : null;
+        if (!allowedTags?.has(tag)) return null;
+        const attributes = [...node.attributes]
+          .filter(({ localName, value }) => !/^on/i.test(localName) &&
+            !['src', 'srcdoc', 'srcset'].includes(localName) &&
+            (localName !== 'href' || /^#[\w:.-]+$/.test(value)))
+          .map((attribute) => [attribute.namespaceURI, attribute.name, attribute.value]);
+        const children = [...node.childNodes].map(encode).filter((child) => child !== null);
+        return [namespace, tag, attributes, children];
+      }
+
+      return sources.map((markup) => {
+        const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
+        const root = parsed.documentElement;
+        if (root.namespaceURI !== svgNamespace || root.localName !== 'svg') {
+          throw new Error('Mermaid output is not a valid SVG.');
+        }
+        return encode(root);
+      });
+    }, diagrams.map((diagram) => diagram.svg));
+  } finally {
+    await browser.close();
+  }
+}
+
 export async function writeInteractive({ input, steps, output }) {
   if ([input, steps].some((path) => resolve(output) === resolve(path))) {
     throw new Error('Choose an output file separate from the Markdown and steps inputs.');
@@ -86,15 +124,20 @@ export async function writeInteractive({ input, steps, output }) {
     throw new Error(reasons.join('\n'));
   }
   checkSteps(entries, report.diagrams.length);
-  const body = await markdownHtml(markdown, report.diagrams.length);
-  const [style, script] = await Promise.all([
+  // Resolve the Markdown parser and Puppeteer installed alongside the pinned renderer.
+  const require = createRequire(await realpath(cliPath()));
+  const { marked } = require('marked');
+  const { default: puppeteer } = require('puppeteer');
+  const body = markdownHtml(markdown, report.diagrams.length, marked);
+  const [style, script, drawings] = await Promise.all([
     readFile(new URL('interactive.css', assets), 'utf8'),
     readFile(new URL('interactive.js', assets), 'utf8'),
+    drawingTrees(report.diagrams, puppeteer),
   ]);
   const hash = createHash('sha256').update(script).digest('base64');
   const data = JSON.stringify(entries.map((entry, index) => ({
     ...entry,
-    svg: report.diagrams[index].svg,
+    drawing: drawings[index],
   }))).replaceAll('<', '\\u003c');
   const policy = `default-src 'none'; script-src 'sha256-${hash}'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'`;
   const title = /^#\s+([^\r\n]+)/m.exec(markdown)?.[1] ?? 'Change explanation';
