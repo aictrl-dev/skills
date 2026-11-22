@@ -4,6 +4,7 @@ Free, vendor-neutral AI engineering-workflow **skills** by [aictrl.dev](https://
 
 ## Layout
 - `skills/<name>/SKILL.md` — the single canonical source of every skill (+ optional `reference/`).
+- `skills/<name>/README.md` — optional examples for readers browsing the skill on GitHub.
 - `.claude-plugin/plugin.json` — Claude Code plugin metadata for the repository-root plugin.
 - `.claude-plugin/marketplace.json` — marketplace catalog (one plugin, `source: "./"`).
 - `.codex-plugin/plugin.json` — Codex plugin metadata for the same repository root.
