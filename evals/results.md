@@ -1,5 +1,21 @@
 # Eval Results
 
+## measurement-plan feature workflow (2026-11-23)
+
+Method: Ran the revised skill once per case in three fresh Gemini 4 Argon High
+sessions using the fictional prompts in [the eval](measurement-plan.eval.md).
+Each session received the skill text and the case prompt. Output was reviewed
+against the case criteria.
+
+| Case | Result |
+|---|---|
+| Bulk editing | Drafted all five sections from the epic, kept product thresholds open, and marked schema changes as conditional. Historical baseline availability still needs verification. |
+| CSV exports | Used durable jobs for the requested reliability rate, with no new instrumentation for that rate. Covered requests still within the time window, retries, and cancellations. A separate click-to-job diagnostic depends on an unverified join. |
+| Invoice reconciliation | Identified missing durable per-invoice outcomes, kept the ledger as the comparison source, and included matched and mismatched fixtures. Set the decision review after two closes. |
+
+These runs exercise the planning workflow with supplied evidence. They use
+fictional data sources and an inline deliverable.
+
 ## ui-polish measure.cjs noise — 2026-09-26 (fixtures and a production site)
 
 Method: fresh agents ran the skill on an 11-page production marketing site and dropped most measured

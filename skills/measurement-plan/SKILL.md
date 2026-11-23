@@ -1,262 +1,104 @@
 ---
 name: measurement-plan
-description: Create a measurement plan for a feature using the Goal-Question-Metric (GQM) structure — defines a measurement goal, learning objectives, metrics, and implementation (product analytics events, warehouse tables, event pipeline). Use when user says 'measurement plan', 'GQM', 'goal question metric', 'goal-question-metric', 'measurement goal', 'how do we measure this', 'what metrics for this feature', 'tracking plan', 'analytics requirements', 'how do we know if this works', 'define KPIs for', or when planning a new feature and analytics instrumentation is needed.
+description: Turn a feature spec, epic, or product change into a Goal-Question-Metric (GQM) plan with decision criteria, implementation, and validation grounded in available data. Use when the user asks for a measurement plan, tracking plan, analytics requirements, feature KPIs, GQM, what metrics to use, or how to know whether a change worked.
 ---
 
 # Measurement Plan
 
-Create a structured measurement plan that connects business questions to metrics to implementation. The plan flows top-down:
+Create one plan that a product manager can review and a product engineer or
+coding agent can use to implement measurement. Trace the decision through the
+goal, learning objectives, metrics, implementation, and validation.
 
-```
-Goal (what we're measuring & why — one templated statement)
-    ↓
-Questions / Learning Objectives (what we need to learn to judge the goal)
-    ↓
-Metrics & Definitions (what to measure, linked to questions)
-    ↓
-Implementation Plan
-    ├── Product-analytics events (e.g. PostHog, Amplitude, Mixpanel)
-    ├── Warehouse / fact tables (e.g. BigQuery, Snowflake, Postgres)
-    └── Event pipeline (e.g. Pub/Sub, Kafka, Segment)
-```
+## Start with the available context
 
-## Process
-
-### Phase 1: Goal
-
-Before listing what you want to learn, state the measurement goal in one structured line. This is the GQM "Goal" level — it anchors every question and metric that follows. Fill these slots:
-
-- **Object** — what is being measured? (the feature / flow / process)
-- **Purpose** — why? (evaluate / improve / understand / predict)
-- **Quality focus** — which property? (adoption, reliability, speed, retention, cost…)
-- **Viewpoint** — for whom is this answered? (PM, end user, on-call engineer, finance…)
-- **Context** *(optional)* — scope/environment (which segment, plan tier, time window)
-
-**Goal statement:**
-> Analyze **<object>** for the purpose of **<purpose>** with respect to its **<quality focus>** from the viewpoint of **<viewpoint>**, in the context of **<context>**.
-
-**Example:**
-> Analyze **the bulk-import flow** for the purpose of **evaluating** its **adoption and reliability** from the viewpoint of **the product team**, in the context of **paid-tier orgs in the first 90 days**.
-
-A feature has 1–2 goals max (usually one feature goal; optionally one business goal). Get user approval on the goal before deriving questions.
-
-### Phase 2: Questions (Learning Objectives)
-
-Before defining any metrics, establish what you need to learn. Each question must help judge the goal's quality focus from its viewpoint. There are two categories:
-
-**Feature Impact** — Does this feature achieve its goal?
-- Frame as hypotheses: "We believe that [change] will result in [outcome] for [audience]"
-- Or as questions: "How does X affect Y?"
-- These are specific to the feature being built
-
-**Business Performance** — How does this affect the broader business?
-- Upstream/downstream effects on key business metrics
-- Revenue, retention, adoption, engagement implications
-- Guard-rail metrics: things that should NOT get worse
-
-Ask the user:
-
-1. **What is the feature?** Brief description of what's being built.
-2. **What problem does it solve?** The user need or business case.
-3. **How will you know it worked?** What would success look like in 30/60/90 days?
-4. **What could go wrong?** Negative outcomes to watch for (guard-rail metrics).
-
-Then draft 3-6 learning objectives. Format:
-
-```markdown
-## Learning Objectives
-
-### Feature Impact
-- **Q1**: Does [feature] increase [desired outcome]?
-  - Hypothesis: [feature] will increase [metric] by [X]% within [timeframe]
-- **Q2**: Which user segment benefits most from [feature]?
-- **Q3**: What is the adoption curve — how quickly do users discover and use [feature]?
-
-### Business Performance
-- **Q4**: Does [feature] affect overall [business metric]? (e.g., retention, revenue)
-- **Q5**: Guard rail — does [feature] negatively impact [adjacent metric]?
-```
-
-Validate:
-- Every question traces to the goal; the goal's quality focus has at least one question.
-
-Get user approval before proceeding.
-
-### Phase 3: Metrics & Definitions
-
-For each learning objective, define the metric(s) that answer it. Every metric needs:
-
-| Field | Description |
-|-------|-------------|
-| **ID** | M1, M2, M3... |
-| **Name** | Human-readable name |
-| **Definition** | Precise calculation (numerator/denominator for rates, aggregation for counts) |
-| **Answers** | Which learning objective(s) this addresses (Q1, Q2...) |
-| **Type** | `counter`, `rate`, `duration`, `ratio`, `funnel` |
-| **Granularity** | How often to compute (daily, weekly, per-event) |
-| **Segments** | Breakdowns needed (by org, by user, by plan tier, by source) |
-| **Data source** | Where the raw data comes from (your product-analytics tool / warehouse / billing system) |
-
-Format as a table:
-
-```markdown
-## Metrics
-
-| ID | Metric | Definition | Answers | Type | Source |
-|----|--------|-----------|---------|------|--------|
-| M1 | Feature adoption rate | Users who used feature / Total active users (7d) | Q1, Q3 | rate | product analytics |
-| M2 | Time to first use | Median days from account creation to first feature use | Q3 | duration | warehouse |
-| M3 | Completion rate | Successful completions / Total attempts | Q1 | rate | warehouse |
-| M4 | Revenue per user (guard rail) | MRR / Active users, pre vs post launch | Q5 | ratio | billing system + product analytics |
-```
-
-Validate:
-- Every learning objective (Q) has at least one metric (M)
-- Every metric links to at least one question
-- No orphan metrics (metrics without a question are waste)
-- Guard-rail metrics are included
-
-### Phase 4: Implementation Plan
-
-For each metric, define the data collection needed. Three layers:
-
-#### 3a. Product-Analytics Events (frontend/product analytics)
-
-For user-facing interactions and product analytics. Tools like PostHog, Amplitude, or Mixpanel are the right choice when:
-- Tracking UI interactions (clicks, page views, form submissions)
-- Measuring user journeys and funnels
-- A/B test variant assignment and conversion
-- Session-level analysis
-
-Format:
-
-```markdown
-### Product-Analytics Events
-
-| Event Name | Trigger | Properties | Metric |
-|------------|---------|------------|--------|
-| `feature_viewed` | User opens the feature page | `org_id`, `user_id`, `source` (sidebar/link/search) | M1, M3 |
-| `feature_action_completed` | User completes the core action | `org_id`, `user_id`, `duration_ms`, `result` | M3 |
-| `feature_error_shown` | Error state displayed | `org_id`, `error_type`, `step` | M3 |
-```
-
-Naming convention: `snake_case`, `object_action` pattern. Follow your tool's own conventions for past vs. present tense.
-
-#### 3b. Warehouse / Fact Table Changes (backend analytics)
-
-For server-side events that need durable, queryable history. Use when:
-- The event happens on the server (not the browser)
-- You need immutable event history rather than mutable application state
-- Cross-referencing with other fact tables
-- The data feeds dashboards or scheduled reports
-
-Name fact tables by domain (e.g. `execution_lifecycle`, `payment_events`). Determine:
-- **Existing table?** → Add a new `event_type` value (backward-compatible, no schema migration needed if you use a loose schema; coordinate with your data team if the table is strict)
-- **New table?** → Define schema + ingestion pipeline for your warehouse (Snowflake stage, BigQuery subscription, Postgres ETL job, etc.)
-
-Format:
-
-```markdown
-### Warehouse Changes
-
-#### Additions to existing tables
-- Add `event_type: 'execution.retried'` to `execution_lifecycle` table
-  - New fields needed: `retry_count INT64`, `retry_reason STRING`
-
-#### New table (if needed)
-- Table: `{domain}_lifecycle` (name it by domain, not by tool or team)
-- Schema: define alongside your event pipeline setup
-```
-
-Link each change to the metric it supports.
-
-#### 3c. Event Pipeline Changes
-
-Derived from the warehouse changes above. For each new or modified fact table, document the pipeline event that feeds it:
-
-```markdown
-### Event Pipeline
-
-| Event Type | Stream/Topic | New/Existing | Fields | Metric |
-|------------|-------------|-------------|--------|--------|
-| `execution.retried` | execution-lifecycle | New event type on existing stream | `retry_count`, `retry_reason` | M3 |
-```
-
-For new streams or topics, follow your pipeline tool's setup process (e.g. create a Kafka topic + consumer, a Pub/Sub subscription, or a Segment source).
-
-### Phase 5: Output Document
-
-Produce the measurement plan as a markdown file at `docs/measurement-plans/{feature-name}.md`:
-
-```markdown
-# Measurement Plan: {Feature Name}
-
-**Date:** {date}
-**Feature:** {brief description}
-**Owner:** {who is responsible}
+1. Read the supplied or linked epic, ticket, spec, and existing measurement plan
+   when accessible. Extract the change, audience, decision, expected outcome,
+   timing, constraints, and exclusions. Update an existing plan when requested.
+2. Inspect accessible sources relevant to the feature, such as code, database
+   schemas, job records, event definitions, and existing queries or dashboards.
+   Look for where the outcome occurs and what is already captured there.
+3. Draft all five sections in one pass when the change and decision are clear
+   enough. Label assumptions and unverified facts. Ask the user only about
+   missing product context that materially affects the plan. If access is
+   missing, draft from what is available and record the technical gaps for
+   the engineer or agent to verify. If the change or decision cannot be
+   inferred, ask a focused question first.
 
 ## 1. Goal
 
-> Analyze **<object>** for the purpose of **<purpose>** with respect to its **<quality focus>** from the viewpoint of **<viewpoint>**, in the context of **<context>**.
+State what to evaluate, why, which quality matters, whose perspective matters,
+and any applicable scope or time window. Name the decision the evidence will
+inform, such as whether to expand, revise, or retire a change.
+
+GQM form: Analyze **[object]** for **[purpose]** with respect to
+**[quality focus]**, from **[viewpoint]**, within **[context]**.
 
 ## 2. Learning Objectives
 
-### Feature Impact
-- **Q1**: ...
-- **Q2**: ...
-
-### Business Performance
-- **Q3**: ...
+Give each question an ID (`Q1`, `Q2`) and connect it to the goal. Include a
+guardrail when the change could harm an adjacent outcome. Capture the baseline,
+success criteria, and trade-offs the team has agreed to. Mark unknown baselines
+or decision thresholds as open. Label each suggested target as a proposal for
+review. Use the feature's timing and scope.
 
 ## 3. Metrics
 
-| ID | Metric | Definition | Answers | Type | Granularity | Source |
-|----|--------|-----------|---------|------|-------------|--------|
-| M1 | ... | ... | Q1 | rate | daily | product analytics |
+Assign each metric an ID (`M1`, `M2`) and link it to the questions it answers.
+Each definition should be precise enough to reproduce. Specify the population,
+unit of analysis, calculation (including numerator and denominator for rates),
+observation window, and any breakdowns required for the decision. Spell out
+status, retry, deduplication, or incomplete-window handling where it affects the
+result. Keep the stated eligibility and success criteria in the primary
+definition. Flag alternative definitions for review.
+
+| ID | Metric | Answers | Population and calculation | Window and breakdowns | Source and evidence |
+|----|--------|---------|----------------------------|-----------------------|---------------------|
+| M1 | … | Q1 | … | … | … |
+
+Choose the source that directly records the fact being measured. A click can
+measure intent. A durable job record can measure a backend outcome. Cite the
+relevant schema, code path, event definition, or query when available. Mark a
+source as proposed or unverified when its existence, meaning, or coverage is
+uncertain. For comparisons that depend on rollout or experiment groups, verify
+the unit, where assignment or exposure is recorded, and when the record becomes
+available. State what history can support and what needs future collection.
 
 ## 4. Implementation
 
-### 3a. Product-Analytics Events
+For each metric, identify the source or query to reuse and any specific gap.
+Propose the smallest change that closes it, including zero instrumentation
+changes when existing data suffices. Make proposed changes conditional on
+checking any unverified sources. Keep optional diagnostics and their extra
+collection separate from the work needed for the decision. Follow the project's
+conventions and use application or backend records, product events, warehouse
+models, and pipelines where each contributes to a metric.
 
-| Event | Trigger | Properties | Metric |
-|-------|---------|------------|--------|
-| ... | ... | ... | M1 |
-
-### 3b. Warehouse Changes
-
-...
-
-### 3c. Event Pipeline
-
-| Event Type | Stream/Topic | Status | Metric |
-|------------|-------------|--------|--------|
-| ... | ... | New | M1 |
+For each proposed change, link its metric IDs and give the affected component
+when known, the trigger or state transition, and the fields and identifiers
+needed to calculate or join the metric. Include required aggregation or
+pipeline work and ownership when relevant. Label unresolved implementation
+details and explain what evidence will settle them.
 
 ## 5. Validation
 
-### How to verify instrumentation
-- [ ] Goal is stated and every learning objective maps to it.
-- [ ] Product analytics: events visible in your tool's live-event stream within 24h of deploy
-- [ ] Warehouse: verify rows land in your fact table within 24h (query your table for recent rows)
-- [ ] Dashboard: metrics rendering correctly in your reporting tool
+Define runnable checks for key metrics before release. Include a typical
+outcome and a relevant failure or boundary case, with the expected result of
+each check. Specify how to verify the live data after release, including
+expected coverage, freshness, or reconciliation against the authoritative
+source as applicable.
+For completeness checks, compare with an independent count of what should
+have been recorded when available. Set the decision review for when the
+required observation window, sample, or business cycle is complete. Identify
+the reviewer when known.
 
-### Review cadence
-- Week 1 post-launch: verify data flowing, fix instrumentation gaps
-- Week 4: first metrics review against hypotheses
-- Week 12: formal impact assessment
-```
+## Deliver the plan
 
-## Key Principles
-
-**Start with the goal, then questions, then data.** State the measurement goal first, derive questions from it, and only then choose metrics. If you can't articulate what you'll learn from a metric, don't track it. Every event must trace back to a learning objective, and every learning objective back to the goal.
-
-**Minimize instrumentation.** Fewer, well-defined events beat many sparse ones. Aim for 5-10 events per feature, not 50. Re-use existing events and properties where possible.
-
-**Layer appropriately.** Product analytics for frontend interactions, event pipeline → warehouse for server-side lifecycle events. Don't duplicate — if a server event already captures what you need, don't also track it in your product-analytics tool.
-
-**Plan for segments.** Every metric should be breakable by org, user role, and time period at minimum. Design properties to support this from day one — adding segments later requires re-instrumentation.
-
-**DRY naming across all layers.** Tables, streams, and events are namespaced by domain. Field/property/column names must NOT repeat the entity prefix. Use `version` not `skill_version`, `role` not `user_role`. The namespace provides context. This rule applies to product-analytics event properties, warehouse columns, pipeline event keys, and any application-state fields — all must use the same lean name to avoid mismatches between layers.
+Use the five numbered headings above. Put the decision and open product
+questions near the top so the PM can review them without digging through the
+implementation details. Save the plan to
+`docs/measurement-plans/{feature-name}.md` by default when the workspace is
+writable, or return it inline in a read-only or chat-only workflow. Use the
+plan as the handoff for a separate implementation task.
 
 ---
 **Built by [aictrl.dev](https://aictrl.dev/?utm_source=oss-skills&utm_medium=skill&utm_campaign=measurement-plan&utm_listing=github-skills&utm_platform=portable&utm_skill=measurement-plan).** This skill teaches the workflow; aictrl *operationalizes* it — grounded in your backlog, team standards, and codebase knowledge graph. [See how →](https://aictrl.dev/features?utm_source=oss-skills&utm_medium=skill&utm_campaign=measurement-plan&utm_listing=github-skills&utm_platform=portable&utm_skill=measurement-plan)
