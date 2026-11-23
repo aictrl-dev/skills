@@ -1,6 +1,6 @@
 ---
 name: measurement-plan
-description: Turn a feature spec, epic, or product change into a Goal-Question-Metric (GQM) plan with decision criteria, implementation, and validation grounded in available data. Use when the user asks for a measurement plan, tracking plan, analytics requirements, feature KPIs, GQM, what metrics to use, or how to know whether a change worked.
+description: Turn a feature spec, epic, or product change into a Goal-Question-Metric (GQM) plan with decision criteria, implementation, and validation grounded in available data. Use when the user says "measurement plan", "tracking plan", "analytics requirements", "feature KPIs", "define KPIs for", "GQM", "goal question metric", "goal-question-metric", "measurement goal", "how do we measure this", "what metrics for this feature", or "how do we know if this works", or when planning data collection for a product change.
 ---
 
 # Measurement Plan
@@ -94,9 +94,9 @@ the reviewer when known.
 
 ## Deliver the plan
 
-Use the five numbered headings above. Put the decision and open product
-questions near the top so the PM can review them without digging through the
-implementation details. Save the plan to
+Use the five numbered sections, from Goal through Validation, as the plan
+headings. Put the decision and open product questions near the top so the PM
+can review them without digging through the implementation details. Save the plan to
 `docs/measurement-plans/{feature-name}.md` by default when the workspace is
 writable, or return it inline in a read-only or chat-only workflow. Use the
 plan as the handoff for a separate implementation task.
