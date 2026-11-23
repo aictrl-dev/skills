@@ -86,6 +86,7 @@ outcome and a relevant failure or boundary case, with the expected result of
 each check. Specify how to verify the live data after release, including
 expected coverage, freshness, or reconciliation against the authoritative
 source as applicable.
+
 For completeness checks, compare with an independent count of what should
 have been recorded when available. Set the decision review for when the
 required observation window, sample, or business cycle is complete. Identify

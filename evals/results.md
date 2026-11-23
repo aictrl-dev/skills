@@ -1,6 +1,6 @@
 # Eval Results
 
-## measurement-plan feature workflow (2026-11-23)
+## measurement-plan feature workflow — 2026-11-23
 
 Method: Ran the revised skill once per case in three fresh Gemini 4 Argon High
 sessions using the fictional prompts in [the eval](measurement-plan.eval.md).
