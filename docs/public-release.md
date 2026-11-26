@@ -79,7 +79,9 @@ The first publish must be performed manually by an npm owner of the `@aictrl`
 organization, from the repository root. Publish the tarball the build printed,
 not the directory, so the checked file list is exactly what ships. Keep the
 leading `./`: npm reads `dist/...` as a GitHub `owner/repo` shorthand.
-Add `--otp=<code>` when the account uses two-factor authentication:
+When the account uses two-factor authentication, npm prompts for the one-time
+password; enter it there rather than passing `--otp`, which would record the
+code in shell history:
 
 ```bash
 npm publish ./dist/aictrl-skills-<version>.tgz --access public
