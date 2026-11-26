@@ -1,9 +1,19 @@
 # aictrl.dev 1.2.1 — Codex release notes
 
-Maintenance release of aictrl.dev's engineering plugin for Codex and ChatGPT.
-Essential, local-first skills are unchanged in scope; this release fixes and
-hardens three of them.
+Release of aictrl.dev's engineering plugin for Codex and ChatGPT. The set of
+essential, local-first skills is unchanged. Two skills gain new behaviour, and
+three are fixed and hardened.
 
+- `measurement-plan`: starts from the feature spec or epic and drafts all five
+  sections (goal, learning objectives, metrics, implementation, validation) in
+  one pass. It grounds metrics in the data the project already records,
+  proposes the smallest instrumentation change, or none when existing data is
+  enough, and asks only about missing product context. A README with a worked
+  onboarding example ships with the skill.
+- `explain-change`: offers interactive HTML alongside Markdown. The HTML opens
+  offline, lets the reader select a diagram step to read its code, and links to
+  source at the explained revision. Headless workflows and explicit format
+  requests keep their existing output. The README adds worked examples.
 - `create-workflow`: the local validator resolves its pinned dependencies
   from trusted roots only, no longer needs `ajv-formats`, uses the platform's
   npm cache, and prints a shell-safe, cross-platform remediation command.
