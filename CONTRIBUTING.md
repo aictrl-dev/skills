@@ -11,6 +11,7 @@ PRs that add new skills are welcome. Here's how.
 skills/
   <skill-name>/
     SKILL.md                # the skill itself (frontmatter + instructions)
+    README.md               # optional examples for GitHub readers
     reference/              # optional supporting docs (rubrics, etc.)
 tooling/                    # package.json + lockfile for tests and validators (never at the root)
 evals/

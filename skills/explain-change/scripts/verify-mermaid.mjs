@@ -28,27 +28,29 @@ export function extractMermaid(markdown) {
   for (let offset = 0; offset < lines.length; offset += 1) {
     const line = lines[offset];
     if (!open) {
-      const match = line.match(/^ {0,3}(`{3,}|~{3,})\s*mermaid(?:\s.*)?$/i);
-      if (match) {
-        open = { fence: match[1], line: offset + 1, content: [] };
-      }
+      const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+      if (!match || (match[1][0] === '`' && match[2].includes('`'))) continue;
+      const mermaid = /^mermaid(?:\s|$)/i.test(match[2].trim());
+      open = { fence: match[1], line: offset + 1, mermaid, content: [] };
       continue;
     }
 
     const closing = new RegExp(`^ {0,3}${open.fence[0]}{${open.fence.length},}\\s*$`);
     if (closing.test(line)) {
-      diagrams.push({
-        index: diagrams.length + 1,
-        startLine: open.line,
-        source: open.content.join('\n'),
-      });
+      if (open.mermaid) {
+        diagrams.push({
+          index: diagrams.length + 1,
+          startLine: open.line,
+          source: open.content.join('\n'),
+        });
+      }
       open = null;
       continue;
     }
-    open.content.push(line);
+    if (open.mermaid) open.content.push(line);
   }
 
-  if (open) {
+  if (open?.mermaid) {
     errors.push({
       index: diagrams.length + 1,
       startLine: open.line,
@@ -64,9 +66,30 @@ function clip(value) {
   return value.replaceAll(process.cwd(), '<cwd>').slice(0, MAX_ERROR_CHARS);
 }
 
-function cliPath(root) {
+export function toolingPath(root = ROOT) {
+  return resolve(process.env.AICTRL_EXPLAIN_CHANGE_TOOLING ?? join(root, 'tooling'));
+}
+
+export function cliPath(root = ROOT) {
   if (process.env.MERMAID_CLI) return process.env.MERMAID_CLI;
-  return join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'mmdc.cmd' : 'mmdc');
+  const executable = process.platform === 'win32' ? 'mmdc.cmd' : 'mmdc';
+  const toolingCli = join(toolingPath(root), 'node_modules', '.bin', executable);
+  return existsSync(toolingCli) ? toolingCli : join(root, 'node_modules', '.bin', executable);
+}
+
+export function browserOptions() {
+  return {
+    headless: true,
+    args: [
+      '--disable-background-networking',
+      '--disable-component-update',
+      '--disable-default-apps',
+      '--disable-sync',
+      '--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE localhost',
+      '--no-first-run',
+      ...(process.env.MERMAID_ALLOW_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
+    ],
+  };
 }
 
 function run(command, args, { cwd, timeoutMs = DEFAULT_TIMEOUT_MS }) {
@@ -120,8 +143,14 @@ function safeDiagramError(diagram) {
 }
 
 export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
-  const markdown = await readFile(inputPath, 'utf8');
-  const extracted = extractMermaid(markdown);
+  return verifyMermaidSource(await readFile(inputPath, 'utf8'), { root, timeoutMs });
+}
+
+export async function verifyMermaidSource(markdown, options = {}) {
+  return verifyMermaidDiagrams(extractMermaid(markdown), options);
+}
+
+export async function verifyMermaidDiagrams(extracted, { root = ROOT, timeoutMs = DEFAULT_TIMEOUT_MS, includeSvg = false } = {}) {
   const failures = [...extracted.errors];
   const diagrams = extracted.diagrams.map((diagram) => ({
     index: diagram.index,
@@ -175,18 +204,7 @@ export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAU
       startOnLoad: false,
       maxTextSize: MAX_DIAGRAM_BYTES,
     })}\n`);
-    await writeFile(browserConfig, `${JSON.stringify({
-      headless: true,
-      args: [
-        '--disable-background-networking',
-        '--disable-component-update',
-        '--disable-default-apps',
-        '--disable-sync',
-        '--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE localhost',
-        '--no-first-run',
-        ...(process.env.MERMAID_ALLOW_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
-      ],
-    })}\n`);
+    await writeFile(browserConfig, `${JSON.stringify(browserOptions())}\n`);
 
     const renderer = await rendererVersion(command, scratch);
     for (const diagram of extracted.diagrams) {
@@ -198,6 +216,8 @@ export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAU
       const rendered = await run(command, [
         '--input', input,
         '--output', output,
+        '--svgId', `aictrl-diagram-${diagram.index}`,
+        ...(includeSvg ? ['--backgroundColor', 'transparent'] : []),
         '--configFile', mermaidConfig,
         '--puppeteerConfigFile', browserConfig,
         '--quiet',
@@ -225,6 +245,7 @@ export async function verifyMarkdown(inputPath, { root = ROOT, timeoutMs = DEFAU
         });
         continue;
       }
+      if (includeSvg) result.svg = await readFile(output, 'utf8');
       result.status = 'rendered';
     }
     return { valid: failures.length === 0, renderer, diagrams, failures };
