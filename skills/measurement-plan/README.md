@@ -8,7 +8,7 @@ A free, MIT-licensed agent skill for deciding how to measure a feature before it
 npx skills add aictrl-dev/skills --skill measurement-plan -a claude-code
 ```
 
-Open your project in Claude Code and try this prompt. Review the goal and learning objectives when the skill asks for feedback.
+Open your project in Claude Code and try this prompt. The skill drafts the whole plan in one pass and asks only about missing product context that would change it.
 
 ```text
 /measurement-plan We're simplifying onboarding to help new users complete their first successful workflow run. Measure success within seven days of signup and watch for first-run failures.
@@ -27,6 +27,8 @@ Join signups to workflow starts by user ID, then match each start to its termina
 
 ## What you get
 
-The skill drafts `docs/measurement-plans/<feature-name>.md` with the agreed goal, learning objectives, metric definitions and data sources. It proposes analytics events and any needed warehouse or pipeline changes, along with checks for validating the data.
+The skill drafts `docs/measurement-plans/<feature-name>.md`, or returns the plan inline in a read-only workspace. The plan states the goal and the decision it informs, the learning objectives, metric definitions grounded in your existing data, the smallest instrumentation or pipeline changes that close the gaps, and checks for validating the data.
+
+For a full walkthrough of the template, read [Feature measurement plan template for product teams](https://aictrl.dev/blog/feature-measurement-plan-template?utm_source=github&utm_medium=referral&utm_campaign=skills&utm_content=2026-11-26-skills-measurement-plan-readme).
 
 [Read the skill instructions](SKILL.md) · [Browse all skills](../../README.md) · [MIT license](../../LICENSE)
